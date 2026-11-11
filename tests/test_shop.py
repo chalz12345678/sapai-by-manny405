@@ -64,6 +64,44 @@ class TestShop(unittest.TestCase):
             gorilla.status, "status-coconut-shield"
         )  # same priority, therefore pet-to-keep keeps its status
 
+    def test_shop_follows_turn_rules(self):
+        """Shop slot counts and pet tiers must follow the rules of each turn"""
+        player = Player()
+        for _ in range(10):
+            player.start_turn()
+            rules = get_shop_rules(player.shop.turn)
+            pslots, fslots, tier_avail = rules[0], rules[1], rules[2]
+            self.assertEqual(player.shop.pslots, pslots)
+            self.assertEqual(player.shop.fslots, fslots)
+            self.assertEqual(len(player.shop.pets), pslots)
+            self.assertEqual(len(player.shop.foods), fslots)
+            for slot in player.shop:
+                self.assertEqual(slot.turn, player.shop.turn)
+
+            ### Roll enough to see every available tier in the shop
+            tiers_seen = set()
+            for _ in range(100):
+                player.shop.roll()
+                tiers_seen |= {pet.tier for pet in player.shop.pets}
+            self.assertEqual(max(tiers_seen), tier_avail)
+
+    def test_next_turn_updates_shop(self):
+        shop = Shop()
+        for _ in range(8):
+            shop.next_turn()
+        rules = get_shop_rules(shop.turn)
+        self.assertEqual(len(shop), rules[0] + rules[1])
+        self.assertEqual(shop.nslots, rules[0] + rules[1])
+        self.assertTrue(all(slot.turn == shop.turn for slot in shop))
+
+    def test_fixed_shop_next_turn(self):
+        """Shops built from explicit slots keep their slot layout"""
+        player = Player(shop=Shop(["apple", "ant"]))
+        player.start_turn()
+        self.assertEqual(len(player.shop), 2)
+        self.assertEqual(len(player.shop.pets), 1)
+        self.assertEqual(len(player.shop.foods), 1)
+
     def test_squirrel(self):
         player = Player(team=Team([Pet("squirrel")]))
         player.start_turn()

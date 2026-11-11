@@ -115,9 +115,8 @@ class Player:
         self.gold = self.default_gold
         self.lf_winner = winner
 
-        ### Roll shop
-        self.shop.turn += 1
-        self.shop.roll()
+        ### Advance shop to the next turn, applying that turn's shop rules
+        self.shop.next_turn()
 
         ### Activate start-of-turn triggers after rolling shop
         for slot in self.team:

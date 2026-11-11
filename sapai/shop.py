@@ -225,6 +225,9 @@ class Shop(SAPList):
         self.check_rules()
 
         for slot in self.slots:
+            ### Slots roll from their own turn, so keep them in sync with the
+            ###   shop's turn or they keep rolling turn-1 pets forever
+            slot.turn = self.turn
             # New RandomState per roll or else every slot will roll the same pet/food
             if roll_only_empty:
                 if slot.empty:
@@ -326,7 +329,9 @@ class Shop(SAPList):
                 )
             )
 
-        self.nslot = self.pslots + self.fslots
+        ### Set the slot count before assigning slots, because the slots
+        ###   setter trims the list to the current nslots
+        self._nslots = self.pslots + self.fslots
         self.slots = new_slots_pet + new_slots_food
 
         ### Roll all slots upon update of rules
@@ -335,6 +340,10 @@ class Shop(SAPList):
     def next_turn(self):
         ### Update turn counter
         self.turn += 1
+
+        ### Shops built with fixed rules keep their slots, only reroll them
+        if self.fixed_rules:
+            return self.roll()
 
         ### Update rules of the shop to generate a shop state
         self.update_shop_rules()
@@ -410,7 +419,7 @@ class Shop(SAPList):
         for iter_idx, slot in enumerate(self.slots):
             if slot.slot_type == "pet":
                 pslots.append(iter_idx)
-            elif slot.slot_type == "leveup":
+            elif slot.slot_type == "levelup":
                 pslots.append(iter_idx)
         for iter_idx, slot in enumerate(self.slots):
             if slot.slot_type == "food":
