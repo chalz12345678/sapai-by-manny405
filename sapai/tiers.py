@@ -26,10 +26,8 @@ for key, value in food_tier_lookup.items():
             temp_value += value
 
 turn_prob_pets_std = {}
-turn_prob_pets_exp = {}
 for i in np.arange(0, 12):
     turn_prob_pets_std[i] = {}
-    turn_prob_pets_exp[i] = {}
 for key, value in data["pets"].items():
     if "probabilities" not in value:
         continue
@@ -40,19 +38,10 @@ for key, value in data["pets"].items():
         if "StandardPack" in temp_dict["perSlot"]:
             temp_std = temp_dict["perSlot"]["StandardPack"]
             turn_prob_pets_std[temp_turn][key] = temp_std
-        if "ExpansionPack1" in temp_dict["perSlot"]:
-            temp_exp = temp_dict["perSlot"]["ExpansionPack1"]
-            turn_prob_pets_exp[temp_turn][key] = temp_exp
-        else:
-            ### Assumption, if expansion info not provided, use standard info
-            temp_exp = temp_std
-            turn_prob_pets_exp[temp_turn][key] = temp_exp
 
 turn_prob_foods_std = {}
-turn_prob_foods_exp = {}
 for i in np.arange(0, 12):
     turn_prob_foods_std[i] = {}
-    turn_prob_foods_exp[i] = {}
 for key, value in data["foods"].items():
     if "probabilities" not in value:
         continue
@@ -65,10 +54,3 @@ for key, value in data["foods"].items():
         if "StandardPack" in temp_dict["perSlot"]:
             temp_std = temp_dict["perSlot"]["StandardPack"]
             turn_prob_foods_std[temp_turn][key] = temp_std
-        if "ExpansionPack1" in temp_dict["perSlot"]:
-            temp_exp = temp_dict["perSlot"]["ExpansionPack1"]
-            turn_prob_foods_exp[temp_turn][key] = temp_exp
-        else:
-            ### Assumption, if expansion info not provided, use standard info
-            temp_exp = temp_std
-            turn_prob_foods_exp[temp_turn][key] = temp_exp

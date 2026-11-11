@@ -34,8 +34,11 @@ class Pet:
         self.team = team
         self.player = player
 
-        ### Used only for goat
+        ### Counts ability triggers for maxTriggers and everyN abilities
         self.ability_counter = 0
+
+        ### Extra gold gained when this pet is sold (Cake)
+        self.sell_value_bonus = 0
 
         self.name = name
         if name not in data["pets"]:
@@ -176,14 +179,15 @@ class Pet:
         Apply pet's start of turn ability
 
         Pets:
-            ["dromedary", "swan", "caterpillar", "squirrel", "hatching-chick lvl3"]
+            ["swan", "worm", "giraffe", "squirrel", "penguin"]
         """
 
         # Reset temporary attack and health buffs
         self._until_end_of_battle_attack_buff = 0
         self._until_end_of_battle_health_buff = 0
 
-        ### Reset ability_counter for goat at sot_trigger
+        ### Reset ability_counter at the start of each turn for abilities
+        ###   that only work a number of times per turn
         self.ability_counter = 0
 
         activated = False
@@ -217,6 +221,12 @@ class Pet:
         if type(trigger).__name__ != "Food":
             raise Exception("Must input purchased food as trigger for cat")
 
+        if "maxTriggers" in self.ability:
+            if self.ability_counter >= self.ability["maxTriggers"]:
+                return activated, targets, possible
+            else:
+                self.ability_counter += 1
+
         func = get_effect_function(self)
         pet_idx = self.team.get_idx(self)
         targets, possible = func(self, [0, pet_idx], [self.team], trigger)
@@ -229,7 +239,7 @@ class Pet:
         Apply pet's sell ability when a friend (or self) is self
 
         Pets:
-            ["beaver", "duck", "pig", "shrimp", "owl"]
+            ["beaver", "duck", "pig", "pigeon"]
         """
         activated = False
         targets = []
@@ -267,8 +277,7 @@ class Pet:
         Apply pet's ability when food is eaten
 
         Pets:
-            ["beetle", "tabby-cat", "rabbit", "worm", "seal"]
-
+            ["rabbit", "seal"]
         """
         activated = False
         targets = []
@@ -284,6 +293,12 @@ class Pet:
             if trigger != self:
                 return activated, targets, possible
 
+        if "maxTriggers" in self.ability:
+            if self.ability_counter >= self.ability["maxTriggers"]:
+                return activated, targets, possible
+            else:
+                self.ability_counter += 1
+
         func = get_effect_function(self)
         pet_idx = self.team.get_idx(self)
         targets, possible = func(self, [0, pet_idx], [self.team], trigger)
@@ -296,8 +311,7 @@ class Pet:
         Apply pet's ability when food is bought
 
         Pets:
-            ["ladybug", "sauropod"]
-
+            [] (no Turtle Pack pet has a buy food ability)
         """
         activated = False
         targets = []
@@ -317,8 +331,7 @@ class Pet:
         Apply pet's ability when a friend (or self) is bought
 
         Pets:
-            ["otter", "crab", "snail", "buffalo", "chicken", "cow",
-             "goat", "dragon", ]
+            ["otter", "cow", "dragon"]
         """
         activated = False
         targets = []
@@ -377,7 +390,7 @@ class Pet:
         Apply pet's ability when a friend is summoned
 
         Pets:
-            ["horse", "dog", "lobster", "turkey"]
+            ["horse", "dog", "turkey"]
         """
         activated = False
         targets = []
@@ -409,29 +422,37 @@ class Pet:
 
     def levelup_trigger(self, trigger=None):
         """
-        Apply pet's ability when a friend (or self) level-up
+        Apply pet's ability when a friend (or self) level-up. The ability of
+        the level the pet had before leveling up is the one that activates.
 
         Pets:
-            ["fish", "octopus"]
+            ["fish"]
         """
         activated = False
         targets = []
         possible = []
-        if self.ability["trigger"] != "LevelUp":
-            return activated, targets, possible
 
-        if type(trigger).__name__ != "Pet":
-            raise Exception("Trigger must be a Pet")
-
-        if "maxTriggers" in self.ability:
-            if self.ability_counter >= self.ability["maxTriggers"]:
+        current_level = self.level
+        if self.level > 1:
+            self.level -= 1
+        try:
+            if self.ability["trigger"] != "LevelUp":
                 return activated, targets, possible
-            else:
-                self.ability_counter += 1
 
-        func = get_effect_function(self)
-        pet_idx = self.team.get_idx(self)
-        targets, possible = func(self, [0, pet_idx], [self.team], te=trigger)
+            if type(trigger).__name__ != "Pet":
+                raise Exception("Trigger must be a Pet")
+
+            if "maxTriggers" in self.ability:
+                if self.ability_counter >= self.ability["maxTriggers"]:
+                    return activated, targets, possible
+                else:
+                    self.ability_counter += 1
+
+            func = get_effect_function(self)
+            pet_idx = self.team.get_idx(self)
+            targets, possible = func(self, [0, pet_idx], [self.team], te=trigger)
+        finally:
+            self.level = current_level
 
         activated = True
         return activated, targets, possible
@@ -441,9 +462,7 @@ class Pet:
         Apply pet's end-of-turn ability
 
         Pets:
-            ["bluebird", "hatching-chick", "giraffe", "puppy", "tropical-fish",
-             "bison", "llama", "penguin", "parrot", "monkey", "poodle",
-             "tyrannosaurus"]
+            ["snail", "bison", "parrot", "monkey"]
         """
         activated = False
         targets = []
@@ -466,6 +485,12 @@ class Pet:
                 if not self.team.check_lvl3():
                     return activated, targets, possible
             else:
+                return activated, targets, possible
+        ### Check for snail
+        elif self.ability["trigger"] == "EndOfTurnAfterLoss":
+            if self.player is None:
+                return activated, targets, possible
+            if self.player.lf_winner != False:
                 return activated, targets, possible
         ### Check for llama
         elif self.ability["trigger"] == "EndOfTurnWith4OrLessAnimals":
@@ -496,9 +521,9 @@ class Pet:
         Apply pet's ability associated with a friend (or self) fainting
 
         Pets:
-            ["ant", "cricket", "flamingo", "hedgehog", "spider", "badger",
-             "ox", "sheep", "turtle", "deer", "rooster", "microbe",
-             "eagle", "shark", "fly", "mammoth"]
+            ["ant", "cricket", "flamingo", "hedgehog", "rat", "spider",
+             "badger", "ox", "sheep", "turtle", "deer", "rooster", "shark",
+             "fly", "mammoth"]
         """
         te_idx = te_idx or []
 
@@ -518,6 +543,9 @@ class Pet:
             if trigger != self:
                 return activated, targets, possible
         elif self.ability["triggeredBy"]["kind"] == "FriendAhead":
+            ### A pet that has fainted itself does not trigger off of friends
+            if self._health <= 0:
+                return activated, targets, possible
             pet_ahead = self.team.get_ahead(self, n=1)
             if len(pet_ahead) == 0:
                 return activated, targets, possible
@@ -527,6 +555,9 @@ class Pet:
         elif self.ability["triggeredBy"]["kind"] == "EachFriend":
             if trigger == self:
                 ### Only time this doesn't activate is if it self triggered
+                return activated, targets, possible
+            ### A pet that has fainted itself does not trigger off of friends
+            if self._health <= 0:
                 return activated, targets, possible
         else:
             pass
@@ -572,9 +603,8 @@ class Pet:
         Start of a battle trigger. Input trigger is the opponent's Team.
 
         Pets:
-            ["mosquito", "bat", "whale", "dolphin", "skunk", "crocodile",
-            "leopard", "caterpillar lvl3"]
-
+            ["mosquito", "crab", "dodo", "dolphin", "skunk", "whale",
+             "crocodile", "armadillo", "leopard"]
         """
         activated = False
         targets = []
@@ -606,7 +636,7 @@ class Pet:
         opponent's Team.
 
         Pets:
-            ["elephant", "boar", "octopus"]
+            ["boar"]
         """
         activated = False
         targets = []
@@ -638,8 +668,7 @@ class Pet:
         opponent's Team.
 
         Pets:
-            ["kangaroo","snake"]
-
+            ["kangaroo", "snake", "elephant"]
         """
         activated = False
         targets = []
@@ -650,18 +679,25 @@ class Pet:
         if type(trigger).__name__ != "Team":
             raise Exception("Trigger must be a Team")
 
-        if self.ability["triggeredBy"]["kind"] != "FriendAhead":
+        if self.ability["triggeredBy"]["kind"] == "Self":
+            ### Self must be the front pet which has just attacked
+            if self.team.index(self) != 0:
+                return activated, targets, possible
+            if self._health <= 0:
+                return activated, targets, possible
+        elif self.ability["triggeredBy"]["kind"] == "FriendAhead":
+            ### Check that self is behind the front friend which should have
+            ###   just attacked
+            slot_ahead = self.team.get_ahead(self, n=1)
+            if len(slot_ahead) == 0:
+                return activated, targets, possible
+            if self.team.index(slot_ahead[0]) != 0:
+                return activated, targets, possible
+        else:
             raise Exception(
-                "Only triggeredBy FriendAhead implemented for after_attack_trigger"
+                "Only triggeredBy Self and FriendAhead implemented for "
+                + "after_attack_trigger"
             )
-
-        ### Check that self is behind the front friend which should have just
-        ###   attacked
-        slot_ahead = self.team.get_ahead(self, n=1)
-        if len(slot_ahead) == 0:
-            return activated, targets, possible
-        if self.team.index(slot_ahead[0]) != 0:
-            return activated, targets, possible
 
         if "maxTriggers" in self.ability:
             if self.ability_counter >= self.ability["maxTriggers"]:
@@ -727,6 +763,45 @@ class Pet:
         pet_idx = self.team.get_idx(self)
         targets, possible = tiger_func(
             func, False, self, [0, pet_idx], [self.team, trigger], trigger
+        )
+
+        activated = True
+        return activated, targets, possible
+
+    def friend_hurt_trigger(self, trigger, oteam):
+        """
+        Apply pet's ability when a friend is hurt. Input trigger is the hurt
+        friend and oteam is the opponent's Team. Abilities with everyN only
+        activate every N times a friend is hurt.
+
+        Pets:
+            ["wolverine"]
+        """
+        activated = False
+        targets = []
+        possible = []
+        if self.ability["trigger"] != "FriendHurt":
+            return activated, targets, possible
+
+        if type(trigger).__name__ != "Pet":
+            raise Exception("Trigger must be a Pet")
+
+        if trigger == self:
+            return activated, targets, possible
+
+        ### Like hurt abilities, fainted pets do not count
+        if self._health <= 0 or trigger._health <= 0:
+            return activated, targets, possible
+
+        if "everyN" in self.ability:
+            self.ability_counter += 1
+            if self.ability_counter % self.ability["everyN"] != 0:
+                return activated, targets, possible
+
+        func = get_effect_function(self)
+        pet_idx = self.team.get_idx(self)
+        targets, possible = tiger_func(
+            func, False, self, [0, pet_idx], [self.team, oteam], trigger
         )
 
         activated = True
@@ -810,6 +885,7 @@ class Pet:
             "team": {},
             "player": {},
             "ability_counter": self.ability_counter,
+            "sell_value_bonus": self.sell_value_bonus,
             "override_ability": self.override_ability,
             "override_ability_dict": self.override_ability_dict,
             "attack": self._attack,
@@ -835,6 +911,7 @@ class Pet:
 
         ### Set internal from state
         pet.ability_counter = state["ability_counter"]
+        pet.sell_value_bonus = state.get("sell_value_bonus", 0)
         pet.override_ability = state["override_ability"]
         pet.override_ability_dict = state["override_ability_dict"]
         pet._attack = state["attack"]
@@ -907,12 +984,22 @@ def tiger_func(func, te_fainted, *args):
     ###  be duplicated. This is important for Whale.
     if not te_fainted:
         apet.override_ability = False
-    if len(args) == 5:
-        te_idx = [0, args[4][1] + len(targets)]
-        ### Run function again
-        temp_targets, temp_possible = func(args[0], args[1], args[2], args[3], te_idx)
-    else:
-        temp_targets, temp_possible = func(*args)
+    ### The ability is repeated as if the pet were the level of the tiger
+    original_level = apet.level
+    apet.level = pet_behind.level
+    try:
+        ### Effect kind can differ between levels, e.g. Dolphin
+        func = get_effect_function(apet)
+        if len(args) == 5:
+            te_idx = [0, args[4][1] + len(targets)]
+            ### Run function again
+            temp_targets, temp_possible = func(
+                args[0], args[1], args[2], args[3], te_idx
+            )
+        else:
+            temp_targets, temp_possible = func(*args)
+    finally:
+        apet.level = original_level
 
     return [targets] + [temp_targets], [possible] + [temp_possible]
 

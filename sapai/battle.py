@@ -454,28 +454,6 @@ def check_summon_triggers(
     return len(targets)
 
 
-def check_self_summoned_triggers(teams, pet_priority, phase_dict):
-    """
-    Currently only butterfly
-
-    """
-
-    phase_list = phase_dict["phase_start"]
-    pp = pet_priority
-    for team_idx, pet_idx in pp:
-        p = teams[team_idx][pet_idx].pet
-        if p.health <= 0:
-            continue
-        if p.ability["trigger"] != "Summoned":
-            continue
-        if p.ability["triggeredBy"]["kind"] != "Self":
-            continue
-
-        func = get_effect_function(p)
-        target = func(p, [0, pet_idx], teams, te=p)
-        append_phase_list(phase_list, p, team_idx, pet_idx, True, target, [target])
-
-
 def check_status_triggers(phase_list, p, team_idx, pet_idx, teams):
     if p.status not in ["status-honey-bee", "status-extra-life"]:
         return
@@ -500,8 +478,6 @@ def battle_phase_start(battle_obj, phase, teams, pet_priority, phase_dict):
         append_phase_list(
             phase_list, p, team_idx, pet_idx, activated, targets, possible
         )
-
-    check_self_summoned_triggers(teams, pet_priority, phase_dict)
 
     return phase_list
 
@@ -596,6 +572,21 @@ def battle_phase_hurt_and_faint(battle_obj, phase, teams, pet_priority, phase_di
                 append_phase_list(
                     phase_list, p, team_idx, pet_idx, activated, targets, possible
                 )
+                ### Friends of the hurt pet may trigger off of it
+                for friend_idx, friend_slot in enumerate(fteam):
+                    friend = friend_slot.pet
+                    if friend.name == "pet-none":
+                        continue
+                    activated, targets, possible = friend.friend_hurt_trigger(p, oteam)
+                    append_phase_list(
+                        phase_list,
+                        friend,
+                        team_idx,
+                        friend_idx,
+                        activated,
+                        targets,
+                        possible,
+                    )
 
         battle_obj.pet_priority = battle_obj.update_pet_priority(
             battle_obj.t0, battle_obj.t1
@@ -702,9 +693,10 @@ def battle_phase_attack_after(battle_obj, phase, teams, pet_priority, phase_dict
     t1_pidx = attack_history[0][1][1]
 
     for team_idx, pet_idx in pp:
-        ### Check if current pet is directly behind the pet that just attacked
-        test_idx = [t0_pidx, t1_pidx][team_idx] + 1
-        if pet_idx != test_idx:
+        ### Check if current pet is the pet that just attacked or directly
+        ###   behind the pet that just attacked
+        attack_idx = [t0_pidx, t1_pidx][team_idx]
+        if pet_idx not in [attack_idx, attack_idx + 1]:
             continue
 
         ### If it is, then the after_attack ability can be activated
@@ -730,11 +722,15 @@ def battle_phase_knockout(battle_obj, phase, teams, pet_priority, phase_dict):
     phase_dict["phase_attack"] = phase_dict["phase_attack"][0:-1]
 
     for apet, team_idx in knockout_list:
-        if apet.health > 0:
+        fteam, _ = get_teams([team_idx, 0], teams)
+        if apet.health > 0 and fteam.check_friend(apet):
             ### Need to loop to handle Rhino
             fteam, oteam = get_teams([team_idx, 0], teams)
             current_length = 0
             while True:
+                ### Rhino may faint from an effect of the pet it knocked out
+                if apet.health <= 0 or not fteam.check_friend(apet):
+                    break
                 pet_idx = fteam.index(apet)
                 activated, targets, possible = apet.knockout_trigger(oteam)
                 append_phase_list(

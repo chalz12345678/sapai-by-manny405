@@ -10,7 +10,7 @@ class TestEffects(unittest.TestCase):
     def test_target_function(self):
         shop = Shop()
         shop.roll()
-        t0 = Team(["fish", "dragon", "owl", "ant", "badger"], shop=shop)
+        t0 = Team(["fish", "dragon", "ox", "ant", "badger"], shop=shop)
         t1 = Team(["cat", "hippo", "horse", "ant"], shop=shop)
         for slot in t0:
             slot.pet.shop = shop
@@ -74,20 +74,6 @@ class TestEffects(unittest.TestCase):
                 continue
             slot.pet.faint_trigger(slot.pet, [0, t.index(slot)])
 
-    def test_eagle_stats(self):
-        # seed for Snake 6/6
-        state = np.random.RandomState(seed=4).get_state()
-
-        pet = Pet("eagle", seed_state=state)
-        pet.level = 3
-        t = Team([pet], battle=True)
-        t[0].pet.faint_trigger(t[0].pet, [0, t.index(t[0])])
-
-        # should spawn Snake Lvl3 18/18 since Eagle was lvl 3
-        self.assertEqual(t[0].level, 3)
-        self.assertEqual(t[0].attack, 18)
-        self.assertEqual(t[0].health, 18)
-
     def test_multiple_cats(self):
         player = Player(shop=Shop(["pear"]), team=Team([Pet("cat")]))
         player.buy_food(0, 0)
@@ -142,16 +128,16 @@ class TestEffects(unittest.TestCase):
         t = Team(["dolphin", "otter", "mosquito"], battle=True)
         t2 = Team([fish], battle=True)
         t[0].pet.sob_trigger(t2)
-        self.assertEqual(fish.health, 47)  # 5 damage, -2 garlic
+        self.assertEqual(fish.health, 48)  # 4 damage, -2 garlic
 
         t[2].pet.sob_trigger(t2)
-        self.assertEqual(fish.health, 46)  # should still do 1 damage
+        self.assertEqual(fish.health, 47)  # should still do 1 damage
 
         attack_phase = get_attack(t[0].pet, fish)
-        self.assertEqual(attack_phase[0], 2)  # dolphin 4/6
+        self.assertEqual(attack_phase[0], 2)  # dolphin 4/3
 
         attack_phase = get_attack(t[1].pet, fish)
-        self.assertEqual(attack_phase[0], 1)  # otter 1/2
+        self.assertEqual(attack_phase[0], 1)  # otter 1/4
 
     def test_coconut(self):
         gorilla = Pet("gorilla")
@@ -161,7 +147,7 @@ class TestEffects(unittest.TestCase):
         t3 = Team(["dragon"], battle=True)
 
         t2[0].pet.sob_trigger(t)
-        self.assertEqual(gorilla.health, 9)  # unchanged
+        self.assertEqual(gorilla.health, 10)  # unchanged
         self.assertEqual(gorilla.status, "none")
 
         gorilla.status = "status-coconut-shield"
@@ -179,14 +165,26 @@ class TestEffects(unittest.TestCase):
         t3 = Team(["dragon"], battle=True)
 
         t2[0].pet.sob_trigger(t)
-        self.assertEqual(fish.health, 42)  # 5 + 3
+        self.assertEqual(fish.health, 43)  # 4 + 3
 
         attack_phase = get_attack(fish, t3[0].pet)
-        self.assertEqual(attack_phase[1], 9)  # 6/8 + 3
+        self.assertEqual(attack_phase[1], 6)  # 3/8 + 3
 
-    def test_hatching_chick_level_3(self):
-        hc = Pet("hatching-chick")
-        hc.level = 3
-        t = Team(["dragon", hc])
-        hc.sot_trigger(t)
-        self.assertEqual(t[0].pet.experience, 1)
+    def test_meat_bone(self):
+        fish = Pet("fish")
+        fish.status = "status-bone-attack"
+        dragon = Pet("dragon")
+        attack_phase = get_attack(fish, dragon)
+        self.assertEqual(attack_phase[0], 2 + 3)  # fish 2/3, meat bone +3
+
+    def test_hedgehog_damage_per_target(self):
+        ### Melon on one pet must not reduce damage dealt to the other pets
+        hedgehog = Pet("hedgehog")
+        melon_pet = Pet("mammoth")
+        melon_pet.status = "status-melon-armor"
+        other_pet = Pet("mammoth")
+        t = Team([hedgehog, melon_pet, other_pet], battle=True)
+        hedgehog.faint_trigger(hedgehog, [0, 0], Team())
+        self.assertEqual(melon_pet.health, 12)
+        self.assertEqual(melon_pet.status, "none")
+        self.assertEqual(other_pet.health, 12 - 2)

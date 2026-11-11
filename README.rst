@@ -8,6 +8,10 @@ sapai
 
 ``sapai`` is a Super Auto Pets engine built with reinforcement learning training and other related AI models in mind. You may see more of my published work in machine learning on `ResearchGate <https://www.researchgate.net/publication/347653898_Machine_Learned_Model_for_Solid_Form_Volume_Estimation_Based_on_Packing-Accessible_Surface_and_Molecular_Topological_Fragments>`_ or `ACS <https://pubs.acs.org/doi/full/10.1021/acs.jpca.0c06791>`_.
 
+``sapai`` contains exactly the 60 pets of the Turtle Pack, along with the
+Turtle Pack foods. Their stats and abilities follow
+``data/turtle_pack_pets.yaml`` (up to date as of 11/11/26).
+
 You may see and use ``sapai`` examples easily through `Google Colab <https://colab.research.google.com/drive/1sMF50gDxpZt9c98inn4ldMvfgEcfWQa9>`_
 
 .. figure:: doc/static/workflow.png
@@ -62,18 +66,18 @@ Creating a Pet
     >>> pet = Pet("ant")
     >>> print(pet)
     ### Printing pet is given in the form of < PetName Attack-Health Status Level-Exp > 
-    < pet-ant 2-1 none 1-0 >
+    < pet-ant 2-2 none 1-0 >
     >>> pet._attack += 3
     >>> pet.gain_experience()
     >>> print(pet)
-    < pet-ant 5-1 none 1-1 >
+    < pet-ant 5-2 none 1-1 >
     >>> print(pet.ability)
     ### Organization of pet abilities provided by super-auto-pets-db project
-    {'description': 'Faint: Give a random friend +2/+1',
+    {'description': 'Faint: Give one random friend +1 attack and +1 health.',
      'trigger': 'Faint',
      'triggeredBy': {'kind': 'Self'},
      'effect': {'kind': 'ModifyStats',
-      'attackAmount': 2,
+      'attackAmount': 1,
       'healthAmount': 1,
       'target': {'kind': 'RandomFriend', 'n': 1},
       'untilEndOfBattle': False}}
@@ -90,29 +94,29 @@ Creating a Team
     >>> team0 = Team(["ant","ox","tiger"])
     >>> team1 = Team(["sheep","tiger"])
     >>> print(team0)
-    0: < Slot pet-ant 2-1 none 1-0 > 
-      1: < Slot pet-ox 1-4 none 1-0 > 
-      2: < Slot pet-tiger 4-3 none 1-0 > 
+    0: < Slot pet-ant 2-2 none 1-0 > 
+      1: < Slot pet-ox 1-3 none 1-0 > 
+      2: < Slot pet-tiger 6-4 none 1-0 > 
       3: < Slot EMPTY > 
       4: < Slot EMPTY > 
    >>> print(team1)
    0: < Slot pet-sheep 2-2 none 1-0 > 
-      1: < Slot pet-tiger 4-3 none 1-0 > 
+      1: < Slot pet-tiger 6-4 none 1-0 > 
       2: < Slot EMPTY > 
       3: < Slot EMPTY > 
       4: < Slot EMPTY > 
    >>> team0.move(1,4)
    >>> print(team0)
-   0: < Slot pet-ant 2-1 none 1-0 > 
+   0: < Slot pet-ant 2-2 none 1-0 > 
       1: < Slot EMPTY > 
-      2: < Slot pet-tiger 4-3 none 1-0 > 
+      2: < Slot pet-tiger 6-4 none 1-0 > 
       3: < Slot EMPTY > 
-      4: < Slot pet-ox 1-4 none 1-0 >  
+      4: < Slot pet-ox 1-3 none 1-0 >  
    >>> team0.move_forward()
    >>> print(team0)
-   0: < Slot pet-ant 2-1 none 1-0 > 
-      1: < Slot pet-tiger 4-3 none 1-0 > 
-      2: < Slot pet-ox 1-4 none 1-0 > 
+   0: < Slot pet-ant 2-2 none 1-0 > 
+      1: < Slot pet-tiger 6-4 none 1-0 > 
+      2: < Slot pet-ox 1-3 none 1-0 > 
       3: < Slot EMPTY > 
       4: < Slot EMPTY > 
     
@@ -127,7 +131,8 @@ Battles
     >>> battle = Battle(team0,team1)
     >>> winner = battle.battle()
     >>> print(winner)
-    2
+    1
+    ### The outcome can differ between runs because some abilities are random
     ### Possible fight outputs:
     ### 0 = Team0 Wins
     ### 1 = Team1 Wins

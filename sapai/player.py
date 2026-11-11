@@ -118,6 +118,11 @@ class Player:
         ### Advance shop to the next turn, applying that turn's shop rules
         self.shop.next_turn()
 
+        ### Pets summoned during the last turn may not be connected yet
+        for slot in self.team:
+            slot._pet.shop = self.shop
+            slot._pet.player = self
+
         ### Activate start-of-turn triggers after rolling shop
         for slot in self.team:
             slot._pet.sot_trigger()
@@ -287,6 +292,10 @@ class Player:
                 while p._hurt > 0:
                     hurt_list.append(pet_idx)
                     activated, targets, possible = p.hurt_trigger(Team())
+                    for friend_slot in self.team:
+                        if friend_slot.empty:
+                            continue
+                        friend_slot.pet.friend_hurt_trigger(p, Team())
 
             pp = Battle.update_pet_priority(self.team, Team())
 
@@ -340,8 +349,8 @@ class Player:
         if self.team.check_friend(pet):
             self.team.remove(pet)
 
-        ### Add default gold
-        self.gold += 1
+        ### Add default gold plus extra sell value (Cake)
+        self.gold += 1 + pet.sell_value_bonus
 
         return (pet,)
 
@@ -426,10 +435,8 @@ class Player:
 
         # Check for levelup triggers if appropriate
         if levelup:
-            # Activate the ability of the previous level
-            pet_to_keep.level -= 1
+            # levelup_trigger activates the ability of the previous level
             pet_to_keep.levelup_trigger(pet_to_keep)
-            pet_to_keep.level += 1
 
         return levelup
 
@@ -529,6 +536,15 @@ class Player:
         ### Activate eot trigger
         for slot in self.team:
             slot._pet.eot_trigger()
+
+        ### Activate end of turn perks
+        for slot in self.team:
+            pet = slot._pet
+            if pet.status == "status-cake":
+                pet.sell_value_bonus += 1
+            elif pet.status == "status-bread":
+                ### Lasts until the start of next turn
+                pet._until_end_of_battle_health_buff += 7
         return None
 
     @property

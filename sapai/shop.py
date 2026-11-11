@@ -41,10 +41,8 @@ for key, value in food_tier_lookup.items():
             temp_value += value
 
 turn_prob_pets_std = {}
-turn_prob_pets_exp = {}
 for i in np.arange(0, 12):
     turn_prob_pets_std[i] = {}
-    turn_prob_pets_exp[i] = {}
 for key, value in data["pets"].items():
     if "probabilities" not in value:
         continue
@@ -55,19 +53,10 @@ for key, value in data["pets"].items():
         if "StandardPack" in temp_dict["perSlot"]:
             temp_std = temp_dict["perSlot"]["StandardPack"]
             turn_prob_pets_std[temp_turn][key] = temp_std
-        if "ExpansionPack1" in temp_dict["perSlot"]:
-            temp_exp = temp_dict["perSlot"]["ExpansionPack1"]
-            turn_prob_pets_exp[temp_turn][key] = temp_exp
-        else:
-            ### Assumption, if expansion info not provided, use standard info
-            temp_exp = temp_std
-            turn_prob_pets_exp[temp_turn][key] = temp_exp
 
 turn_prob_foods_std = {}
-turn_prob_foods_exp = {}
 for i in np.arange(0, 12):
     turn_prob_foods_std[i] = {}
-    turn_prob_foods_exp[i] = {}
 for key, value in data["foods"].items():
     if "probabilities" not in value:
         continue
@@ -80,13 +69,6 @@ for key, value in data["foods"].items():
         if "StandardPack" in temp_dict["perSlot"]:
             temp_std = temp_dict["perSlot"]["StandardPack"]
             turn_prob_foods_std[temp_turn][key] = temp_std
-        if "ExpansionPack1" in temp_dict["perSlot"]:
-            temp_exp = temp_dict["perSlot"]["ExpansionPack1"]
-            turn_prob_foods_exp[temp_turn][key] = temp_exp
-        else:
-            ### Assumption, if expansion info not provided, use standard info
-            temp_exp = temp_std
-            turn_prob_foods_exp[temp_turn][key] = temp_exp
 
 # %%
 
@@ -123,12 +105,10 @@ class Shop(SAPList):
             ShopSlot, pack=self.pack, turn=self.turn, seed_state=self.seed_state
         )
 
+        ### Only the Turtle Pack (internally named StandardPack) is included
         if pack == "StandardPack":
             self.turn_prob_pets = turn_prob_pets_std
             self.turn_prob_foods = turn_prob_foods_std
-        elif pack == "ExpansionPack1":
-            self.turn_prob_pets = turn_prob_pets_exp
-            self.turn_prob_foods = turn_prob_foods_exp
         else:
             raise Exception(f"Pack {pack} not valid")
 
@@ -449,21 +429,25 @@ class Shop(SAPList):
             ### Max slots already reached so cannot be added
             return
 
-        add_slot = ShopSlot(
-            obj, pack=self.pack, turn=self.turn, seed_state=self.seed_state
-        )
+        if isinstance(obj, ShopSlot):
+            add_slot = obj
+        else:
+            add_slot = ShopSlot(
+                obj, pack=self.pack, turn=self.turn, seed_state=self.seed_state
+            )
         pslots = []
         fslots = []
         for iter_idx, slot in enumerate(self.slots):
-            if slot.slot_type == "pet":
+            if slot.slot_type in ["pet", "levelup"]:
                 pslots.append(slot)
             if slot.slot_type == "food":
                 fslots.append(slot)
 
-        new_slots = []
-        new_slots += [x for x in pslots]
-        new_slots += [add_slot]
-        new_slots += [x for x in fslots]
+        ### Pets go after the other pets and foods go after the other foods
+        if add_slot.slot_type == "food":
+            new_slots = pslots + fslots + [add_slot]
+        else:
+            new_slots = pslots + [add_slot] + fslots
 
         self.nslots = len(new_slots)
         self.slots = new_slots
@@ -981,9 +965,6 @@ def get_shop_rules(turn, pack="StandardPack"):
     if pack == "StandardPack":
         turn_prob_pets = turn_prob_pets_std
         turn_prob_foods = turn_prob_foods_std
-    elif pack == "ExpansionPack1":
-        turn_prob_pets = turn_prob_pets_exp
-        turn_prob_foods = turn_prob_foods_exp
     else:
         raise Exception(f"Pack {pack} not valid")
 
