@@ -107,6 +107,11 @@ class Pet:
         else:
             return empty_ability
 
+    @property
+    def sell_value(self):
+        """Gold gained when selling: 1 per level plus extra value from Cake"""
+        return self.level + self.sell_value_bonus
+
     def get_damage(self, value):
         return status.apply_damage_dict[self.status](value)
 

@@ -155,6 +155,29 @@ class TestTurtlePackAbilities(unittest.TestCase):
         player.sell(0)
         self.assertEqual(player.gold, gold + 1 + 2)
 
+    def test_sell_value_by_level(self):
+        for level in [1, 2, 3]:
+            ant = Pet("ant")
+            ant.level = level
+            player = Player(team=[ant])
+            player.sell(0)
+            self.assertEqual(player.gold, 10 + level)
+
+        ### Pig's ability adds to the level sell value
+        pig = Pet("pig")
+        pig.level = 2
+        player = Player(team=[pig])
+        player.sell(0)
+        self.assertEqual(player.gold, 10 + 2 + 2)
+
+        ### Cake adds to the level sell value
+        ant = Pet("ant")
+        ant.level = 3
+        ant.sell_value_bonus = 1
+        player = Player(team=[ant])
+        player.sell(0)
+        self.assertEqual(player.gold, 10 + 3 + 1)
+
     def test_bread_health(self):
         player = Player(shop=Shop(["bread"]), team=["ant"])
         player.buy_food(0, 0)

@@ -349,8 +349,8 @@ class Player:
         if self.team.check_friend(pet):
             self.team.remove(pet)
 
-        ### Add default gold plus extra sell value (Cake)
-        self.gold += 1 + pet.sell_value_bonus
+        ### Sell value is the pet's level plus extra sell value (Cake)
+        self.gold += pet.sell_value
 
         return (pet,)
 
