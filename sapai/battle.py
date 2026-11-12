@@ -241,7 +241,7 @@ class Battle:
         # idx = np.array([idx[x] for x in sort_idx])
         sort_idx = np.arange(0, len(attack))
         attack = np.array(attack)
-        health = np.array(attack)
+        health = np.array(health)
         teams = np.array(teams)
         idx = np.array(idx)
 
@@ -287,9 +287,10 @@ class Battle:
                 if temph < sorted_health[iter_idx]:
                     raise Exception("That's impossible. Sorting issue.")
 
-            ### Dereference temp_sort_idx and store in sort_idx
+            ### Dereference temp_sort_idx and store in sort_idx. Ties are in a
+            ###   random order instead of always team 0 first.
             end_idx = start_idx + len(temp_idx)
-            sort_idx[start_idx:end_idx] = temp_idx
+            sort_idx[start_idx:end_idx] = temp_idx[temp_sort_idx]
             start_idx = end_idx
 
         ### Finish sorting by max attack

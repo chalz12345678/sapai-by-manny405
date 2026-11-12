@@ -367,6 +367,24 @@ class TestBattles(unittest.TestCase):
         r = b.battle()
         self.assertEqual(r, 0)
 
+    def test_priority_ties_are_random(self):
+        ### Pets with equal stats on both teams must not always act in team 0
+        ###   first, or mirrored battles favor team 0
+        np.random.seed(0)
+        first_team = set()
+        for _ in range(50):
+            priority = Battle.update_pet_priority(Team(["ant"]), Team(["ant"]))
+            first_team.add(int(priority[0][0]))
+        self.assertEqual(first_team, {0, 1})
+
+        ### Higher attack still acts first, then higher health
+        fish = Pet("fish")
+        fish._health = 9
+        priority = Battle.update_pet_priority(Team(["ant"]), Team([fish]))
+        self.assertEqual([int(x[0]) for x in priority], [1, 0])
+        priority = Battle.update_pet_priority(Team(["fish"]), Team(["mosquito"]))
+        self.assertEqual([int(x[0]) for x in priority], [0, 1])
+
     def test_rat_summons_at_front(self):
         team1 = Team(["rat", "blowfish"])
         fish = Pet("fish")
