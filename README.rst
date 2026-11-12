@@ -182,21 +182,13 @@ The implementation of battle is efficient. Using IPython magic, this can be test
       ###  4.32 ms ± 20.8 µs per loop (mean ± std. dev. of 7 runs, 100 loops each)
       ###  More than 230 battle per second on a single core
       
-^^^^^^^^^^^^
-Battle Graph
-^^^^^^^^^^^^
+^^^^^^^^^^^^^^
+Battle History
+^^^^^^^^^^^^^^
 
-All battle history is stored for every phase, effect, and attack that occured during the battle. This battle history can be graphed and visualized. The full graph for the battle is shown below. 
-
-  >>> from sapai.graph import graph_battle
-  >>> graph_battle(battle, file_name="Example")
-
-
-.. figure:: doc/static/battle_graph_full.png
-
-    :height: 2140
-    :width: 536
-    :align: center
+Every phase, effect, and attack that occurred during a battle is stored in
+``battle.battle_history``. In the terminal game, the ``log`` command shows the
+last battle step by step.
 
 ------
 Status

@@ -5,7 +5,6 @@ import numpy as np
 
 from sapai import *
 from sapai.battle import Battle
-from sapai.graph import graph_battle
 from sapai.compress import *
 
 
