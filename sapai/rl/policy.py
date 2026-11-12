@@ -25,6 +25,7 @@ from sapai.rl.env import (
     N_ACTIONS,
     N_PETS,
     N_STATUSES,
+    OBS_SIZE,
     PAIRS,
     SHOP_KINDS,
     SHOP_TOKEN,
@@ -54,10 +55,19 @@ class TokenNet(nn.Module):
     action, forward_critic returns a latent vector for the value head.
     """
 
-    def __init__(self, d_model=128, n_heads=4, n_layers=2, dim_feedforward=256):
+    def __init__(
+        self,
+        d_model=128,
+        n_heads=4,
+        n_layers=2,
+        dim_feedforward=256,
+        separate_critic=True,
+        critic_hidden=256,
+    ):
         super().__init__()
         self.latent_dim_pi = N_ACTIONS
-        self.latent_dim_vf = d_model
+        self.separate_critic = separate_critic
+        self.latent_dim_vf = critic_hidden if separate_critic else d_model
 
         self.team_in = nn.Linear(TEAM_TOKEN, d_model)
         self.shop_in = nn.Linear(SHOP_TOKEN, d_model)
@@ -92,9 +102,19 @@ class TokenNet(nn.Module):
         self.register_buffer("pair_a", th.tensor([a for a, b in PAIRS]))
         self.register_buffer("pair_b", th.tensor([b for a, b in PAIRS]))
 
-        self.value = nn.Sequential(
-            nn.Linear(2 * d_model, d_model), nn.ReLU(), nn.Linear(d_model, d_model)
-        )
+        if separate_critic:
+            ### The critic is its own MLP on the raw observation, so value
+            ###   learning does not reshape the actor's transformer
+            self.value = nn.Sequential(
+                nn.Linear(OBS_SIZE, critic_hidden),
+                nn.Tanh(),
+                nn.Linear(critic_hidden, critic_hidden),
+                nn.Tanh(),
+            )
+        else:
+            self.value = nn.Sequential(
+                nn.Linear(2 * d_model, d_model), nn.ReLU(), nn.Linear(d_model, d_model)
+            )
 
         ### Small initial action scores so the starting policy is close to
         ###   uniform over legal actions, like SB3 does for its action layer
@@ -163,14 +183,15 @@ class TokenNet(nn.Module):
         return self.value(th.cat([g, team_mean], dim=1))
 
     def forward(self, features):
-        g, t, s, present = self.encode(features)
-        return self.logits(g, t, s), self.value_latent(g, t, present)
+        return self.forward_actor(features), self.forward_critic(features)
 
     def forward_actor(self, features):
         g, t, s, present = self.encode(features)
         return self.logits(g, t, s)
 
     def forward_critic(self, features):
+        if self.separate_critic:
+            return self.value(features)
         g, t, s, present = self.encode(features)
         return self.value_latent(g, t, present)
 
@@ -185,6 +206,8 @@ class TokenMaskablePolicy(MaskableActorCriticPolicy):
         n_heads=4,
         n_layers=2,
         dim_feedforward=256,
+        separate_critic=True,
+        critic_hidden=256,
         **kwargs,
     ):
         object.__setattr__(
@@ -195,6 +218,8 @@ class TokenMaskablePolicy(MaskableActorCriticPolicy):
                 n_heads=n_heads,
                 n_layers=n_layers,
                 dim_feedforward=dim_feedforward,
+                separate_critic=separate_critic,
+                critic_hidden=critic_hidden,
             ),
         )
         super().__init__(*args, **kwargs)
