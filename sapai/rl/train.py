@@ -59,6 +59,11 @@ class EvalCallback(BaseCallback):
         selfplay_every=0,
         selfplay_on_plateau=0,
         selfplay_games=50,
+        selfplay_initial_games=None,
+        bot_teams=0,
+        self_teams=0,
+        prune_bots_at=None,
+        keep_bot_fraction=0.2,
         verbose=1,
     ):
         super().__init__(verbose)
@@ -68,6 +73,16 @@ class EvalCallback(BaseCallback):
         self.selfplay_every = selfplay_every
         self.selfplay_on_plateau = selfplay_on_plateau
         self.selfplay_games = selfplay_games
+        self.selfplay_initial_games = selfplay_initial_games or selfplay_games
+        self.harvests = 0
+        ### Self-play teams harvested so far (also saved to disk) and when to
+        ###   thin out the bot teams in the opponent library
+        self.selfplay_library = TeamLibrary()
+        self.bot_teams = bot_teams
+        self.self_teams = self_teams
+        self.prune_bots_at = bot_teams if prune_bots_at is None else prune_bots_at
+        self.keep_bot_fraction = keep_bot_fraction
+        self.bots_pruned = False
         self.selfplay_active = bool(selfplay_every) and not selfplay_on_plateau
         self.next_eval = eval_every
         self.next_selfplay = selfplay_every
@@ -98,6 +113,9 @@ class EvalCallback(BaseCallback):
                     "selfplay",
                 ]
             )
+        ### A self-play pool loaded from an earlier run may already be big
+        ###   enough to thin out the bot teams
+        self.maybe_prune_bots()
 
     def _on_step(self):
         for info in self.locals.get("infos", []):
@@ -112,12 +130,39 @@ class EvalCallback(BaseCallback):
         return True
 
     def add_selfplay_teams(self):
-        teams = harvest_teams(self.model, SAPEnv(), n_games=self.selfplay_games)
-        self.training_env.env_method("add_opponent_teams", teams)
+        n_games = self.selfplay_initial_games if self.harvests == 0 else None
+        n_games = n_games or self.selfplay_games
+        self.harvests += 1
+        teams = harvest_teams(self.model, SAPEnv(), n_games=n_games)
+        self.training_env.env_method("add_opponent_teams", teams, "self")
+        n = sum(len(x) for x in teams.values())
+        self.self_teams += n
+        self.selfplay_library.add_all(teams, "self")
+        self.selfplay_library.save(os.path.join(self.out, "selfplay_teams.pkl"))
         if self.verbose:
-            n = sum(len(x) for x in teams.values())
             print(
-                f"[{self.num_timesteps} steps] self-play: added {n} teams", flush=True
+                f"[{self.num_timesteps} steps] self-play: added {n} teams"
+                + f" ({self.self_teams} self-play teams in total)",
+                flush=True,
+            )
+        self.maybe_prune_bots()
+
+    def maybe_prune_bots(self):
+        """Once there are enough self-play teams, remove most bot teams"""
+        if self.bots_pruned or not self.bot_teams or self.keep_bot_fraction >= 1:
+            return
+        if self.self_teams < self.prune_bots_at:
+            return
+        self.bots_pruned = True
+        left = self.training_env.env_method(
+            "prune_opponent_teams", "bot", self.keep_bot_fraction
+        )
+        if self.verbose:
+            print(
+                f"[{self.num_timesteps} steps] self-play pool reached"
+                + f" {self.self_teams} teams: kept {self.keep_bot_fraction:.0%}"
+                + f" of the {self.bot_teams} bot teams ({left[0]} left)",
+                flush=True,
             )
 
     def start_selfplay(self):
@@ -208,6 +253,29 @@ def main(argv=None):
         help="only start self-play after K evaluations without a new best",
     )
     parser.add_argument("--selfplay-games", type=int, default=50)
+    parser.add_argument(
+        "--selfplay-initial-games",
+        type=int,
+        default=None,
+        help="games for the first harvest, to build a self-play pool quickly",
+    )
+    parser.add_argument(
+        "--selfplay-teams",
+        help="selfplay_teams.pkl from an earlier run to start the pool with",
+    )
+    parser.add_argument(
+        "--prune-bots-at",
+        type=int,
+        default=None,
+        help="self-play teams needed before most bot teams are removed"
+        + " (default: as many as there are bot teams)",
+    )
+    parser.add_argument(
+        "--keep-bot-fraction",
+        type=float,
+        default=0.2,
+        help="fraction of bot teams kept after pruning (1 keeps all)",
+    )
     parser.add_argument("--wins-needed", type=int, default=10)
     parser.add_argument("--n-steps", type=int, default=512)
     parser.add_argument("--batch-size", type=int, default=256)
@@ -234,7 +302,16 @@ def main(argv=None):
         args.library_games, bots=args.library_bots.split(","), seed=args.seed
     )
     library.save(library_path)
-    print(f"Opponent library: {len(library)} teams", flush=True)
+    bot_teams = len(library)
+    self_teams = 0
+    if args.selfplay_teams:
+        earlier = TeamLibrary.load(args.selfplay_teams)
+        library.add_all(earlier.teams, "self")
+        self_teams = len(earlier)
+    print(
+        f"Opponent library: {bot_teams} bot teams, {self_teams} self-play teams",
+        flush=True,
+    )
 
     env_kwargs = {"wins_needed": args.wins_needed}
     env_fns = [
@@ -286,7 +363,14 @@ def main(argv=None):
         args.selfplay_every,
         args.selfplay_on_plateau,
         args.selfplay_games,
+        selfplay_initial_games=args.selfplay_initial_games,
+        bot_teams=bot_teams,
+        self_teams=self_teams,
+        prune_bots_at=args.prune_bots_at,
+        keep_bot_fraction=args.keep_bot_fraction,
     )
+    if args.selfplay_teams:
+        callback.selfplay_library.add_all(earlier.teams, "self")
     model.learn(
         total_timesteps=args.timesteps,
         callback=callback,

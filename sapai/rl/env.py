@@ -298,9 +298,16 @@ class SAPEnv(gym.Env):
     def action_masks(self):
         return action_mask(self.player)
 
-    def add_opponent_teams(self, teams):
+    def add_opponent_teams(self, teams, source="self"):
         """Add recorded teams to a library opponent, used for self-play"""
-        self.opponent.add_teams(teams)
+        self.opponent.add_teams(teams, source)
+
+    def prune_opponent_teams(self, source, keep_fraction):
+        """Keep keep_fraction of a library opponent's teams from source"""
+        import random
+
+        rng = random.Random(int(self.np_random.integers(0, 2**31 - 1)))
+        return self.opponent.prune_teams(source, keep_fraction, rng)
 
     def render(self):
         return f"{self._info()}\n{self.player.team}\n{self.player.shop}"

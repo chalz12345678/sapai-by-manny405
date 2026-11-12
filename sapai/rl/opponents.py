@@ -86,21 +86,50 @@ class GreedyOpponent:
 
 
 class TeamLibrary:
-    """Recorded teams for each turn, stored as Team states"""
+    """
+    Recorded teams for each turn, stored as Team states. Each team has a
+    source, "bot" for teams from bots and "self" for self-play teams, so a
+    source can be thinned out later with prune().
+    """
 
-    def __init__(self, teams=None):
+    def __init__(self, teams=None, sources=None):
         self.teams = teams or {}
+        if sources is None:
+            sources = {t: ["bot"] * len(x) for t, x in self.teams.items()}
+        self.sources = sources
 
-    def add(self, turn, team_state):
+    def add(self, turn, team_state, source="bot"):
         self.teams.setdefault(int(turn), []).append(team_state)
+        self.sources.setdefault(int(turn), []).append(source)
 
-    def add_all(self, teams):
+    def add_all(self, teams, source="bot"):
         for turn, states in teams.items():
             for state in states:
-                self.add(turn, state)
+                self.add(turn, state, source)
+
+    def count(self, source=None):
+        if source is None:
+            return len(self)
+        return sum(x.count(source) for x in self.sources.values())
+
+    def prune(self, source, keep_fraction, rng):
+        """Keep a random keep_fraction of the teams from source in every turn"""
+        for turn in list(self.teams):
+            keep_states, keep_sources = [], []
+            from_source = [i for i, s in enumerate(self.sources[turn]) if s == source]
+            n_keep = int(round(len(from_source) * keep_fraction))
+            if from_source and n_keep == 0:
+                n_keep = 1
+            kept = set(rng.sample(from_source, n_keep))
+            for i, (state, s) in enumerate(zip(self.teams[turn], self.sources[turn])):
+                if s != source or i in kept:
+                    keep_states.append(state)
+                    keep_sources.append(s)
+            self.teams[turn] = keep_states
+            self.sources[turn] = keep_sources
 
     def sample(self, turn, rng):
-        turns = sorted(self.teams)
+        turns = sorted(t for t in self.teams if self.teams[t])
         if not turns:
             raise ValueError("TeamLibrary is empty")
         ### Use the closest recorded turn at or before this turn
@@ -114,12 +143,16 @@ class TeamLibrary:
 
     def save(self, path):
         with open(path, "wb") as f:
-            pickle.dump(self.teams, f)
+            pickle.dump({"teams": self.teams, "sources": self.sources}, f)
 
     @classmethod
     def load(cls, path):
         with open(path, "rb") as f:
-            return cls(pickle.load(f))
+            data = pickle.load(f)
+        if "teams" in data and "sources" in data:
+            return cls(data["teams"], data["sources"])
+        ### Libraries saved before sources were recorded only hold bot teams
+        return cls(data)
 
     @classmethod
     def from_bots(cls, n_games, bots=("greedy", "random"), turns=25, seed=0):
@@ -135,7 +168,7 @@ class TeamLibrary:
                     bot.shop(player)
                     player.end_turn()
                     player.team.move_forward()
-                    library.add(turn, player.team.state)
+                    library.add(turn, player.team.state, "bot")
                     player.start_turn(winner=rng.random() < 0.5)
         return library
 
@@ -156,8 +189,12 @@ class LibraryOpponent:
     def after_battle(self, result):
         pass
 
-    def add_teams(self, teams):
-        self.library.add_all(teams)
+    def add_teams(self, teams, source="self"):
+        self.library.add_all(teams, source)
+
+    def prune_teams(self, source, keep_fraction, rng=None):
+        self.library.prune(source, keep_fraction, rng or self.rng)
+        return self.library.count(source)
 
 
 def harvest_teams(model, env, n_games, deterministic=False):

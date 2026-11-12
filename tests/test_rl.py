@@ -187,6 +187,40 @@ class TestOpponents(unittest.TestCase):
         env.reset(seed=0)
         env.step(END_TURN)
 
+    def test_library_sources_and_pruning(self):
+        library = TeamLibrary.from_bots(10, bots=("greedy",), turns=4)
+        self.assertEqual(library.count("bot"), 40)
+        self_teams = TeamLibrary.from_bots(3, bots=("random",), turns=4).teams
+        library.add_all(self_teams, "self")
+        self.assertEqual(library.count("self"), 12)
+
+        library.prune("bot", 0.2, random.Random(0))
+        ### 20% of the 10 bot teams for each of the 4 turns, self-play kept
+        self.assertEqual(library.count("bot"), 8)
+        self.assertEqual(library.count("self"), 12)
+        for turn in library.teams:
+            self.assertEqual(len(library.teams[turn]), len(library.sources[turn]))
+            self.assertEqual(library.sources[turn].count("bot"), 2)
+
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "library.pkl")
+            library.save(path)
+            loaded = TeamLibrary.load(path)
+            self.assertEqual(loaded.count("self"), 12)
+            self.assertEqual(loaded.count("bot"), 8)
+
+            ### Libraries saved before sources existed load as bot teams
+            import pickle
+
+            with open(path, "wb") as f:
+                pickle.dump(library.teams, f)
+            self.assertEqual(TeamLibrary.load(path).count("bot"), 20)
+
+        env = SAPEnv(LibraryOpponent(library))
+        env.reset(seed=0)
+        ### 3 self-play teams per turn, half rounds to 2 per turn
+        self.assertEqual(env.prune_opponent_teams("self", 0.5), 8)
+
     def test_greedy_bot_builds_a_team(self):
         player = Player()
         GreedyBot(random.Random(0)).shop(player)
@@ -354,6 +388,58 @@ class TestPolicy(unittest.TestCase):
                 selfplay = [row.strip().split(",")[-1] for row in f][1:]
             self.assertEqual(selfplay[0], "0")
             self.assertIn("1", selfplay)
+
+            ### Most bot teams are removed once the self-play pool is big
+            ###   enough, and the pool is saved for later runs
+            import contextlib
+            import io
+
+            pruned = os.path.join(d, "pruned")
+            log = io.StringIO()
+            with contextlib.redirect_stdout(log):
+                train_main(
+                    [
+                        "--policy=mlp",
+                        "--timesteps=128",
+                        "--n-envs=1",
+                        "--n-steps=64",
+                        "--batch-size=32",
+                        "--eval-every=64",
+                        "--eval-games=1",
+                        "--library-games=4",
+                        "--library-bots=greedy",
+                        "--selfplay-every=64",
+                        "--selfplay-games=1",
+                        "--selfplay-initial-games=2",
+                        "--prune-bots-at=1",
+                        "--keep-bot-fraction=0.25",
+                        f"--out={pruned}",
+                    ]
+                )
+            self.assertIn("kept 25% of the 100 bot teams", log.getvalue())
+            pool_path = os.path.join(pruned, "selfplay_teams.pkl")
+            self.assertGreater(TeamLibrary.load(pool_path).count("self"), 0)
+
+            ### A later run starts with the saved pool and prunes right away
+            log = io.StringIO()
+            with contextlib.redirect_stdout(log):
+                train_main(
+                    [
+                        f"--resume={os.path.join(pruned, 'final_model.zip')}",
+                        "--timesteps=64",
+                        "--n-envs=1",
+                        "--eval-every=64",
+                        "--eval-games=1",
+                        "--library-games=4",
+                        "--library-bots=greedy",
+                        "--selfplay-every=1000",
+                        f"--selfplay-teams={pool_path}",
+                        "--prune-bots-at=1",
+                        f"--out={os.path.join(d, 'pruned2')}",
+                    ]
+                )
+            self.assertIn("self-play teams", log.getvalue())
+            self.assertIn("kept 20% of the 100 bot teams", log.getvalue())
 
 
 # %%
