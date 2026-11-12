@@ -503,6 +503,10 @@ def battle_phase_hurt_and_faint(battle_obj, phase, teams, pet_priority, phase_di
         for team_idx, pet_idx in fainted_list:
             fteam, oteam = get_teams([team_idx, pet_idx], teams)
             fainted_pet = fteam[pet_idx].pet
+            ### Record every faint before the abilities it triggers
+            phase_list.append(
+                ("Fainted", (team_idx, pet_idx), (fainted_pet.__repr__()), [""])
+            )
             ### Check for all pets that trigger off this fainted pet (including self)
             for te_team_idx, te_pet_idx in pp:
                 other_pet = teams[te_team_idx][te_pet_idx].pet
@@ -535,10 +539,6 @@ def battle_phase_hurt_and_faint(battle_obj, phase, teams, pet_priority, phase_di
             ###   Check to see if it should be removed now.
             if teams[team_idx].check_friend(fainted_pet):
                 teams[team_idx].remove(fainted_pet)
-                ### Add this info to phase list
-                phase_list.append(
-                    ("Fainted", (team_idx, pet_idx), (fainted_pet.__repr__()), [""])
-                )
 
         ### If pet was summoned, then need to check for summon triggers
         for (
@@ -780,12 +780,24 @@ def battle_phase_attack(battle_obj, phase, teams, pet_priority, phase_dict):
     p0 = teams[0][aidx[0][1]].pet
     p1 = teams[1][aidx[1][1]].pet
 
+    before = [str(p0), str(p1)]
+
     #### Implement food
     p0a, p1a = get_attack(p0, p1)
 
     teams[0][aidx[0][1]].pet.hurt(p1a)
     teams[1][aidx[1][1]].pet.hurt(p0a)
-    phase_list.append(["Attack", (aidx[0]), str(p0), [str(p1)]])
+    ### The last entry records stats before the attack and the damage each
+    ###   pet took, for readable battle logs
+    phase_list.append(
+        [
+            "Attack",
+            (aidx[0]),
+            str(p0),
+            [str(p1)],
+            {"before": before, "damage": [int(p1a), int(p0a)]},
+        ]
+    )
 
     ### Keep track of knockouts for rhino and hippo by:
     ###   (attacking_pet, team_idx)
@@ -804,9 +816,18 @@ def battle_phase_attack(battle_obj, phase, teams, pet_priority, phase_dict):
         p0._until_end_of_battle_attack_buff = 0
         if len(nidx[1]) != 0:
             pn1 = teams[1][nidx[1][1]].pet
+            before = [str(pn1)]
             p0a, p1a = get_attack(p0, pn1)
             pn1.hurt(p0a)
-            phase_list.append(["splash", (aidx[0]), (str(p0)), [str(pn1)]])
+            phase_list.append(
+                [
+                    "splash",
+                    (aidx[0]),
+                    (str(p0)),
+                    [str(pn1)],
+                    {"before": before, "damage": [int(p0a)]},
+                ]
+            )
 
             if pn1.health <= 0:
                 knockout_list.append((p0, 0))
@@ -823,9 +844,18 @@ def battle_phase_attack(battle_obj, phase, teams, pet_priority, phase_dict):
         p1._until_end_of_battle_attack_buff = 0
         if len(nidx[0]) != 0:
             pn0 = teams[0][nidx[0][1]].pet
+            before = [str(pn0)]
             p0a, p1a = get_attack(pn0, p1)
             pn0.hurt(p1a)
-            phase_list.append(["splash", (aidx[1]), (str(p1)), [str(pn0)]])
+            phase_list.append(
+                [
+                    "splash",
+                    (aidx[1]),
+                    (str(p1)),
+                    [str(pn0)],
+                    {"before": before, "damage": [int(p1a)]},
+                ]
+            )
 
             if pn0.health <= 0:
                 knockout_list.append((p1, 1))

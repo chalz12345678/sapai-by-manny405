@@ -91,9 +91,33 @@ class TestCLI(unittest.TestCase):
         game.run()
         self.assertEqual(game.wins + game.losses + game.draws, 1)
         self.assertEqual(game.player.turn, 2)
-        self.assertTrue(any("attack 0" in x for x in out))
+        self.assertTrue(any(x == "  Attack 1" for x in out))
+        self.assertTrue(any(x.startswith("  Result: ") for x in out))
         ### Log shows readable pet names instead of internal ids
-        self.assertFalse(any("< pet-" in x for x in out if x.startswith("    [")))
+        self.assertFalse(any("< pet-" in x for x in out))
+
+    def test_log_attack_and_faint_lines(self):
+        import numpy as np
+        from sapai import Battle, Pet, Team
+
+        np.random.seed(0)
+        out = []
+        game = Game(print_fn=out.append)
+        b = Battle(Team(["ant", "otter"]), Team(["pigeon"]))
+        game.last_result = b.battle()
+        game.last_battle = b
+        game.show_log()
+        ### Stats before the attack, damage taken and stats after
+        self.assertIn(
+            "    Your Ant 2/2 and their Pigeon 3/2 attack each other:"
+            + " yours takes 3 (now 2/-1), theirs takes 2 (now 3/0)",
+            out,
+        )
+        ### Pets with a faint ability are also logged as fainting
+        self.assertIn("    You: Ant faints", out)
+        self.assertIn("    Opponent: Pigeon faints", out)
+        self.assertIn("    You: Ant buffs Otter (now 2/5)", out)
+        self.assertIn("  Result: You won.", out)
 
     def test_full_game(self):
         game, out = make_game([], simple_strategy)

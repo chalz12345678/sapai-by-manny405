@@ -61,6 +61,79 @@ def pretty(text):
     return PET_REPR.sub(repl, str(text))
 
 
+EFFECT_TEXT = {
+    "AllOf": "uses its ability on",
+    "ApplyStatus": "gives a perk to",
+    "DealDamage": "deals damage to",
+    "GainGold": "gains gold",
+    "ModifyStats": "buffs",
+    "ReduceHealth": "removes health from",
+    "RemoveHealth": "removes health from",
+    "RepeatAbility": "repeats an ability on",
+    "RespawnPet": "comes back as",
+    "SummonPet": "summons",
+    "SummonRandomPet": "summons",
+    "Swallow": "swallows",
+    "TransferAbility": "copies the ability of",
+    "TransferStats": "copies stats to",
+}
+
+
+def pet_parts(text):
+    """All pets in a battle log string as (name, attack, health)"""
+    return [(display_name(m[0]), m[1], m[2]) for m in PET_REPR.findall(str(text))]
+
+
+def side(team_idx):
+    return "You" if int(team_idx) == 0 else "Opponent"
+
+
+def log_line(entry):
+    """Readable text for one battle history entry, or None to skip it"""
+    if len(entry) < 4 or type(entry[0]) != str:
+        return None
+    what, where, pet, targets = entry[0], entry[1], entry[2], entry[3]
+    extra = entry[4] if len(entry) > 4 else {}
+    pet = pet_parts(pet)
+    if len(pet) == 0:
+        return None
+    name = pet[0][0]
+
+    if what == "Attack":
+        before = [pet_parts(x)[0] for x in extra.get("before", [entry[2], targets[0]])]
+        after = [pet[0], pet_parts(targets[0])[0]]
+        damage = extra.get("damage")
+        text = (
+            f"Your {before[0][0]} {before[0][1]}/{before[0][2]} and their"
+            + f" {before[1][0]} {before[1][1]}/{before[1][2]} attack each other"
+        )
+        if damage is not None:
+            text += (
+                f": yours takes {damage[0]} (now {after[0][1]}/{after[0][2]}),"
+                + f" theirs takes {damage[1]} (now {after[1][1]}/{after[1][2]})"
+            )
+        return text
+
+    if what == "splash":
+        target = pet_parts(targets[0])[0]
+        damage = extra.get("damage", [5])[0]
+        return (
+            f"{side(where[0])}: {name}'s Chili hits {target[0]} for {damage}"
+            + f" (now {target[1]}/{target[2]})"
+        )
+
+    if what == "Fainted":
+        return f"{side(where[0])}: {name} faints"
+
+    verb = EFFECT_TEXT.get(what, f"uses {what} on")
+    hit = []
+    for target in targets:
+        hit += [f"{n} (now {a}/{h})" for n, a, h in pet_parts(target)]
+    if what == "GainGold":
+        return f"{side(where[0])}: {name} {verb}"
+    return f"{side(where[0])}: {name} {verb} " + (", ".join(hit) or "nothing")
+
+
 def food_needs_target(food):
     """Whether the player picks which pet eats the food"""
     effect = food.effect
@@ -154,6 +227,7 @@ class Game:
         self.max_lives = lives
         self.wins_needed = wins_needed
         self.last_battle = None
+        self.last_result = None
 
     ############################################################################
     #### Display
@@ -228,16 +302,23 @@ class Game:
                 if phase.startswith("phase_move"):
                     continue
                 for entry in entries:
-                    if len(entry) < 4:
-                        continue
-                    what, where, pet, targets = entry[0], entry[1], entry[2], entry[3]
-                    team = "you" if int(where[0]) == 0 else "opp"
-                    targets = ", ".join([pretty(x) for x in targets if x]) or "-"
-                    lines.append(f"    [{team}] {pretty(pet)} {what}: {targets}")
+                    line = log_line(entry)
+                    if line:
+                        lines.append("    " + line)
             if lines:
-                self.print(f"  {phase_name}")
+                if phase_name == "start":
+                    self.print("  Start of battle")
+                else:
+                    number = int(phase_name.split()[-1]) + 1
+                    self.print(f"  Attack {number}")
                 for line in lines:
                     self.print(line)
+
+        b = self.last_battle
+        result = {0: "You won", 1: "You lost", 2: "Draw"}[self.last_result]
+        self.print(f"  Result: {result}.")
+        self.print(f"    Your survivors: {self.team_line(b.t0)}")
+        self.print(f"    Their survivors: {self.team_line(b.t1)}")
 
     ############################################################################
     #### Commands
@@ -386,6 +467,7 @@ class Game:
         b = Battle(p.team, o.team)
         result = b.battle()
         self.last_battle = b
+        self.last_result = result
 
         lives_lost = data["turns"][f"turn-{min(turn, 11)}"]["livesLost"]
         if result == 0:
