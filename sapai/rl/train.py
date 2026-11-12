@@ -8,7 +8,12 @@ Training opponents are teams recorded from greedy and random bot games, sampled
 for each turn. Every --eval-every steps the agent plays games against the live
 greedy bot; the best model so far is saved as best_model.zip and progress is
 written to progress.csv. With --selfplay-every, teams built by the current agent
-are added to the opponent library during training.
+are added to the opponent library during training; with --selfplay-on-plateau K
+as well, self-play only starts once K evaluations in a row bring no new best
+against the greedy bot:
+
+    python -m sapai.rl.train --policy mlp --resume runs/mlp/best_model.zip \
+        --library-bots greedy --selfplay-every 200000 --selfplay-on-plateau 5
 """
 
 import argparse
@@ -38,17 +43,36 @@ def make_env(library, seed, env_kwargs):
 
 
 class EvalCallback(BaseCallback):
-    """Evaluates against the live greedy bot, saves the best model and logs"""
+    """
+    Evaluates against the live greedy bot, saves the best and latest models
+    and logs progress. Also runs self-play: every selfplay_every steps, teams
+    built by the current model are added to the opponent library. With
+    selfplay_on_plateau=K, self-play only starts once K evaluations in a row
+    have not beaten the best result against the greedy bot.
+    """
 
-    def __init__(self, out, eval_every, eval_games, selfplay_every=0, verbose=1):
+    def __init__(
+        self,
+        out,
+        eval_every,
+        eval_games,
+        selfplay_every=0,
+        selfplay_on_plateau=0,
+        selfplay_games=50,
+        verbose=1,
+    ):
         super().__init__(verbose)
         self.out = out
         self.eval_every = eval_every
         self.eval_games = eval_games
         self.selfplay_every = selfplay_every
+        self.selfplay_on_plateau = selfplay_on_plateau
+        self.selfplay_games = selfplay_games
+        self.selfplay_active = bool(selfplay_every) and not selfplay_on_plateau
         self.next_eval = eval_every
         self.next_selfplay = selfplay_every
         self.best = -np.inf
+        self.evals_since_best = 0
         self.start = time.time()
         self.csv_path = os.path.join(out, "progress.csv")
         self.episode_rewards = []
@@ -68,6 +92,7 @@ class EvalCallback(BaseCallback):
                     "battle_loss_rate",
                     "mean_wins",
                     "mean_turns",
+                    "selfplay",
                 ]
             )
 
@@ -75,14 +100,36 @@ class EvalCallback(BaseCallback):
         for info in self.locals.get("infos", []):
             if "episode" in info:
                 self.episode_rewards.append(info["episode"]["r"])
-        if self.selfplay_every and self.num_timesteps >= self.next_selfplay:
-            self.next_selfplay += self.selfplay_every
-            teams = harvest_teams(self.model, SAPEnv(), n_games=20)
-            self.training_env.env_method("add_opponent_teams", teams)
+        if self.selfplay_active and self.num_timesteps >= self.next_selfplay:
+            self.next_selfplay = self.num_timesteps + self.selfplay_every
+            self.add_selfplay_teams()
         if self.num_timesteps >= self.next_eval:
             self.next_eval += self.eval_every
             self.evaluate()
         return True
+
+    def add_selfplay_teams(self):
+        teams = harvest_teams(self.model, SAPEnv(), n_games=self.selfplay_games)
+        self.training_env.env_method("add_opponent_teams", teams)
+        if self.verbose:
+            n = sum(len(x) for x in teams.values())
+            print(
+                f"[{self.num_timesteps} steps] self-play: added {n} teams", flush=True
+            )
+
+    def start_selfplay(self):
+        self.selfplay_active = True
+        ### Frozen copy of the model at the start of self-play, useful as a
+        ###   fixed benchmark later
+        self.model.save(os.path.join(self.out, "selfplay_start"))
+        if self.verbose:
+            print(
+                f"[{self.num_timesteps} steps] no new best against the greedy bot"
+                + f" in {self.evals_since_best} evaluations: starting self-play",
+                flush=True,
+            )
+        self.add_selfplay_teams()
+        self.next_selfplay = self.num_timesteps + self.selfplay_every
 
     def evaluate(self):
         r = play_games(self.model, self.eval_games, seed=1_000_000)
@@ -103,12 +150,17 @@ class EvalCallback(BaseCallback):
                     round(r["battle_loss_rate"], 4),
                     r["mean_wins"],
                     r["mean_turns"],
+                    int(self.selfplay_active),
                 ]
             )
+        self.model.save(os.path.join(self.out, "latest_model"))
         ### Score: mean wins against the greedy bot, the main goal
         if r["mean_wins"] > self.best:
             self.best = r["mean_wins"]
+            self.evals_since_best = 0
             self.model.save(os.path.join(self.out, "best_model"))
+        else:
+            self.evals_since_best += 1
         if self.verbose:
             print(
                 f"[{self.num_timesteps} steps, {minutes:.0f} min,"
@@ -116,6 +168,13 @@ class EvalCallback(BaseCallback):
                 + format_results("vs greedy", r),
                 flush=True,
             )
+        if (
+            self.selfplay_every
+            and self.selfplay_on_plateau
+            and not self.selfplay_active
+            and self.evals_since_best >= self.selfplay_on_plateau
+        ):
+            self.start_selfplay()
 
 
 def main(argv=None):
@@ -133,7 +192,19 @@ def main(argv=None):
     parser.add_argument("--out", default="runs/token")
     parser.add_argument("--eval-every", type=int, default=100_000)
     parser.add_argument("--eval-games", type=int, default=200)
-    parser.add_argument("--selfplay-every", type=int, default=0)
+    parser.add_argument(
+        "--selfplay-every",
+        type=int,
+        default=0,
+        help="add teams from the current model to the library every N steps",
+    )
+    parser.add_argument(
+        "--selfplay-on-plateau",
+        type=int,
+        default=0,
+        help="only start self-play after K evaluations without a new best",
+    )
+    parser.add_argument("--selfplay-games", type=int, default=50)
     parser.add_argument("--wins-needed", type=int, default=10)
     parser.add_argument("--n-steps", type=int, default=512)
     parser.add_argument("--batch-size", type=int, default=256)
@@ -206,7 +277,12 @@ def main(argv=None):
     print(f"{args.policy} policy with {n_params} parameters", flush=True)
 
     callback = EvalCallback(
-        args.out, args.eval_every, args.eval_games, args.selfplay_every
+        args.out,
+        args.eval_every,
+        args.eval_games,
+        args.selfplay_every,
+        args.selfplay_on_plateau,
+        args.selfplay_games,
     )
     model.learn(
         total_timesteps=args.timesteps,

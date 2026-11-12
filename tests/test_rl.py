@@ -330,5 +330,30 @@ class TestPolicy(unittest.TestCase):
             )
             self.assertTrue(os.path.exists(os.path.join(resumed, "final_model.zip")))
 
+            ### Self-play starts once evaluations stop improving
+            plateau = os.path.join(d, "plateau")
+            train_main(
+                [
+                    "--policy=mlp",
+                    "--timesteps=320",
+                    "--n-envs=1",
+                    "--n-steps=64",
+                    "--batch-size=32",
+                    "--eval-every=64",
+                    "--eval-games=1",
+                    "--library-games=2",
+                    "--selfplay-every=64",
+                    "--selfplay-on-plateau=1",
+                    "--selfplay-games=1",
+                    f"--out={plateau}",
+                ]
+            )
+            for name in ["selfplay_start.zip", "latest_model.zip"]:
+                self.assertTrue(os.path.exists(os.path.join(plateau, name)))
+            with open(os.path.join(plateau, "progress.csv")) as f:
+                selfplay = [row.strip().split(",")[-1] for row in f][1:]
+            self.assertEqual(selfplay[0], "0")
+            self.assertIn("1", selfplay)
+
 
 # %%
