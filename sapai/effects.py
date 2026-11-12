@@ -973,8 +973,9 @@ def SummonPet(apet, apet_idx, teams, te=None, te_idx=None, fixed_targets=None):
             if temp_slot.empty:
                 empty_idx.append(iter_idx)
         if len(empty_idx) == 0:
-            ### Can safely return, cannot summon
-            return target, [target]
+            ### No room for more pets, but the pets already summoned still
+            ###   need to be connected to the team below
+            break
 
         target_slot_idx = np.max(empty_idx)
         target_team[target_slot_idx] = spet_name

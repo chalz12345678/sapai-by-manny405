@@ -478,6 +478,24 @@ class TestTurtlePackAbilities(unittest.TestCase):
         self.assertEqual([(x.attack, x.health) for x in rams], [(5, 3), (5, 3)])
         self.assertEqual((shark.attack, shark.health), (12, 4))
 
+    def test_summon_with_room_for_only_some_pets(self):
+        ### Level 3 sheep on a full team only has room for one ram, which
+        ###   must still be connected to the team
+        sheep = Pet("sheep")
+        sheep.level = 3
+        player = Player(
+            shop=["sleeping-pill", "sleeping-pill"],
+            team=["ant", "fish", "duck", "pig", sheep],
+        )
+        player.gold = 20
+        player.buy_food(0, 4)
+        rams = [x.pet for x in player.team if x.pet.name == "pet-ram"]
+        self.assertEqual(len(rams), 1)
+        self.assertIs(rams[0].team, player.team)
+        ### The ram can faint with a perk without crashing
+        rams[0].status = "status-honey-bee"
+        player.buy_food(0, player.team.index(rams[0]))
+
     def test_crab_without_living_friends(self):
         crab = Pet("crab")
         crab._health = 0
