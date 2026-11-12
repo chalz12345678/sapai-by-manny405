@@ -314,5 +314,21 @@ class TestPolicy(unittest.TestCase):
             for name in ["best_model.zip", "final_model.zip", "progress.csv"]:
                 self.assertTrue(os.path.exists(os.path.join(d, name)))
 
+            ### Resume training against greedy bot teams only
+            resumed = os.path.join(d, "resumed")
+            train_main(
+                [
+                    f"--resume={os.path.join(d, 'final_model.zip')}",
+                    "--timesteps=64",
+                    "--n-envs=1",
+                    "--eval-every=64",
+                    "--eval-games=1",
+                    "--library-games=2",
+                    "--library-bots=greedy",
+                    f"--out={resumed}",
+                ]
+            )
+            self.assertTrue(os.path.exists(os.path.join(resumed, "final_model.zip")))
+
 
 # %%

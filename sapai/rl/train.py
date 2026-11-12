@@ -121,9 +121,15 @@ def main(argv=None):
     parser.add_argument("--timesteps", type=int, default=2_000_000)
     parser.add_argument("--n-envs", type=int, default=4)
     parser.add_argument("--library-games", type=int, default=400)
+    parser.add_argument(
+        "--library-bots",
+        default="greedy,random",
+        help="bots whose teams make up the opponent library",
+    )
+    parser.add_argument("--resume", help="continue training a saved model")
     parser.add_argument("--out", default="runs/token")
     parser.add_argument("--eval-every", type=int, default=100_000)
-    parser.add_argument("--eval-games", type=int, default=100)
+    parser.add_argument("--eval-games", type=int, default=200)
     parser.add_argument("--selfplay-every", type=int, default=0)
     parser.add_argument("--wins-needed", type=int, default=10)
     parser.add_argument("--n-steps", type=int, default=512)
@@ -147,7 +153,9 @@ def main(argv=None):
     th.set_num_threads(args.threads)
 
     library_path = os.path.join(args.out, "library.pkl")
-    library = TeamLibrary.from_bots(args.library_games, seed=args.seed)
+    library = TeamLibrary.from_bots(
+        args.library_games, bots=args.library_bots.split(","), seed=args.seed
+    )
     library.save(library_path)
     print(f"Opponent library: {len(library)} teams", flush=True)
 
@@ -172,7 +180,12 @@ def main(argv=None):
         device="cpu",
         verbose=0,
     )
-    if args.policy == "token":
+    if args.resume:
+        model = MaskablePPO.load(args.resume, env=vec_env, device="cpu")
+        model.learning_rate = args.learning_rate
+        model._setup_lr_schedule()
+        model.target_kl = args.target_kl
+    elif args.policy == "token":
         model = MaskablePPO(
             TokenMaskablePolicy,
             vec_env,
@@ -192,7 +205,11 @@ def main(argv=None):
     callback = EvalCallback(
         args.out, args.eval_every, args.eval_games, args.selfplay_every
     )
-    model.learn(total_timesteps=args.timesteps, callback=callback)
+    model.learn(
+        total_timesteps=args.timesteps,
+        callback=callback,
+        reset_num_timesteps=not args.resume,
+    )
     model.save(os.path.join(args.out, "final_model"))
     callback.evaluate()
     vec_env.close()
