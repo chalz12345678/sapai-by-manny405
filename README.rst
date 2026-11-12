@@ -50,6 +50,23 @@ Unit tests are located in the ``tests`` directory. Tests can be run with the fol
     python -m unittest discover -s tests
 
     
+-------------------------------
+Playing a Game in the Terminal
+-------------------------------
+
+A simple interactive game is included. Each turn you shop, then your team
+battles a computer opponent that shops with the same rules. Win 10 battles
+before running out of lives.
+
+.. code-block:: bash
+
+    python -m sapai.cli
+    python -m sapai.cli --seed 1 --lives 5
+
+Type ``help`` in the game for the commands, for example ``buy 0``,
+``buy 3 0`` (feed shop food 3 to team pet 0), ``sell 1``, ``roll``,
+``freeze 2``, ``move 2 0``, ``end`` and ``log``.
+
 ---------------------------
 Introduction: Code Examples
 ---------------------------

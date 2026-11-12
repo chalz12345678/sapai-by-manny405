@@ -526,7 +526,12 @@ class Player:
         if len(unique) != len(self.team):
             raise Exception(f"Cannot input duplicate indices to reorder: {idx}")
 
-        self.team = Team([self.team[x] for x in idx], seed_state=self.team.seed_state)
+        self.team = Team(
+            [self.team[x] for x in idx],
+            shop=self.shop,
+            player=self,
+            seed_state=self.team.seed_state,
+        )
 
         return idx
 
