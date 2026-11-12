@@ -424,6 +424,24 @@ class TestTurtlePackAbilities(unittest.TestCase):
 
     ### Regression tests for crashes found by random battles
 
+    def test_merge_pets_with_every_perk(self):
+        from sapai.player import get_combined_status
+
+        for status1 in data["statuses"]:
+            for status2 in data["statuses"]:
+                pet1, pet2 = Pet("ant"), Pet("ant")
+                pet1.status, pet2.status = status1, status2
+                self.assertIn(get_combined_status(pet1, pet2), [status1, status2])
+
+        ### Merging a pet with Cake from the shop keeps the higher tier perk
+        ant = Pet("ant")
+        ant.status = "status-cake"
+        shop_ant = Pet("ant")
+        shop_ant.status = "status-melon-armor"
+        player = Player(shop=Shop([shop_ant]), team=[ant])
+        player.buy_combine(0, 0)
+        self.assertEqual(player.team[0].pet.status, "status-melon-armor")
+
     def test_crab_without_living_friends(self):
         crab = Pet("crab")
         crab._health = 0

@@ -614,8 +614,8 @@ def get_combined_status(pet1, pet2):
         0: ["status-weak", "status-poison-attack", "none"],
         1: ["status-honey-bee"],
         2: ["status-bone-attack"],
-        3: ["status-garlic-armor"],
-        4: ["status-splash-attack"],
+        3: ["status-garlic-armor", "status-cake"],
+        4: ["status-splash-attack", "status-bread"],
         5: [
             "status-coconut-shield",
             "status-melon-armor",
