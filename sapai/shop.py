@@ -482,15 +482,23 @@ class Shop(SAPList):
             seed_state = state["seed_state"]
         else:
             seed_state = None
-        return cls(
+        ### Restore the slots exactly as saved. Applying the turn's shop rules
+        ###   here would refill and reroll slots that were bought.
+        shop = cls(
             slots=[ShopSlot.from_state(x) for x in state["slots"]],
             turn=state["turn"],
             shop_attack=state["shop_attack"],
             shop_health=state["shop_health"],
             pack=state["pack"],
             seed_state=seed_state,
-            fixed_rules=state["fixed_rules"],
+            fixed_rules=True,
         )
+        shop.fixed_rules = state["fixed_rules"]
+        if not shop.fixed_rules:
+            rules = get_shop_rules(min(shop.turn, 11))
+            shop.pslots, shop.fslots = rules[0], rules[1]
+            shop._nslots = shop.pslots + shop.fslots
+        return shop
 
     def __repr__(self):
         repr_str = ""
