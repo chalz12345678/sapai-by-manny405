@@ -21,7 +21,8 @@ import numpy as np
 
 from sapai.cli import Opponent as _GreedyBot
 from sapai.player import Player
-from sapai.rl.env import END_TURN, action_mask, apply_action
+from sapai.data import data
+from sapai.rl.env import END_TURN, action_mask, apply_action, encode
 from sapai.teams import Team
 
 
@@ -83,6 +84,57 @@ class GreedyOpponent:
 
     def after_battle(self, result):
         self.bot.player.start_turn(winner=(result != 0))
+
+
+class ModelOpponent:
+    """
+    A live opponent played by a saved model, for example a frozen earlier
+    version of the agent. It shops each turn with its own Player.
+    """
+
+    def __init__(
+        self, model, deterministic=True, max_actions_per_turn=30, max_turns=25
+    ):
+        self.model = model
+        self.deterministic = deterministic
+        self.max_actions_per_turn = max_actions_per_turn
+        self.max_turns = max_turns
+        self.player = None
+
+    def reset(self, rng=None):
+        self.player = Player()
+        self.wins = 0
+        self.last_result = None
+
+    def team_for_turn(self, turn):
+        p = self.player
+        for actions in range(self.max_actions_per_turn):
+            obs = encode(p, actions, self.last_result, self.max_turns, self.wins)
+            action, _ = self.model.predict(
+                obs, action_masks=action_mask(p), deterministic=self.deterministic
+            )
+            if int(action) == END_TURN:
+                break
+            try:
+                apply_action(p, int(action))
+            except Exception:
+                pass
+        p.end_turn()
+        p.team.move_forward()
+        return p.team
+
+    def after_battle(self, result):
+        ### result is from the other side: 0 means this opponent lost
+        own_result = {0: 1, 1: 0, 2: 2}[result]
+        if own_result == 0:
+            self.wins += 1
+        elif own_result == 1:
+            turn = min(self.player.turn, 11)
+            self.player.lives = max(
+                self.player.lives - data["turns"][f"turn-{turn}"]["livesLost"], 1
+            )
+        self.last_result = own_result
+        self.player.start_turn(winner=(own_result != 1))
 
 
 class TeamLibrary:

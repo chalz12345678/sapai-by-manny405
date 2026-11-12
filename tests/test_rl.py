@@ -442,4 +442,74 @@ class TestPolicy(unittest.TestCase):
             self.assertIn("kept 20% of the 100 bot teams", log.getvalue())
 
 
+@unittest.skipUnless(HAVE_RL, "gymnasium, sb3-contrib and torch are required")
+class TestBenchmark(unittest.TestCase):
+    def test_play_out_keeps_playing(self):
+        env = SAPEnv(FixedOpponent(["mammoth"]), play_out=True, max_turns=12)
+        env.reset(seed=0)
+        done = False
+        while not done:
+            _, _, terminated, truncated, info = env.step(END_TURN)
+            self.assertFalse(terminated)
+            self.assertGreaterEqual(info["lives"], 1)
+            done = truncated
+        self.assertEqual(info["losses"], 12)
+
+    def test_model_opponent_and_benchmark(self):
+        from sb3_contrib import MaskablePPO
+
+        from sapai.rl import benchmark
+        from sapai.rl.opponents import ModelOpponent
+
+        model = MaskablePPO(
+            "MlpPolicy",
+            SAPEnv(FixedOpponent(["ant"])),
+            n_steps=64,
+            batch_size=32,
+            device="cpu",
+            seed=0,
+        )
+        opponent = ModelOpponent(model)
+        opponent.reset()
+        team = opponent.team_for_turn(1)
+        self.assertIsInstance(team, Team)
+        opponent.after_battle(0)
+        self.assertEqual((opponent.last_result, opponent.player.turn), (1, 2))
+
+        ### Greedy against greedy is close to even
+        greedy = benchmark.Player("greedy", None)
+        score, r = benchmark.match(greedy, greedy, games=20, turns=8)
+        self.assertGreater(score, 0.35)
+        self.assertLess(score, 0.65)
+
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "model.zip")
+            model.save(path)
+            run = os.path.join(d, "run")
+            os.makedirs(run)
+            model.save(os.path.join(run, "latest_model"))
+            with open(os.path.join(run, "progress.csv"), "w") as f:
+                f.write("timesteps,mean_wins\n64,0\n")
+            csv_path = os.path.join(d, "benchmark.csv")
+            pool = [greedy, benchmark.Player("frozen", path)]
+            benchmark.watch([run], pool, 2, 4, 0, 0, os.path.join(d, "bench"), csv_path)
+            self.assertTrue(os.path.exists(os.path.join(d, "bench", "run_64.zip")))
+            with open(csv_path) as f:
+                rows = f.read().splitlines()
+            ### Header, one pool pair, and the candidate against both
+            self.assertEqual(len(rows), 4)
+            self.assertTrue(rows[-1].split(",")[1] == "run")
+
+    def test_fit_ratings(self):
+        from sapai.rl.benchmark import fit_ratings
+
+        results = [("a", "greedy", 0.75), ("b", "greedy", 0.5), ("a", "b", 0.75)]
+        ratings = fit_ratings(["greedy", "a", "b"], results)
+        self.assertEqual(ratings["greedy"], 1000)
+        self.assertGreater(ratings["a"], ratings["b"])
+        self.assertAlmostEqual(ratings["b"], 1000, delta=60)
+        ### A 0.75 score is about +190 Elo
+        self.assertAlmostEqual(ratings["a"] - ratings["b"], 190, delta=60)
+
+
 # %%

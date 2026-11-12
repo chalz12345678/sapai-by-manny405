@@ -18,14 +18,22 @@ from sapai.rl.env import END_TURN, SAPEnv
 from sapai.rl.opponents import GreedyBot, GreedyOpponent, RandomBot
 
 
-def play_games(controller, n_games, seed=0, deterministic=True, env_kwargs=None):
+def play_games(
+    controller,
+    n_games,
+    seed=0,
+    deterministic=True,
+    env_kwargs=None,
+    opponent=None,
+):
     """
     controller: a model with predict(obs, action_masks=..., deterministic=...)
         or a bot with shop(player)
+    opponent: the opponent, by default the live greedy bot
 
-    Returns a dict of results against the live greedy bot.
+    Returns a dict of results against the opponent.
     """
-    env = SAPEnv(GreedyOpponent(), **(env_kwargs or {}))
+    env = SAPEnv(opponent or GreedyOpponent(), **(env_kwargs or {}))
     is_bot = hasattr(controller, "shop")
     battles = {"win": 0, "loss": 0, "draw": 0}
     games_won = 0

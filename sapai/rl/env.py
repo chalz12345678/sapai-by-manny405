@@ -240,6 +240,7 @@ class SAPEnv(gym.Env):
         max_turns=25,
         max_actions_per_turn=30,
         game_win_bonus=5.0,
+        play_out=False,
     ):
         super().__init__()
         if opponent is None:
@@ -252,6 +253,10 @@ class SAPEnv(gym.Env):
         self.max_turns = max_turns
         self.max_actions_per_turn = max_actions_per_turn
         self.game_win_bonus = game_win_bonus
+        ### play_out: play all max_turns turns regardless of wins and lives,
+        ###   for head-to-head benchmark matches. Lives stay at least 1 so the
+        ###   observation stays like a normal game.
+        self.play_out = play_out
         self.observation_space = spaces.Box(0.0, 2.0, (OBS_SIZE,), np.float32)
         self.action_space = spaces.Discrete(N_ACTIONS)
         self.engine_errors = 0
@@ -364,7 +369,9 @@ class SAPEnv(gym.Env):
         self.last_result = result
 
         terminated = False
-        if self.wins >= self.wins_needed:
+        if self.play_out:
+            p.lives = max(p.lives, 1)
+        elif self.wins >= self.wins_needed:
             reward += self.game_win_bonus
             terminated = True
         elif p.lives <= 0:
