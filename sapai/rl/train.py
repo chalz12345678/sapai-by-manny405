@@ -81,6 +81,9 @@ class EvalCallback(BaseCallback):
         ### Count from the current step, which is not 0 when resuming
         self.next_eval = self.num_timesteps + self.eval_every
         self.next_selfplay = self.num_timesteps + self.selfplay_every
+        if self.selfplay_active:
+            ### Self-play from the start: add the model's teams right away
+            self.next_selfplay = self.num_timesteps
         with open(self.csv_path, "w", newline="") as f:
             csv.writer(f).writerow(
                 [
