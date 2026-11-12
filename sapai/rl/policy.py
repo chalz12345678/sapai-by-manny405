@@ -96,6 +96,18 @@ class TokenNet(nn.Module):
             nn.Linear(2 * d_model, d_model), nn.ReLU(), nn.Linear(d_model, d_model)
         )
 
+        ### Small initial action scores so the starting policy is close to
+        ###   uniform over legal actions, like SB3 does for its action layer
+        for head in [
+            self.global_head,
+            self.buy_pet,
+            self.buy_food_untargeted,
+            self.sell,
+            self.freeze,
+        ] + [x.out for x in [self.buy_combine, self.buy_food, self.swap, self.combine]]:
+            nn.init.orthogonal_(head.weight, gain=0.01)
+            nn.init.zeros_(head.bias)
+
     def encode(self, obs):
         b = obs.shape[0]
         n_team = MAX_TEAM * TEAM_TOKEN

@@ -128,13 +128,21 @@ def main(argv=None):
     parser.add_argument("--wins-needed", type=int, default=10)
     parser.add_argument("--n-steps", type=int, default=512)
     parser.add_argument("--batch-size", type=int, default=256)
-    parser.add_argument("--learning-rate", type=float, default=3e-4)
+    parser.add_argument(
+        "--learning-rate",
+        type=float,
+        default=None,
+        help="default 2e-4 for token, 3e-4 for mlp",
+    )
+    parser.add_argument("--target-kl", type=float, default=None)
     parser.add_argument("--ent-coef", type=float, default=0.01)
     parser.add_argument("--gamma", type=float, default=0.995)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--threads", type=int, default=2)
     args = parser.parse_args(argv)
 
+    if args.learning_rate is None:
+        args.learning_rate = 2e-4 if args.policy == "token" else 3e-4
     os.makedirs(args.out, exist_ok=True)
     th.set_num_threads(args.threads)
 
@@ -159,6 +167,7 @@ def main(argv=None):
         gae_lambda=0.95,
         ent_coef=args.ent_coef,
         clip_range=0.2,
+        target_kl=args.target_kl,
         seed=args.seed,
         device="cpu",
         verbose=0,
