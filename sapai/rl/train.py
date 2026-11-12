@@ -54,6 +54,9 @@ class EvalCallback(BaseCallback):
         self.episode_rewards = []
 
     def _on_training_start(self):
+        ### Count from the current step, which is not 0 when resuming
+        self.next_eval = self.num_timesteps + self.eval_every
+        self.next_selfplay = self.num_timesteps + self.selfplay_every
         with open(self.csv_path, "w", newline="") as f:
             csv.writer(f).writerow(
                 [
