@@ -442,6 +442,42 @@ class TestTurtlePackAbilities(unittest.TestCase):
         player.buy_combine(0, 0)
         self.assertEqual(player.team[0].pet.status, "status-melon-armor")
 
+    def test_faint_ability_runs_when_a_faster_friend_triggers_first(self):
+        ### Ox acts first and removes the fainted cricket, but the cricket's
+        ###   own faint ability must still summon its zombie cricket
+        ox = Pet("ox")
+        ox._attack = 10
+        player = Player(shop=["sleeping-pill"], team=["cricket", ox])
+        player.buy_food(0, 0)
+        names = [x.pet.name for x in player.team if not x.empty]
+        self.assertEqual(names, ["pet-zombie-cricket", "pet-ox"])
+        self.assertEqual(ox.status, "status-melon-armor")
+
+        ox = Pet("ox")
+        ox._attack = 10
+        t = Team(["cricket", ox], battle=True)
+        t[0].pet._health = 0
+        b = Battle(t, Team(["mammoth"]))
+        from sapai.battle import battle_phase
+
+        phase_dict = {"phase_hurt_and_faint": []}
+        battle_phase(
+            b, "phase_hurt_and_faint", [b.t0, b.t1], b.pet_priority, phase_dict
+        )
+        names = [x.pet.name for x in b.t0 if not x.empty]
+        self.assertIn("pet-zombie-cricket", names)
+
+    def test_summon_check_uses_the_summoning_pet(self):
+        ### Shark reacts to the sheep fainting, and only the rams count as
+        ###   summoned for the turkey
+        shark = Pet("shark")
+        shark._attack = 10
+        player = Player(shop=["sleeping-pill"], team=["sheep", shark, "turkey"])
+        player.buy_food(0, 0)
+        rams = [x.pet for x in player.team if x.pet.name == "pet-ram"]
+        self.assertEqual([(x.attack, x.health) for x in rams], [(5, 3), (5, 3)])
+        self.assertEqual((shark.attack, shark.health), (12, 4))
+
     def test_crab_without_living_friends(self):
         crab = Pet("crab")
         crab._health = 0

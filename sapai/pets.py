@@ -583,7 +583,8 @@ class Pet:
         if self.team.check_friend(self):
             pet_idx = self.team.get_idx(self)
         else:
-            pet_idx = te_idx
+            ### Already removed from the team: use where the fainted pet was
+            pet_idx = te_idx[1]
 
         if oteam is not None:
             teams = [self.team, oteam]
@@ -958,7 +959,12 @@ def tiger_func(func, te_fainted, *args):
             return targets, possible
 
     ### Get pet behind apet before running function
-    pet_behind = apet.team.get_behind(apet, n=1)
+    if apet.team.check_friend(apet):
+        pet_behind = apet.team.get_behind(apet, n=1)
+    else:
+        ### A fainted pet that was already removed: look behind its old slot
+        slot_idx = args[1][1]
+        pet_behind = [x for x in list(apet.team)[slot_idx + 1 :] if not x.empty][:1]
 
     ### If the triggering entity is supposed to have fainted, remove it now
     if te_fainted:

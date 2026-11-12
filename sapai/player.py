@@ -248,24 +248,27 @@ class Player:
                 if p.name == "pet-none":
                     continue
                 if p.health <= 0:
-                    fainted_list.append(pet_idx)
+                    fainted_list.append([pet_idx, p])
                     if p.status != "none":
                         status_list.append([p, pet_idx])
 
             ### check every fainted pet
             faint_targets_list = []
-            for pet_idx in fainted_list:
-                fainted_pet = self.team[pet_idx].pet
-                ### check for all pets that trigger off this fainted pet (including self)
-                for _, te_pet_idx in pp:
-                    other_pet = self.team[te_pet_idx].pet
+            for pet_idx, fainted_pet in fainted_list:
+                ### Pets that may trigger off this fainted pet (including
+                ###   itself). Taken before any trigger runs, because a trigger
+                ###   can remove the fainted pet before its own ability runs.
+                responders = [self.team[i].pet for _, i in pp]
+                for other_pet in responders:
+                    if other_pet.name == "pet-none":
+                        continue
                     te_idx = [0, pet_idx]
                     activated, targets, possible = other_pet.faint_trigger(
                         fainted_pet, te_idx
                     )
                     if activated:
                         faint_targets_list.append(
-                            [fainted_pet, pet_idx, activated, targets, possible]
+                            [other_pet, pet_idx, activated, targets, possible]
                         )
 
                 ### If no trigger was activated, then the pet was never removed.
@@ -273,16 +276,16 @@ class Player:
                 if self.team.check_friend(fainted_pet):
                     self.team.remove(fainted_pet)
 
-            ### If pet was summoned, then need to check for summon triggers
+            ### If a pet's faint ability summoned pets, check for summon triggers
             for (
-                fainted_pet,
+                activating_pet,
                 pet_idx,
                 activated,
                 targets,
                 possible,
             ) in faint_targets_list:
                 self.check_summon_triggers(
-                    fainted_pet, pet_idx, activated, targets, possible
+                    activating_pet, pet_idx, activated, targets, possible
                 )
 
             ### if pet was hurt, then need to check for hurt triggers
@@ -309,13 +312,23 @@ class Player:
 
         return (food, targets)
 
-    def check_summon_triggers(self, fainted_pet, pet_idx, activated, targets, possible):
+    def check_summon_triggers(
+        self, activating_pet, pet_idx, activated, targets, possible
+    ):
+        """Friend summoned triggers for the pets summoned by activating_pet"""
         if not activated:
             return
-        func = get_effect_function(fainted_pet)
+        func = get_effect_function(activating_pet)
         if func not in [RespawnPet, SummonPet, SummonRandomPet]:
             return
-        for temp_te in targets:
+        if activating_pet.ability["effect"].get("team") == "Enemy":
+            return
+        summoned = []
+        for entry in targets:
+            summoned += entry if isinstance(entry, list) else [entry]
+        for temp_te in summoned:
+            if type(temp_te).__name__ != "Pet":
+                continue
             for temp_slot in self.team:
                 temp_pet = temp_slot.pet
                 temp_pet.friend_summoned_trigger(temp_te)

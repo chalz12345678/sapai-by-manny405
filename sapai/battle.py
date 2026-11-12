@@ -495,22 +495,25 @@ def battle_phase_hurt_and_faint(battle_obj, phase, teams, pet_priority, phase_di
             if p.name == "pet-none":
                 continue
             if p.health <= 0:
-                fainted_list.append([team_idx, pet_idx])
+                fainted_list.append([team_idx, pet_idx, p])
                 if p.status != "none":
                     status_list.append([p, team_idx, pet_idx])
 
         ### Check every fainted pet
         faint_targets_list = []
-        for team_idx, pet_idx in fainted_list:
+        for team_idx, pet_idx, fainted_pet in fainted_list:
             fteam, oteam = get_teams([team_idx, pet_idx], teams)
-            fainted_pet = fteam[pet_idx].pet
             ### Record every faint before the abilities it triggers
             phase_list.append(
                 ("Fainted", (team_idx, pet_idx), (fainted_pet.__repr__()), [""])
             )
-            ### Check for all pets that trigger off this fainted pet (including self)
-            for te_team_idx, te_pet_idx in pp:
-                other_pet = teams[te_team_idx][te_pet_idx].pet
+            ### Pets that may trigger off this fainted pet (including itself).
+            ###   Taken before any trigger runs, because a trigger can remove
+            ###   the fainted pet from the team before its own ability runs.
+            responders = [(t, i, teams[t][i].pet) for t, i in pp]
+            for te_team_idx, te_pet_idx, other_pet in responders:
+                if other_pet.name == "pet-none":
+                    continue
                 te_idx = [te_team_idx, te_pet_idx]
                 activated, targets, possible = other_pet.faint_trigger(
                     fainted_pet, te_idx, oteam
@@ -518,7 +521,7 @@ def battle_phase_hurt_and_faint(battle_obj, phase, teams, pet_priority, phase_di
                 if activated:
                     faint_targets_list.append(
                         [
-                            fainted_pet,
+                            other_pet,
                             te_team_idx,
                             te_pet_idx,
                             activated,
@@ -541,9 +544,9 @@ def battle_phase_hurt_and_faint(battle_obj, phase, teams, pet_priority, phase_di
             if teams[team_idx].check_friend(fainted_pet):
                 teams[team_idx].remove(fainted_pet)
 
-        ### If pet was summoned, then need to check for summon triggers
+        ### If a pet's faint ability summoned pets, check for summon triggers
         for (
-            fainted_pet,
+            activating_pet,
             team_idx,
             pet_idx,
             activated,
@@ -553,7 +556,7 @@ def battle_phase_hurt_and_faint(battle_obj, phase, teams, pet_priority, phase_di
             fteam, _ = get_teams([team_idx, pet_idx], teams)
             check_summon_triggers(
                 phase_list,
-                fainted_pet,
+                activating_pet,
                 team_idx,
                 pet_idx,
                 fteam,
