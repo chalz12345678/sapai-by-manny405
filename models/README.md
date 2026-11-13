@@ -70,3 +70,24 @@ To continue training a model, pass it to `python -m sapai.rl.train --resume`.
 The models depend on the observation and action layout in `sapai/rl/env.py`
 and on the pets and foods in `sapai/data.py`; changing either means
 retraining.
+
+## Search experiments
+
+`sapai.rl.search` adds a search on top of a policy: for each shop decision
+the policy's top moves are played forward to the end of the turn and scored,
+and the best score (plus a bonus for the policy's own preference) is taken.
+Starting from `token_11.8M`, no scoring tried beat the plain policy in
+head-to-head play (60 games x 15 turns, 0.5 is even):
+
+| Scoring of end of turn teams | Policy weight | Score vs `token_11.8M` |
+|---|---|---|
+| Learned value network (`runs/search1`, 2,400 games of training) | 3.0 | 0.44-0.51 |
+| 16 simulated battles against pool teams | 3.0 | 0.513 |
+| 16 simulated battles + value network | 3.0 | 0.468 |
+| 16 simulated battles | 1.0 | 0.476 |
+| 16 simulated battles | 0.5 | 0.499 |
+
+The benchmark agreed (search agent 1441-1445, `token_11.8M` 1440). The
+opponent is unknown while shopping and most of a game depends on future
+shops, so an end of turn team is hard to score better than the policy
+already does. Self-play PPO stayed the stronger route.
