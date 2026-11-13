@@ -18,6 +18,7 @@ against the greedy bot:
 
 import argparse
 import csv
+import json
 import os
 import time
 
@@ -64,6 +65,7 @@ class EvalCallback(BaseCallback):
         self_teams=0,
         prune_bots_at=None,
         keep_bot_fraction=0.2,
+        max_opponent_teams=0,
         verbose=1,
     ):
         super().__init__(verbose)
@@ -83,6 +85,8 @@ class EvalCallback(BaseCallback):
         self.prune_bots_at = bot_teams if prune_bots_at is None else prune_bots_at
         self.keep_bot_fraction = keep_bot_fraction
         self.bots_pruned = False
+        self.bots_left = bot_teams
+        self.max_opponent_teams = max_opponent_teams
         self.selfplay_active = bool(selfplay_every) and not selfplay_on_plateau
         self.next_eval = eval_every
         self.next_selfplay = selfplay_every
@@ -114,8 +118,9 @@ class EvalCallback(BaseCallback):
                 ]
             )
         ### A self-play pool loaded from an earlier run may already be big
-        ###   enough to thin out the bot teams
+        ###   enough to thin out the bot teams, or to need capping
         self.maybe_prune_bots()
+        self.cap_pool()
 
     def _on_step(self):
         for info in self.locals.get("infos", []):
@@ -134,11 +139,13 @@ class EvalCallback(BaseCallback):
         n_games = n_games or self.selfplay_games
         self.harvests += 1
         teams = harvest_teams(self.model, SAPEnv(), n_games=n_games)
-        self.training_env.env_method("add_opponent_teams", teams, "self")
+        ### Teams are stamped with the training step, so the oldest (from the
+        ###   weakest versions of the model) can be removed first
+        age = float(self.num_timesteps)
+        self.training_env.env_method("add_opponent_teams", teams, "self", age)
         n = sum(len(x) for x in teams.values())
         self.self_teams += n
-        self.selfplay_library.add_all(teams, "self")
-        self.selfplay_library.save(os.path.join(self.out, "selfplay_teams.pkl"))
+        self.selfplay_library.add_all(teams, "self", age)
         if self.verbose:
             print(
                 f"[{self.num_timesteps} steps] self-play: added {n} teams"
@@ -146,6 +153,28 @@ class EvalCallback(BaseCallback):
                 flush=True,
             )
         self.maybe_prune_bots()
+        self.cap_pool()
+        self.selfplay_library.save(os.path.join(self.out, "selfplay_teams.pkl"))
+
+    def cap_pool(self):
+        """Remove the oldest self-play teams beyond max_opponent_teams in total"""
+        if not self.max_opponent_teams:
+            return
+        if len(self.selfplay_library) + self.bots_left <= self.max_opponent_teams:
+            return
+        left = self.training_env.env_method(
+            "cap_opponent_teams", self.max_opponent_teams
+        )
+        removed = self.selfplay_library.cap(self.max_opponent_teams - self.bots_left)
+        self.self_teams = len(self.selfplay_library)
+        self.selfplay_library.save(os.path.join(self.out, "selfplay_teams.pkl"))
+        if self.verbose:
+            print(
+                f"[{self.num_timesteps} steps] opponent pool capped at"
+                + f" {self.max_opponent_teams} teams: removed {removed} oldest"
+                + f" self-play teams ({left[0]} self-play teams left)",
+                flush=True,
+            )
 
     def maybe_prune_bots(self):
         """Once there are enough self-play teams, remove most bot teams"""
@@ -157,6 +186,7 @@ class EvalCallback(BaseCallback):
         left = self.training_env.env_method(
             "prune_opponent_teams", "bot", self.keep_bot_fraction
         )
+        self.bots_left = left[0]
         if self.verbose:
             print(
                 f"[{self.num_timesteps} steps] self-play pool reached"
@@ -276,6 +306,13 @@ def main(argv=None):
         default=0.2,
         help="fraction of bot teams kept after pruning (1 keeps all)",
     )
+    parser.add_argument(
+        "--max-opponent-teams",
+        type=int,
+        default=25000,
+        help="most teams in the opponent library; the oldest self-play teams"
+        + " are removed first (0 for no limit)",
+    )
     parser.add_argument("--wins-needed", type=int, default=10)
     parser.add_argument("--n-steps", type=int, default=512)
     parser.add_argument("--batch-size", type=int, default=256)
@@ -296,6 +333,9 @@ def main(argv=None):
         args.learning_rate = 2e-4 if args.policy == "token" else 3e-4
     os.makedirs(args.out, exist_ok=True)
     th.set_num_threads(args.threads)
+    ### Settings of the run, used by sapai.rl.resume_all to continue it
+    with open(os.path.join(args.out, "args.json"), "w") as f:
+        json.dump(vars(args), f, indent=2)
 
     library_path = os.path.join(args.out, "library.pkl")
     library = TeamLibrary.from_bots(
@@ -306,7 +346,7 @@ def main(argv=None):
     self_teams = 0
     if args.selfplay_teams:
         earlier = TeamLibrary.load(args.selfplay_teams)
-        library.add_all(earlier.teams, "self")
+        library.add_library(earlier, "self")
         self_teams = len(earlier)
     print(
         f"Opponent library: {bot_teams} bot teams, {self_teams} self-play teams",
@@ -368,9 +408,10 @@ def main(argv=None):
         self_teams=self_teams,
         prune_bots_at=args.prune_bots_at,
         keep_bot_fraction=args.keep_bot_fraction,
+        max_opponent_teams=args.max_opponent_teams,
     )
     if args.selfplay_teams:
-        callback.selfplay_library.add_all(earlier.teams, "self")
+        callback.selfplay_library.add_library(earlier, "self")
     model.learn(
         total_timesteps=args.timesteps,
         callback=callback,

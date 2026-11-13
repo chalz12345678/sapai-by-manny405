@@ -303,9 +303,13 @@ class SAPEnv(gym.Env):
     def action_masks(self):
         return action_mask(self.player)
 
-    def add_opponent_teams(self, teams, source="self"):
+    def add_opponent_teams(self, teams, source="self", age=0.0):
         """Add recorded teams to a library opponent, used for self-play"""
-        self.opponent.add_teams(teams, source)
+        self.opponent.add_teams(teams, source, age)
+
+    def cap_opponent_teams(self, max_total):
+        """Remove the oldest self-play teams beyond max_total teams in total"""
+        return self.opponent.cap_teams(max_total)
 
     def prune_opponent_teams(self, source, keep_fraction):
         """Keep keep_fraction of a library opponent's teams from source"""

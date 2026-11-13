@@ -1,4 +1,5 @@
 # %%
+import json
 import os
 import random
 import tempfile
@@ -221,6 +222,51 @@ class TestOpponents(unittest.TestCase):
         ### 3 self-play teams per turn, half rounds to 2 per turn
         self.assertEqual(env.prune_opponent_teams("self", 0.5), 8)
 
+    def test_library_cap_removes_oldest_self_play_teams(self):
+        library = TeamLibrary.from_bots(2, bots=("greedy",), turns=3)
+        states = TeamLibrary.from_bots(4, bots=("random",), turns=3).teams
+        old = {t: x[:2] for t, x in states.items()}
+        new = {t: x[2:] for t, x in states.items()}
+        library.add_all(old, "self", age=100)
+        library.add_all(new, "self", age=200)
+        self.assertEqual((library.count("bot"), library.count("self")), (6, 12))
+
+        ### Only the oldest self-play teams go; bot teams are kept
+        removed = library.cap(12)
+        self.assertEqual(removed, 6)
+        self.assertEqual((library.count("bot"), library.count("self")), (6, 6))
+        for turn in library.teams:
+            ages = [
+                a
+                for s, a in zip(library.sources[turn], library.ages[turn])
+                if s == "self"
+            ]
+            self.assertEqual(ages, [200, 200])
+        self.assertEqual(library.cap(100), 0)
+        ### A limit of 0 removes every self-play team
+        self.assertEqual(library.cap(0), 6)
+        self.assertEqual(library.count("self"), 0)
+
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "library.pkl")
+            library.save(path)
+            self.assertEqual(TeamLibrary.load(path).ages, library.ages)
+
+            ### Pools saved before ages existed are aged by their order
+            import pickle
+
+            with open(path, "wb") as f:
+                pickle.dump({"teams": library.teams, "sources": library.sources}, f)
+            loaded = TeamLibrary.load(path)
+            for turn, ages in loaded.ages.items():
+                self.assertEqual(ages, sorted(ages))
+
+        ### add_library keeps ages
+        copy = TeamLibrary()
+        copy.add_library(library, "self")
+        self.assertEqual(copy.ages, library.ages)
+        self.assertEqual(copy.count("self"), len(library))
+
     def test_greedy_bot_builds_a_team(self):
         player = Player()
         GreedyBot(random.Random(0)).shop(player)
@@ -441,6 +487,43 @@ class TestPolicy(unittest.TestCase):
             self.assertIn("self-play teams", log.getvalue())
             self.assertIn("kept 20% of the 100 bot teams", log.getvalue())
 
+            ### The opponent pool is capped by removing the oldest self-play
+            ###   teams, and the run's settings are saved for resume_all
+            capped = os.path.join(d, "capped")
+            log = io.StringIO()
+            with contextlib.redirect_stdout(log):
+                train_main(
+                    [
+                        f"--resume={os.path.join(pruned, 'final_model.zip')}",
+                        "--timesteps=64",
+                        "--n-envs=1",
+                        "--eval-every=64",
+                        "--eval-games=1",
+                        "--library-games=4",
+                        "--library-bots=greedy",
+                        "--selfplay-every=1000",
+                        f"--selfplay-teams={pool_path}",
+                        "--selfplay-games=1",
+                        "--prune-bots-at=1",
+                        "--max-opponent-teams=40",
+                        f"--out={capped}",
+                    ]
+                )
+            self.assertIn("opponent pool capped at 40 teams", log.getvalue())
+            ### 100 bot teams over 25 turns, 20% rounds up to 1 per turn: 25
+            ###   bot teams stay, so 15 self-play teams fit
+            saved = TeamLibrary.load(os.path.join(capped, "selfplay_teams.pkl"))
+            self.assertEqual(len(saved), 40 - 25)
+            loaded = TeamLibrary.load(pool_path)
+            newest = sorted(a for x in loaded.ages.values() for a in x)[-1]
+            ### The newest harvest is kept (the order of removal is checked in
+            ###   test_library_cap_removes_oldest_self_play_teams)
+            self.assertGreaterEqual(
+                max(a for x in saved.ages.values() for a in x), newest
+            )
+            with open(os.path.join(capped, "args.json")) as f:
+                self.assertEqual(json.load(f)["max_opponent_teams"], 40)
+
 
 @unittest.skipUnless(HAVE_RL, "gymnasium, sb3-contrib and torch are required")
 class TestBenchmark(unittest.TestCase):
@@ -533,6 +616,73 @@ class TestBenchmark(unittest.TestCase):
         self.assertAlmostEqual(ratings["b"], 1000, delta=60)
         ### A 0.75 score is about +190 Elo
         self.assertAlmostEqual(ratings["a"] - ratings["b"], 190, delta=60)
+
+
+@unittest.skipUnless(HAVE_RL, "gymnasium, sb3-contrib and torch are required")
+class TestResumeAll(unittest.TestCase):
+    def test_resume_all_dry_run(self):
+        import contextlib
+        import io
+        from unittest import mock
+
+        from sapai.rl import resume_all
+
+        with tempfile.TemporaryDirectory() as d:
+            for name, policy in [("mlp2", "mlp"), ("mlp3", "mlp"), ("tok7", "token")]:
+                os.makedirs(os.path.join(d, name))
+                with open(os.path.join(d, name, "args.json"), "w") as f:
+                    json.dump({"policy": policy, "out": name, "resume": None}, f)
+                open(os.path.join(d, name, "latest_model.zip"), "w").close()
+            open(os.path.join(d, "mlp3", "selfplay_teams.pkl"), "w").close()
+            csv_path = os.path.join(d, "benchmark.csv")
+            with open(os.path.join(d, "benchmark_watch.json"), "w") as f:
+                json.dump(
+                    {
+                        "watch": ["runs/mlp3", "runs/tok7"],
+                        "pool": ["greedy", "a=a.zip"],
+                        "games": 100,
+                        "turns": 15,
+                        "seed": 1,
+                        "every_minutes": 45,
+                        "out_dir": "bench",
+                        "csv": csv_path,
+                    },
+                    f,
+                )
+
+            log = io.StringIO()
+            with mock.patch.object(resume_all, "running_commands", return_value=[]):
+                with contextlib.redirect_stdout(log):
+                    resume_all.main(
+                        ["--runs-dir", d, "--benchmark-csv", csv_path, "--dry-run"]
+                    )
+            lines = log.getvalue().splitlines()
+            mlp = [x for x in lines if "--policy=mlp" in x][0]
+            self.assertIn(f"--out={os.path.join(d, 'mlp4')}", mlp)
+            self.assertIn(
+                f"--resume={os.path.join(d, 'mlp3', 'model_resume.zip')}", mlp
+            )
+            self.assertIn("--selfplay-teams=", mlp)
+            tok = [x for x in lines if "--policy=token" in x][0]
+            self.assertIn(f"--out={os.path.join(d, 'tok8')}", tok)
+            self.assertNotIn("--selfplay-teams=", tok)
+            watch = [x for x in lines if "sapai.rl.benchmark" in x][0]
+            self.assertIn(os.path.join(d, "mlp4"), watch)
+            self.assertIn(os.path.join(d, "tok8"), watch)
+            self.assertIn("--pool greedy a=a.zip", watch)
+
+            ### Runs that are still training are left alone
+            log = io.StringIO()
+            running = [f"python -m sapai.rl.train --out {os.path.join(d, 'mlp3')}"]
+            with mock.patch.object(
+                resume_all, "running_commands", return_value=running
+            ):
+                with contextlib.redirect_stdout(log):
+                    resume_all.main(
+                        ["--runs-dir", d, "--benchmark-csv", csv_path, "--dry-run"]
+                    )
+            self.assertIn("mlp3 is still training", log.getvalue())
+            self.assertNotIn("--policy=mlp", log.getvalue())
 
 
 # %%

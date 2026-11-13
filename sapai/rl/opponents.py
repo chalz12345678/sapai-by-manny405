@@ -141,44 +141,84 @@ class TeamLibrary:
     """
     Recorded teams for each turn, stored as Team states. Each team has a
     source, "bot" for teams from bots and "self" for self-play teams, so a
-    source can be thinned out later with prune().
+    source can be thinned out later with prune(), and an age (the training
+    step it was harvested at) so the oldest teams can be removed with cap().
     """
 
-    def __init__(self, teams=None, sources=None):
+    def __init__(self, teams=None, sources=None, ages=None):
         self.teams = teams or {}
         if sources is None:
             sources = {t: ["bot"] * len(x) for t, x in self.teams.items()}
         self.sources = sources
+        if ages is None:
+            ### Teams were always appended in time order, so the position in
+            ###   each turn gives the order they were added in
+            ages = {
+                t: [i / max(len(x), 1) for i in range(len(x))]
+                for t, x in self.teams.items()
+            }
+        self.ages = ages
 
-    def add(self, turn, team_state, source="bot"):
+    def add(self, turn, team_state, source="bot", age=0.0):
         self.teams.setdefault(int(turn), []).append(team_state)
         self.sources.setdefault(int(turn), []).append(source)
+        self.ages.setdefault(int(turn), []).append(float(age))
 
-    def add_all(self, teams, source="bot"):
+    def add_all(self, teams, source="bot", age=0.0):
         for turn, states in teams.items():
             for state in states:
-                self.add(turn, state, source)
+                self.add(turn, state, source, age)
+
+    def add_library(self, other, source=None):
+        """Add all teams of another library, keeping their ages"""
+        for turn, states in other.teams.items():
+            for state, s, age in zip(states, other.sources[turn], other.ages[turn]):
+                self.add(turn, state, source or s, age)
 
     def count(self, source=None):
         if source is None:
             return len(self)
         return sum(x.count(source) for x in self.sources.values())
 
+    def _keep(self, turn, keep_idx):
+        keep_idx = sorted(keep_idx)
+        self.teams[turn] = [self.teams[turn][i] for i in keep_idx]
+        self.sources[turn] = [self.sources[turn][i] for i in keep_idx]
+        self.ages[turn] = [self.ages[turn][i] for i in keep_idx]
+
     def prune(self, source, keep_fraction, rng):
         """Keep a random keep_fraction of the teams from source in every turn"""
         for turn in list(self.teams):
-            keep_states, keep_sources = [], []
             from_source = [i for i, s in enumerate(self.sources[turn]) if s == source]
             n_keep = int(round(len(from_source) * keep_fraction))
             if from_source and n_keep == 0:
                 n_keep = 1
             kept = set(rng.sample(from_source, n_keep))
-            for i, (state, s) in enumerate(zip(self.teams[turn], self.sources[turn])):
-                if s != source or i in kept:
-                    keep_states.append(state)
-                    keep_sources.append(s)
-            self.teams[turn] = keep_states
-            self.sources[turn] = keep_sources
+            keep_idx = [
+                i for i, s in enumerate(self.sources[turn]) if s != source or i in kept
+            ]
+            self._keep(turn, keep_idx)
+
+    def cap(self, max_total, source="self"):
+        """
+        Remove the oldest teams from source until the library holds at most
+        max_total teams. Returns the number of teams removed.
+        """
+        n_remove = len(self) - max(max_total, 0)
+        if n_remove <= 0:
+            return 0
+        candidates = sorted(
+            (age, turn, i)
+            for turn in self.teams
+            for i, (s, age) in enumerate(zip(self.sources[turn], self.ages[turn]))
+            if s == source
+        )
+        remove = {}
+        for age, turn, i in candidates[:n_remove]:
+            remove.setdefault(turn, set()).add(i)
+        for turn, idx in remove.items():
+            self._keep(turn, [i for i in range(len(self.teams[turn])) if i not in idx])
+        return sum(len(x) for x in remove.values())
 
     def sample(self, turn, rng):
         turns = sorted(t for t in self.teams if self.teams[t])
@@ -195,14 +235,16 @@ class TeamLibrary:
 
     def save(self, path):
         with open(path, "wb") as f:
-            pickle.dump({"teams": self.teams, "sources": self.sources}, f)
+            pickle.dump(
+                {"teams": self.teams, "sources": self.sources, "ages": self.ages}, f
+            )
 
     @classmethod
     def load(cls, path):
         with open(path, "rb") as f:
             data = pickle.load(f)
         if "teams" in data and "sources" in data:
-            return cls(data["teams"], data["sources"])
+            return cls(data["teams"], data["sources"], data.get("ages"))
         ### Libraries saved before sources were recorded only hold bot teams
         return cls(data)
 
@@ -241,8 +283,12 @@ class LibraryOpponent:
     def after_battle(self, result):
         pass
 
-    def add_teams(self, teams, source="self"):
-        self.library.add_all(teams, source)
+    def add_teams(self, teams, source="self", age=0.0):
+        self.library.add_all(teams, source, age)
+
+    def cap_teams(self, max_total):
+        self.library.cap(max_total)
+        return self.library.count("self")
 
     def prune_teams(self, source, keep_fraction, rng=None):
         self.library.prune(source, keep_fraction, rng or self.rng)

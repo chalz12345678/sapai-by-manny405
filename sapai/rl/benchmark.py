@@ -23,6 +23,7 @@ against every pool member and appends the results to runs/benchmark.csv.
 import argparse
 import csv
 import itertools
+import json
 import os
 import random
 import shutil
@@ -125,6 +126,10 @@ def round_robin(players, games, turns, seed, verbose=True):
 def print_ratings(ratings):
     for name, rating in sorted(ratings.items(), key=lambda x: -x[1]):
         print(f"  {name:<24} {rating:7.0f}")
+
+
+def watch_args_path(csv_path):
+    return os.path.join(os.path.dirname(csv_path) or ".", "benchmark_watch.json")
 
 
 def latest_steps(run_dir):
@@ -293,6 +298,10 @@ def main(argv=None):
     elif args.watch:
         if not args.pool:
             parser.error("--watch needs --pool")
+        ### Settings of the watcher, used by sapai.rl.resume_all
+        os.makedirs(os.path.dirname(args.csv) or ".", exist_ok=True)
+        with open(watch_args_path(args.csv), "w") as f:
+            json.dump(vars(args), f, indent=2)
         pool = [Player(*parse_player(x)) for x in args.pool]
         watch(
             args.watch,
