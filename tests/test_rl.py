@@ -741,4 +741,145 @@ class TestResumeAll(unittest.TestCase):
             self.assertNotIn("_module", line)
 
 
+@unittest.skipUnless(HAVE_RL, "gymnasium, sb3-contrib and torch are required")
+class TestSearch(unittest.TestCase):
+    def make_agent(self, **kwargs):
+        from sb3_contrib import MaskablePPO
+
+        from sapai.rl.policy import TokenMaskablePolicy
+        from sapai.rl.search import SearchAgent, ValueNet
+
+        policy = MaskablePPO(
+            TokenMaskablePolicy,
+            SAPEnv(FixedOpponent(["ant"])),
+            policy_kwargs={"d_model": 32, "n_heads": 2, "n_layers": 1},
+            n_steps=64,
+            device="cpu",
+            seed=0,
+        )
+        return SearchAgent(policy, ValueNet(32, 2, 1), **kwargs)
+
+    def test_value_net(self):
+        from sapai.rl.search import ValueNet
+
+        env = SAPEnv(FixedOpponent(["ant"]))
+        obs, _ = env.reset(seed=0)
+        values = ValueNet(32, 2, 1).predict(np.stack([obs, obs]))
+        self.assertEqual(values.shape, (2,))
+
+    def test_choose_and_shop(self):
+        from sapai.rl.search import Context
+
+        agent = self.make_agent(n_candidates=4, rollout_depth=3)
+        env = SAPEnv(FixedOpponent(["ant"]))
+        env.reset(seed=0)
+        np.random.seed(0)
+        state = env.player.state
+        action, info = agent.choose(env.player, Context())
+        self.assertTrue(action_mask(env.player)[action])
+        self.assertIn(END_TURN, info["q"])
+        ### Searching does not change the real player
+        self.assertEqual(env.player.state, state)
+
+        ### Playing whole games, ending turns before the action cap
+        record = []
+        for _ in range(3):
+            agent.shop_env(env, record)
+            self.assertLess(env.actions_this_turn, env.max_actions_per_turn)
+            env.step(END_TURN)
+        self.assertGreater(len(record), 0)
+        self.assertTrue(all(m[a] for _, m, a in record))
+
+    def test_prior_weight_follows_policy(self):
+        from sapai.rl.search import Context
+
+        ### With a huge prior weight the search picks the policy's favourite
+        agent = self.make_agent(n_candidates=4, rollout_depth=1, prior_weight=1e6)
+        env = SAPEnv(FixedOpponent(["ant"]))
+        env.reset(seed=0)
+        ctx = Context()
+        mask = action_mask(env.player)
+        probs = agent.policy_probs([ctx.encode(env.player)], [mask])[0]
+        action, _ = agent.choose(env.player, ctx)
+        self.assertEqual(action, int(np.argmax(np.where(mask, probs, -1))))
+
+    def test_save_load_and_benchmark_player(self):
+        from sapai.rl import benchmark
+        from sapai.rl.search import SearchAgent, SearchOpponent, is_agent_folder
+
+        agent = self.make_agent(n_candidates=3, rollout_depth=2, prior_weight=0.7)
+        with tempfile.TemporaryDirectory() as d:
+            folder = os.path.join(d, "agent")
+            agent.save(folder)
+            self.assertTrue(is_agent_folder(folder))
+            loaded = SearchAgent.load(folder)
+            self.assertEqual(loaded.settings(), agent.settings())
+
+            player = benchmark.Player("search", folder)
+            self.assertIsNotNone(player.agent)
+            opponent = player.opponent()
+            self.assertIsInstance(opponent, SearchOpponent)
+            opponent.reset()
+            self.assertIsInstance(opponent.team_for_turn(1), Team)
+            opponent.after_battle(1)
+            self.assertEqual(opponent.wins, 1)
+            score, r = benchmark.match(player, benchmark.Player("greedy", None), 2, 3)
+            self.assertGreaterEqual(score, 0)
+
+    def test_search_train(self):
+        from sapai.rl.search import is_agent_folder
+        from sapai.rl.search_train import main as search_main
+        from sapai.rl.policy import TokenMaskablePolicy
+        from sb3_contrib import MaskablePPO
+
+        with tempfile.TemporaryDirectory() as d:
+            policy = MaskablePPO(
+                TokenMaskablePolicy,
+                SAPEnv(FixedOpponent(["ant"])),
+                policy_kwargs={"d_model": 32, "n_heads": 2, "n_layers": 1},
+                n_steps=64,
+                device="cpu",
+            )
+            policy.save(os.path.join(d, "policy.zip"))
+            out = os.path.join(d, "search1")
+            common = [
+                "--library-games=4",
+                "--keep-bot-teams=20",
+                "--opponent-pool",
+                "--games-per-iter=2",
+                "--value-steps=2",
+                "--distill-every=1",
+                "--distill-steps=2",
+                "--eval-every=2",
+                "--eval-games=1",
+                "--n-candidates=3",
+                "--rollout-depth=2",
+                "--d-model=32",
+                "--n-heads=2",
+                "--n-layers=1",
+            ]
+            search_main(
+                [
+                    f"--policy={os.path.join(d, 'policy.zip')}",
+                    "--bootstrap-games=2",
+                    "--bootstrap-steps=2",
+                    "--total-games=2",
+                    f"--out={out}",
+                ]
+                + common
+            )
+            self.assertTrue(is_agent_folder(os.path.join(out, "latest_agent")))
+            with open(os.path.join(out, "args.json")) as f:
+                self.assertEqual(json.load(f)["_module"], "sapai.rl.search_train")
+            ### Resuming continues the game count
+            out2 = os.path.join(d, "search2")
+            search_main(
+                [f"--resume={out}", "--total-games=4", f"--out={out2}"] + common
+            )
+            with open(os.path.join(out2, "progress.csv")) as f:
+                steps = [int(x.split(",")[0]) for x in f.read().splitlines()[1:]]
+            self.assertGreaterEqual(min(steps), 2)
+            self.assertGreaterEqual(max(steps), 4)
+
+
 # %%

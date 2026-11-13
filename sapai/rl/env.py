@@ -263,6 +263,9 @@ class SAPEnv(gym.Env):
         ### Teams the player had at the end of each turn, for self-play
         self.record_teams = False
         self.recorded_teams = {}
+        ### Keep the team of the last battle in last_team_state
+        self.record_last_team = False
+        self.last_team_state = None
         self.player = None
 
     ############################################################################
@@ -351,6 +354,8 @@ class SAPEnv(gym.Env):
         p.team.move_forward()
         if self.record_teams:
             self.recorded_teams.setdefault(turn, []).append(p.team.state)
+        if self.record_last_team:
+            self.last_team_state = p.team.state
 
         opponent_team = self.opponent.team_for_turn(turn)
         try:

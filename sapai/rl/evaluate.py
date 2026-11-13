@@ -35,6 +35,7 @@ def play_games(
     """
     env = SAPEnv(opponent or GreedyOpponent(), **(env_kwargs or {}))
     is_bot = hasattr(controller, "shop")
+    is_searcher = hasattr(controller, "shop_env")
     battles = {"win": 0, "loss": 0, "draw": 0}
     games_won = 0
     turns = []
@@ -43,7 +44,10 @@ def play_games(
         obs, info = env.reset(seed=seed + game)
         done = False
         while not done:
-            if is_bot:
+            if is_searcher:
+                controller.shop_env(env)
+                action = END_TURN
+            elif is_bot:
                 controller.shop(env.player)
                 action = END_TURN
             else:
