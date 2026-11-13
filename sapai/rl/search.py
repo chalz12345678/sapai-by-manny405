@@ -177,7 +177,7 @@ class SearchAgent:
                     continue
                 leaf[2] += 1
 
-        values = self.value_net.predict([ctx.encode(x[1], x[2]) for x in leaves])
+        values = self.leaf_values(leaves, ctx)
         q = {}
         for leaf, v in zip(leaves, values):
             q.setdefault(leaf[0], []).append(float(v))
@@ -198,6 +198,10 @@ class SearchAgent:
                 a for a in candidates if a in score and score[a] >= best - 1e-9
             )
         return choice, {"q": q, "prior": {a: float(probs[a]) for a in candidates}}
+
+    def leaf_values(self, leaves, ctx):
+        """Values of the end of turn positions [candidate, player, actions, _]"""
+        return self.value_net.predict([ctx.encode(x[1], x[2]) for x in leaves])
 
     def shop_env(self, env, record=None):
         """
