@@ -742,6 +742,50 @@ class TestResumeAll(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_RL, "gymnasium, sb3-contrib and torch are required")
+class TestGrow(unittest.TestCase):
+    def test_grown_model_plays_the_same(self):
+        import torch as th
+        from sb3_contrib import MaskablePPO
+
+        from sapai.rl.grow import grow_model
+        from sapai.rl.policy import TokenMaskablePolicy
+
+        env = SAPEnv(FixedOpponent(["ant"]))
+        model = MaskablePPO(
+            TokenMaskablePolicy,
+            env,
+            policy_kwargs={"d_model": 32, "n_heads": 2, "n_layers": 1},
+            n_steps=64,
+            device="cpu",
+            seed=0,
+        )
+        ### Make the trained layer non-trivial
+        model.learn(64)
+        grown = grow_model(model, 3)
+        self.assertEqual(len(grown.policy.mlp_extractor.encoder.layers), 3)
+        self.assertEqual(grown.num_timesteps, model.num_timesteps)
+        obs = []
+        o, _ = env.reset(seed=0)
+        rng = np.random.default_rng(0)
+        for _ in range(40):
+            obs.append(o)
+            o, _, done, trunc, _ = env.step(
+                rng.choice(np.flatnonzero(env.action_masks()))
+            )
+            if done or trunc:
+                o, _ = env.reset()
+        x = th.as_tensor(np.array(obs, dtype=np.float32))
+        with th.no_grad():
+            for f in [
+                lambda m: m.policy.get_distribution(x).distribution.logits,
+                lambda m: m.policy.predict_values(x),
+            ]:
+                self.assertTrue(th.allclose(f(model), f(grown), atol=1e-5))
+        with self.assertRaises(ValueError):
+            grow_model(grown, 2)
+
+
+@unittest.skipUnless(HAVE_RL, "gymnasium, sb3-contrib and torch are required")
 class TestSearch(unittest.TestCase):
     def make_agent(self, **kwargs):
         from sb3_contrib import MaskablePPO
