@@ -5,10 +5,10 @@ MaskablePPO agents (sb3-contrib) trained on the Turtle Pack with
 
 | File | Policy | Training steps | Benchmark rating |
 |---|---|---|---|
-| **`token_13.5M.zip`** | token network (`TokenMaskablePolicy`) | 13.5M | **1459** (best) |
+| **`token_16.8M.zip`** | token network (`TokenMaskablePolicy`) | 16.8M | **1470** (best) |
+| `token_13.5M.zip` | token network (`TokenMaskablePolicy`) | 13.5M | 1459 |
 | `token_11.8M.zip` | token network (`TokenMaskablePolicy`) | 11.8M | 1440 |
 | `token_6.3M.zip` | token network (`TokenMaskablePolicy`) | 6.3M | 1427 (first plateau) |
-| `token_4.3M.zip` | token network (`TokenMaskablePolicy`) | 4.3M | 1426 |
 | `token_3.5M.zip` | token network (`TokenMaskablePolicy`) | 3.5M | 1393 |
 | **`mlp_19.3M.zip`** | MLP (`MlpPolicy`, 256x256) | 19.3M | **1420** (best MLP, plateau) |
 | `mlp_10.9M.zip` | MLP (`MlpPolicy`, 256x256) | 10.9M | 1332 |
@@ -22,19 +22,19 @@ so 0.5 is even:
 
 | Model | greedy | mlp_8.2M | token_3.5M |
 |---|---|---|---|
+| `token_16.8M` | 0.868 | 0.756 | 0.651 |
 | `token_13.5M` | 0.871 | 0.739 | 0.661 |
 | `token_11.8M` | 0.857 | 0.700 | 0.610 |
 | `token_6.3M` | 0.862 | 0.734 | 0.548 |
-| `token_4.3M` | 0.863 | 0.713 | 0.560 |
 | `mlp_19.3M` | 0.885 | 0.694 | 0.479 |
 | `mlp_10.9M` | 0.849 | 0.543 | 0.386 |
 
 Both networks plateaued under self-play. The token network's ratings stayed
 between 1417 and 1434 from 4.3M to 10.2M steps (`token_6.3M` was its plateau
 best), then rose to 1440 at 11.1M and 11.8M steps after the opponent pool was
-capped to the newest 25,000 teams, and to 1459 at 13.5M steps after a
+capped to the newest 25,000 teams, then to 1459 at 13.5M and 1470 at 16.8M steps after a
 further cap to 15,000 teams (13,000 self-play and 2,000 greedy bot teams);
-`token_13.5M` is its best so far. The MLP needed about three times as many steps to get there: its
+`token_16.8M` is its best so far. The MLP needed about three times as many steps to get there: its
 ratings stayed between 1407 and 1420 from 18.2M to 23.6M steps, so
 `mlp_19.3M` is its plateau best, close to the token network's level.
 
@@ -47,15 +47,15 @@ playing the same games wins 25%.
 The models need `torch`, `gymnasium` and `sb3-contrib`.
 
 ```bash
-python -m sapai.rl.evaluate --model models/token_13.5M.zip --games 100
-python -m sapai.rl.benchmark --players greedy models/token_13.5M.zip models/mlp_8.2M.zip
+python -m sapai.rl.evaluate --model models/token_16.8M.zip --games 100
+python -m sapai.rl.benchmark --players greedy models/token_16.8M.zip models/mlp_8.2M.zip
 ```
 
 ```python
 from sb3_contrib import MaskablePPO
 from sapai.rl.env import SAPEnv
 
-model = MaskablePPO.load("models/token_13.5M.zip", device="cpu")
+model = MaskablePPO.load("models/token_16.8M.zip", device="cpu")
 env = SAPEnv()  # plays against the live greedy bot
 obs, info = env.reset(seed=0)
 done = False
