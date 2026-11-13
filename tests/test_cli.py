@@ -138,3 +138,79 @@ class TestCLI(unittest.TestCase):
 
 
 # %%
+
+
+try:
+    import sb3_contrib  # noqa: F401
+
+    HAVE_RL = True
+except ImportError:  # pragma: no cover
+    HAVE_RL = False
+
+
+class TestCLIOpponents(unittest.TestCase):
+    def test_find_model_picks_most_trained(self):
+        import os
+        import tempfile
+
+        from sapai.cli import find_model
+
+        with tempfile.TemporaryDirectory() as d:
+            for name in ["token_3.5M.zip", "token_10.2M.zip", "mlp_8.2M.zip", "x.zip"]:
+                open(os.path.join(d, name), "w").close()
+            self.assertEqual(find_model("token", d), os.path.join(d, "token_10.2M.zip"))
+            self.assertEqual(find_model("mlp", d), os.path.join(d, "mlp_8.2M.zip"))
+            with self.assertRaises(SystemExit):
+                find_model("token", os.path.join(d, "missing"))
+
+    def test_unknown_opponent(self):
+        with self.assertRaises(SystemExit) as e:
+            Game(opponent="dragon", print_fn=lambda x: None)
+        self.assertIn("greedy, token, mlp", str(e.exception))
+
+    def test_missing_rl_packages(self):
+        import sys
+        from unittest import mock
+
+        with mock.patch.dict(sys.modules, {"sb3_contrib": None}):
+            with self.assertRaises(SystemExit) as e:
+                Game(opponent=__file__, print_fn=lambda x: None)
+        self.assertIn("pip install torch gymnasium sb3-contrib", str(e.exception))
+
+    @unittest.skipUnless(HAVE_RL, "sb3-contrib is required")
+    def test_play_against_a_model(self):
+        import os
+        import tempfile
+
+        from sb3_contrib import MaskablePPO
+
+        from sapai.rl.env import SAPEnv
+
+        with tempfile.TemporaryDirectory() as d:
+            model = MaskablePPO("MlpPolicy", SAPEnv(), n_steps=64, device="cpu", seed=0)
+            model.save(os.path.join(d, "mlp_1.0M.zip"))
+
+            ### By kind, from a models folder, and by path
+            out = []
+            feed = ScriptedInput([], simple_strategy)
+            game = Game(
+                seed=1,
+                input_fn=feed,
+                print_fn=out.append,
+                opponent="mlp",
+                models_dir=d,
+                lives=3,
+            )
+            feed.game = game
+            self.assertIn(game.run(), ["won", "lost"])
+            self.assertIn("Your opponent: trained model mlp_1.0M", out)
+            ### The model saw the results from its own side
+            opponent = game.opponent.model_opponent
+            self.assertEqual(opponent.wins, game.losses)
+            self.assertEqual(opponent.player.turn, game.player.turn)
+
+            game = Game(
+                opponent=os.path.join(d, "mlp_1.0M.zip"),
+                print_fn=lambda x: None,
+            )
+            self.assertEqual(game.opponent_name, "trained model mlp_1.0M")

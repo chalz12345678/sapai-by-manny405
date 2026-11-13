@@ -107,6 +107,13 @@ class ModelOpponent:
         self.last_result = None
 
     def team_for_turn(self, turn):
+        self.shop()
+        self.player.end_turn()
+        self.player.team.move_forward()
+        return self.player.team
+
+    def shop(self):
+        """Take the model's shop actions for this turn, up to ending the turn"""
         p = self.player
         for actions in range(self.max_actions_per_turn):
             obs = encode(p, actions, self.last_result, self.max_turns, self.wins)
@@ -119,12 +126,17 @@ class ModelOpponent:
                 apply_action(p, int(action))
             except Exception:
                 pass
-        p.end_turn()
         p.team.move_forward()
-        return p.team
 
     def after_battle(self, result):
-        ### result is from the other side: 0 means this opponent lost
+        self.record_result(result)
+        self.player.start_turn(winner=(self.last_result != 1))
+
+    def record_result(self, result):
+        """
+        Update wins, lives and the last result the model sees. result is from
+        the other side: 0 means this opponent lost.
+        """
         own_result = {0: 1, 1: 0, 2: 2}[result]
         if own_result == 0:
             self.wins += 1
@@ -134,7 +146,6 @@ class ModelOpponent:
                 self.player.lives - data["turns"][f"turn-{turn}"]["livesLost"], 1
             )
         self.last_result = own_result
-        self.player.start_turn(winner=(own_result != 1))
 
 
 class TeamLibrary:

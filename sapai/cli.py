@@ -11,6 +11,7 @@ Win 10 battles before running out of lives.
 """
 
 import argparse
+import os
 import random
 import re
 import shlex
@@ -210,9 +211,85 @@ class Opponent:
         return False
 
 
+MODELS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "models")
+RL_PACKAGES = "torch gymnasium sb3-contrib"
+
+
+class ModelBot:
+    """
+    Opponent played by a trained model (see models/). It shops each turn with
+    its own Player, like the greedy Opponent.
+    """
+
+    def __init__(self, path):
+        try:
+            from sb3_contrib import MaskablePPO
+
+            from sapai.rl.opponents import ModelOpponent
+        except ImportError as e:
+            raise SystemExit(
+                f"Playing against a trained model needs {RL_PACKAGES}"
+                + f" (missing: {e.name}). Install them with:\n"
+                + f"    pip install {RL_PACKAGES}"
+            )
+        self.path = path
+        self.model_opponent = ModelOpponent(MaskablePPO.load(path, device="cpu"))
+        self.model_opponent.reset()
+
+    @property
+    def player(self):
+        return self.model_opponent.player
+
+    def shop_turn(self):
+        self.model_opponent.shop()
+
+    def record_result(self, result):
+        self.model_opponent.record_result(result)
+
+
+def find_model(kind, models_dir=MODELS_DIR):
+    """Path of the model in models_dir with the most training steps, e.g.
+    models/token_6.3M.zip for kind "token" """
+    best = None
+    if os.path.isdir(models_dir):
+        for name in os.listdir(models_dir):
+            match = re.fullmatch(kind + r"_(\d+(?:\.\d+)?)M\.zip", name)
+            if match and (best is None or float(match.group(1)) > best[0]):
+                best = (float(match.group(1)), os.path.join(models_dir, name))
+    if best is None:
+        raise SystemExit(f"No {kind} model found in {os.path.normpath(models_dir)}")
+    return best[1]
+
+
+def make_opponent(spec, rng, models_dir=MODELS_DIR):
+    """
+    Opponent for "greedy", "token" or "mlp" (the most trained model of that
+    kind in models/), or a path to a saved model
+    """
+    if spec == "greedy":
+        return Opponent(rng), "greedy bot"
+    if spec in ["token", "mlp"]:
+        path = find_model(spec, models_dir)
+    elif os.path.exists(spec):
+        path = spec
+    else:
+        raise SystemExit(
+            f"Unknown opponent '{spec}': use greedy, token, mlp or a model file"
+        )
+    name = os.path.splitext(os.path.basename(path))[0]
+    return ModelBot(path), f"trained model {name}"
+
+
 class Game:
     def __init__(
-        self, seed=None, lives=10, wins_needed=10, input_fn=input, print_fn=print
+        self,
+        seed=None,
+        lives=10,
+        wins_needed=10,
+        input_fn=input,
+        print_fn=print,
+        opponent="greedy",
+        models_dir=MODELS_DIR,
     ):
         if seed is not None:
             np.random.seed(seed)
@@ -220,7 +297,9 @@ class Game:
         self.input = input_fn
         self.print = print_fn
         self.player = Player(lives=lives)
-        self.opponent = Opponent(self.rng)
+        self.opponent, self.opponent_name = make_opponent(
+            opponent, self.rng, models_dir
+        )
         self.wins = 0
         self.losses = 0
         self.draws = 0
@@ -468,6 +547,9 @@ class Game:
         result = b.battle()
         self.last_battle = b
         self.last_result = result
+        ### A model opponent sees its own wins, lives and last result
+        if hasattr(self.opponent, "record_result"):
+            self.opponent.record_result(result)
 
         lives_lost = data["turns"][f"turn-{min(turn, 11)}"]["livesLost"]
         if result == 0:
@@ -516,6 +598,7 @@ class Game:
 
     def run(self):
         self.print("Super Auto Pets (Turtle Pack) in sapai. Type help for commands.")
+        self.print(f"Your opponent: {self.opponent_name}")
         self.show()
         while True:
             try:
@@ -544,8 +627,19 @@ def main(argv=None):
     parser.add_argument("--seed", type=int, default=None, help="random seed")
     parser.add_argument("--lives", type=int, default=10, help="starting lives")
     parser.add_argument("--wins", type=int, default=10, help="wins needed to win")
+    parser.add_argument(
+        "--opponent",
+        default="greedy",
+        help="greedy (default), token or mlp (the most trained model of that"
+        + " kind in models/), or a path to a saved model",
+    )
     args = parser.parse_args(argv)
-    Game(seed=args.seed, lives=args.lives, wins_needed=args.wins).run()
+    Game(
+        seed=args.seed,
+        lives=args.lives,
+        wins_needed=args.wins,
+        opponent=args.opponent,
+    ).run()
 
 
 if __name__ == "__main__":

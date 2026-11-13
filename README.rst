@@ -67,6 +67,16 @@ Type ``help`` in the game for the commands, for example ``buy 0``,
 ``buy 3 0`` (feed shop food 3 to team pet 0), ``sell 1``, ``roll``,
 ``freeze 2``, ``move 2 0``, ``end`` and ``log``.
 
+By default the opponent is a greedy bot. You can instead play against one of
+the trained models in ``models/`` (this needs ``torch``, ``gymnasium`` and
+``sb3-contrib``):
+
+.. code-block:: bash
+
+    python -m sapai.cli --opponent token   # strongest: the most trained token model
+    python -m sapai.cli --opponent mlp     # the most trained MLP model
+    python -m sapai.cli --opponent models/token_4.3M.zip
+
 ---------------------------
 Introduction: Code Examples
 ---------------------------
