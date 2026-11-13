@@ -826,6 +826,29 @@ class TestSearch(unittest.TestCase):
             score, r = benchmark.match(player, benchmark.Player("greedy", None), 2, 3)
             self.assertGreaterEqual(score, 0)
 
+    def test_battle_averaged_targets(self):
+        from sapai.rl.search_train import expected_battle, play_training_game
+
+        library = TeamLibrary.from_bots(4, bots=("greedy",), turns=5)
+        turn, teams = next(iter(library.teams.items()))
+        value = expected_battle(teams[0], turn, library, random.Random(0), 6)
+        self.assertTrue(-1 <= value <= 1)
+
+        env = SAPEnv(LibraryOpponent(library), max_turns=5, lives=50)
+        env.record_last_team = True
+        samples, teams, info = play_training_game(
+            env,
+            policy=self.make_agent().policy_model,
+            library=library,
+            rng=random.Random(0),
+            battle_samples=4,
+        )
+        returns = [float(r) for _, r in samples]
+        self.assertEqual(len(returns), sum(len(x) for x in teams.values()))
+        ### Each turn adds between -1 and 1 to the rest of the game
+        for a, b in zip(returns[:-1], returns[1:]):
+            self.assertLessEqual(abs(a - b), 1 + 1e-9)
+
     def test_search_train(self):
         from sapai.rl.search import is_agent_folder
         from sapai.rl.search_train import main as search_main
@@ -852,6 +875,9 @@ class TestSearch(unittest.TestCase):
                 "--distill-steps=2",
                 "--eval-every=2",
                 "--eval-games=1",
+                "--eval-turns=3",
+                "--battle-samples=2",
+                "--distill-min-score=0",
                 "--n-candidates=3",
                 "--rollout-depth=2",
                 "--d-model=32",
@@ -871,6 +897,11 @@ class TestSearch(unittest.TestCase):
             self.assertTrue(is_agent_folder(os.path.join(out, "latest_agent")))
             with open(os.path.join(out, "args.json")) as f:
                 self.assertEqual(json.load(f)["_module"], "sapai.rl.search_train")
+            with open(os.path.join(out, "progress.csv")) as f:
+                rows = f.read().splitlines()
+            self.assertEqual(rows[0].split(",")[4], "score_vs_start")
+            ### With distill-min-score 0 the policy learns from the search
+            self.assertGreater(int(rows[-1].split(",")[5]), 0)
             ### Resuming continues the game count
             out2 = os.path.join(d, "search2")
             search_main(
