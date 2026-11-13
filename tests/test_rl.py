@@ -684,5 +684,47 @@ class TestResumeAll(unittest.TestCase):
             self.assertIn("mlp3 is still training", log.getvalue())
             self.assertNotIn("--policy=mlp", log.getvalue())
 
+            ### --only resumes one series
+            log = io.StringIO()
+            with mock.patch.object(resume_all, "running_commands", return_value=[]):
+                with contextlib.redirect_stdout(log):
+                    resume_all.main(
+                        ["--runs-dir", d, "--benchmark-csv", csv_path, "--dry-run"]
+                        + ["--only", "tok"]
+                    )
+            self.assertIn("--policy=token", log.getvalue())
+            self.assertNotIn("--policy=mlp", log.getvalue())
+
+            ### A stopped series is never resumed
+            with mock.patch.object(resume_all.subprocess, "run"):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    resume_all.main(["--runs-dir", d, "--stop", "mlp"])
+            self.assertTrue(os.path.exists(os.path.join(d, "mlp3", "STOPPED")))
+            log = io.StringIO()
+            with mock.patch.object(resume_all, "running_commands", return_value=[]):
+                with contextlib.redirect_stdout(log):
+                    resume_all.main(
+                        ["--runs-dir", d, "--benchmark-csv", csv_path, "--dry-run"]
+                    )
+            self.assertNotIn("--policy=mlp", log.getvalue())
+            self.assertIn("--policy=token", log.getvalue())
+
+            ### Runs of other trainers continue from their run folder
+            os.makedirs(os.path.join(d, "search1", "latest_agent"))
+            with open(os.path.join(d, "search1", "args.json"), "w") as f:
+                json.dump({"_module": "sapai.rl.search_train", "games": 5}, f)
+            log = io.StringIO()
+            with mock.patch.object(resume_all, "running_commands", return_value=[]):
+                with contextlib.redirect_stdout(log):
+                    resume_all.main(
+                        ["--runs-dir", d, "--benchmark-csv", csv_path, "--dry-run"]
+                        + ["--only", "search"]
+                    )
+            line = [x for x in log.getvalue().splitlines() if "search_train" in x][0]
+            self.assertIn(f"--resume={os.path.join(d, 'search1')}", line)
+            self.assertIn(f"--out={os.path.join(d, 'search2')}", line)
+            self.assertIn("--games=5", line)
+            self.assertNotIn("_module", line)
+
 
 # %%

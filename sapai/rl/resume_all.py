@@ -35,22 +35,36 @@ def series_of(name):
     return match.group(1), int(match.group(2))
 
 
+STOPPED = "STOPPED"
+
+
+def resumable(folder):
+    """A run folder with saved settings and something to continue from"""
+    return os.path.exists(os.path.join(folder, "args.json")) and (
+        os.path.exists(os.path.join(folder, "latest_model.zip"))
+        or os.path.isdir(os.path.join(folder, "latest_agent"))
+    )
+
+
 def latest_runs(runs_dir):
-    """{series: (number, folder)} of the newest resumable run of each series"""
+    """
+    {series: (number, folder)} of the newest resumable run of each series,
+    leaving out series whose newest run was stopped on purpose (--stop)
+    """
     latest = {}
     for name in os.listdir(runs_dir):
         folder = os.path.join(runs_dir, name)
         parsed = series_of(name)
-        if not parsed or not os.path.isdir(folder):
-            continue
-        if not os.path.exists(os.path.join(folder, "args.json")):
-            continue
-        if not os.path.exists(os.path.join(folder, "latest_model.zip")):
+        if not parsed or not os.path.isdir(folder) or not resumable(folder):
             continue
         series, number = parsed
         if series not in latest or number > latest[series][0]:
             latest[series] = (number, folder)
-    return latest
+    return {
+        s: (n, f)
+        for s, (n, f) in latest.items()
+        if not os.path.exists(os.path.join(f, STOPPED))
+    }
 
 
 def running_commands():
@@ -69,19 +83,49 @@ def is_running(commands, *needles):
 
 
 def train_command(args, folder, new_folder):
-    """Training command continuing folder in new_folder with the same settings"""
+    """
+    Command continuing folder in new_folder with the same settings. Returns
+    the command and the model file to copy before starting (or None).
+    """
     args = dict(args)
-    resume = os.path.join(folder, "model_resume.zip")
-    args["resume"] = resume
-    pool = os.path.join(folder, "selfplay_teams.pkl")
-    args["selfplay_teams"] = pool if os.path.exists(pool) else None
+    module = args.pop("_module", "sapai.rl.train")
+    if module == "sapai.rl.train":
+        resume = os.path.join(folder, "model_resume.zip")
+        args["resume"] = resume
+        pool = os.path.join(folder, "selfplay_teams.pkl")
+        args["selfplay_teams"] = pool if os.path.exists(pool) else None
+    else:
+        ### Other trainers continue from the run folder itself
+        resume = None
+        args["resume"] = folder
     args["out"] = new_folder
-    command = [sys.executable, "-m", "sapai.rl.train"]
+    command = [sys.executable, "-m", module]
     for key, value in args.items():
-        if value is None:
+        if value is None or key.startswith("_"):
             continue
         command.append(f"--{key.replace('_', '-')}={value}")
     return command, resume
+
+
+def stop(runs_dir, series):
+    """Stop the newest run of a series and mark it so it is not resumed"""
+    runs = {}
+    for name in os.listdir(runs_dir):
+        parsed = series_of(name)
+        if (
+            parsed
+            and parsed[0] == series
+            and os.path.isdir(os.path.join(runs_dir, name))
+        ):
+            runs[parsed[1]] = os.path.join(runs_dir, name)
+    if not runs:
+        print(f"No runs of series {series}")
+        return
+    folder = runs[max(runs)]
+    subprocess.run(["pkill", "-f", f"sapai.rl.* --out[= ]{folder}( |$)"])
+    with open(os.path.join(folder, STOPPED), "w") as f:
+        f.write("Stopped on purpose; resume_all leaves this series alone.\n")
+    print(f"Stopped {folder}")
 
 
 def benchmark_command(args, run_dirs):
@@ -113,12 +157,24 @@ def main(argv=None):
     parser.add_argument("--runs-dir", default="runs")
     parser.add_argument("--benchmark-csv", default="runs/benchmark.csv")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--only", help="only resume this series, e.g. token")
+    parser.add_argument(
+        "--stop", help="stop a series for good (e.g. mlp) instead of resuming"
+    )
     args = parser.parse_args(argv)
+
+    if args.stop:
+        stop(args.runs_dir, args.stop)
+        return
 
     commands = running_commands()
     watched = []
     for series, (number, folder) in sorted(latest_runs(args.runs_dir).items()):
-        if is_running(commands, "sapai.rl.train", folder):
+        if args.only and series != args.only:
+            if is_running(commands, "sapai.rl.", folder):
+                watched.append(folder)
+            continue
+        if is_running(commands, "sapai.rl.", folder):
             print(f"{folder} is still training")
             watched.append(folder)
             continue
@@ -126,7 +182,7 @@ def main(argv=None):
             run_args = json.load(f)
         new_folder = os.path.join(args.runs_dir, f"{series}{number + 1}")
         command, resume = train_command(run_args, folder, new_folder)
-        if not args.dry_run:
+        if resume and not args.dry_run:
             shutil.copy(os.path.join(folder, "latest_model.zip"), resume)
         launch(command, new_folder + ".log", args.dry_run)
         watched.append(new_folder)
@@ -148,6 +204,9 @@ def main(argv=None):
         run_dirs = [
             x for x in watched if series_of(os.path.basename(x))[0] in old_series
         ]
+        if not run_dirs:
+            print("No runs to watch, not starting the benchmark watcher")
+            return
         log = os.path.join(os.path.dirname(args.benchmark_csv) or ".", "benchmark.log")
         launch(benchmark_command(watch_args, run_dirs), log, args.dry_run)
 
