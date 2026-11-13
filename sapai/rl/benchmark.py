@@ -136,38 +136,61 @@ def latest_steps(run_dir):
     return int(rows[-1]["timesteps"]) if rows else None
 
 
-def previous_pool_results(csv_path, names):
-    """Pool round robin results saved by an earlier watch, if complete"""
+def previous_results(csv_path, pool):
+    """
+    Known scores between pool members from benchmark.csv, as
+    {(name_a, name_b): score of a}. Pool members are matched by name or by
+    checkpoint file name, so a checkpoint rated earlier (for example
+    runs/benchmark/mlp5_8200000.zip) brings its results against the pool.
+    """
     if not os.path.exists(csv_path):
-        return None
+        return {}
+    ids = {}
+    for p in pool:
+        ids[p.name] = p.name
+        if p.path:
+            ids[os.path.splitext(os.path.basename(p.path))[0]] = p.name
     results = {}
     with open(csv_path) as f:
         for row in csv.DictReader(f):
-            if (
-                row["steps"] == ""
-                and row["model"] in names
-                and row["opponent"] in names
-            ):
-                results[(row["model"], row["opponent"])] = float(row["score"])
-    pairs = list(itertools.combinations(names, 2))
-    if not all(pair in results for pair in pairs):
-        return None
-    return [(a, b, results[(a, b)]) for a, b in pairs]
+            model = row["model"]
+            if row["steps"]:
+                model = f"{model}_{row['steps']}"
+            a, b = ids.get(model), ids.get(row["opponent"])
+            if a and b and a != b:
+                results[(a, b)] = float(row["score"])
+                results[(b, a)] = 1 - float(row["score"])
+    return results
+
+
+def pool_round_robin(pool, games, turns, seed, csv_path):
+    """Pool results, reusing known ones and only playing missing pairs"""
+    known = previous_results(csv_path, pool)
+    results = []
+    played = []
+    for a, b in itertools.combinations(pool, 2):
+        if (a.name, b.name) in known:
+            results.append((a.name, b.name, known[(a.name, b.name)]))
+        else:
+            score, r = match(a, b, games, turns, seed)
+            results.append((a.name, b.name, score))
+            played.append((a.name, b.name, score))
+            print(f"{a.name} vs {b.name}: score {score:.3f}", flush=True)
+    print(
+        f"Pool: reused {len(results) - len(played)} results, played"
+        + f" {len(played)} new matches",
+        flush=True,
+    )
+    return results, played
 
 
 def watch(run_dirs, pool, games, turns, seed, every_minutes, out_dir, csv_path):
     os.makedirs(out_dir, exist_ok=True)
     names = [p.name for p in pool]
-    ### Reuse pool results from an earlier watch with the same pool, so a
-    ###   restart does not replay the pool round robin
-    pool_results = previous_pool_results(csv_path, names)
-    if pool_results is None:
-        print("Rating the benchmark pool", flush=True)
-        pool_results = round_robin(pool, games, turns, seed)
-        save_pool_results = True
-    else:
-        print("Using pool results from " + csv_path, flush=True)
-        save_pool_results = False
+    ### Reuse known results between pool members, so a restart or a bigger
+    ###   pool only plays the missing pairs
+    print("Rating the benchmark pool", flush=True)
+    pool_results, played = pool_round_robin(pool, games, turns, seed, csv_path)
     pool_ratings = fit_ratings(names, pool_results)
     print_ratings(pool_ratings)
 
@@ -188,8 +211,8 @@ def watch(run_dirs, pool, games, turns, seed, every_minutes, out_dir, csv_path):
                     "rating",
                 ]
             )
-        if save_pool_results:
-            for a, b, s in pool_results:
+        if played:
+            for a, b, s in played:
                 writer.writerow(
                     [
                         time.strftime("%Y-%m-%d %H:%M"),

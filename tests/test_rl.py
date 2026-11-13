@@ -511,6 +511,18 @@ class TestBenchmark(unittest.TestCase):
             with open(csv_path) as f:
                 self.assertEqual(len(f.read().splitlines()), 6)
 
+            ### A checkpoint rated earlier joins the pool with its results;
+            ###   only the missing pair is played
+            bigger = pool + [
+                benchmark.Player("ckpt", os.path.join(d, "bench", "run_64.zip"))
+            ]
+            known = benchmark.previous_results(csv_path, bigger)
+            self.assertIn(("ckpt", "greedy"), known)
+            self.assertIn(("greedy", "ckpt"), known)
+            results, played = benchmark.pool_round_robin(bigger, 2, 4, 0, csv_path)
+            self.assertEqual(len(results), 3)
+            self.assertEqual(played, [])
+
     def test_fit_ratings(self):
         from sapai.rl.benchmark import fit_ratings
 
