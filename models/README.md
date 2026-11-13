@@ -9,7 +9,8 @@ MaskablePPO agents (sb3-contrib) trained on the Turtle Pack with
 | `token_4.3M.zip` | token network (`TokenMaskablePolicy`) | 4.3M | 1426 |
 | `token_3.6M.zip` | token network (`TokenMaskablePolicy`) | 3.6M | 1395 |
 | `token_3.5M.zip` | token network (`TokenMaskablePolicy`) | 3.5M | 1393 |
-| **`mlp_10.9M.zip`** | MLP (`MlpPolicy`, 256x256) | 10.9M | **1332** (best MLP) |
+| **`mlp_19.3M.zip`** | MLP (`MlpPolicy`, 256x256) | 19.3M | **1420** (best MLP, plateau) |
+| `mlp_10.9M.zip` | MLP (`MlpPolicy`, 256x256) | 10.9M | 1332 |
 | `mlp_8.2M.zip` | MLP (`MlpPolicy`, 256x256) | 8.2M | 1312 |
 
 Ratings are Elo-style from `sapai.rl.benchmark`: head-to-head matches of 100
@@ -22,11 +23,14 @@ so 0.5 is even:
 |---|---|---|---|
 | `token_6.3M` | 0.862 | 0.734 | 0.548 |
 | `token_4.3M` | 0.863 | 0.713 | 0.560 |
+| `mlp_19.3M` | 0.885 | 0.694 | 0.479 |
 | `mlp_10.9M` | 0.849 | 0.543 | 0.386 |
 
-The token network plateaued under self-play: its ratings stayed between
-1417 and 1427 from 4.3M to 7.0M steps, so `token_6.3M` is its plateau best.
-The MLP was still improving when these were saved.
+Both networks plateaued under self-play. The token network's ratings stayed
+between 1417 and 1427 from 4.3M to 7.0M steps, so `token_6.3M` is its plateau
+best. The MLP needed about three times as many steps to get there: its
+ratings stayed between 1407 and 1420 from 18.2M to 23.6M steps, so
+`mlp_19.3M` is its plateau best, close to the token network's level.
 
 In normal games against the greedy bot (10 wins to win a game) the token
 models win about 95-99% of games and `mlp_8.2M` about 87-90%; the greedy bot
