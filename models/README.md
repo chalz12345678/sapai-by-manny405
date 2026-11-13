@@ -5,7 +5,8 @@ MaskablePPO agents (sb3-contrib) trained on the Turtle Pack with
 
 | File | Policy | Training steps | Benchmark rating |
 |---|---|---|---|
-| **`token_6.3M.zip`** | token network (`TokenMaskablePolicy`) | 6.3M | **1427** (best, plateau) |
+| **`token_11.8M.zip`** | token network (`TokenMaskablePolicy`) | 11.8M | **1440** (best) |
+| `token_6.3M.zip` | token network (`TokenMaskablePolicy`) | 6.3M | 1427 (first plateau) |
 | `token_4.3M.zip` | token network (`TokenMaskablePolicy`) | 4.3M | 1426 |
 | `token_3.6M.zip` | token network (`TokenMaskablePolicy`) | 3.6M | 1395 |
 | `token_3.5M.zip` | token network (`TokenMaskablePolicy`) | 3.5M | 1393 |
@@ -21,14 +22,16 @@ so 0.5 is even:
 
 | Model | greedy | mlp_8.2M | token_3.5M |
 |---|---|---|---|
+| `token_11.8M` | 0.857 | 0.700 | 0.610 |
 | `token_6.3M` | 0.862 | 0.734 | 0.548 |
 | `token_4.3M` | 0.863 | 0.713 | 0.560 |
 | `mlp_19.3M` | 0.885 | 0.694 | 0.479 |
 | `mlp_10.9M` | 0.849 | 0.543 | 0.386 |
 
 Both networks plateaued under self-play. The token network's ratings stayed
-between 1417 and 1427 from 4.3M to 7.0M steps, so `token_6.3M` is its plateau
-best. The MLP needed about three times as many steps to get there: its
+between 1417 and 1434 from 4.3M to 10.2M steps (`token_6.3M` was its plateau
+best), then rose to 1440 at 11.1M and 11.8M steps after the opponent pool was
+capped to the newest 25,000 teams; `token_11.8M` is its best so far. The MLP needed about three times as many steps to get there: its
 ratings stayed between 1407 and 1420 from 18.2M to 23.6M steps, so
 `mlp_19.3M` is its plateau best, close to the token network's level.
 
