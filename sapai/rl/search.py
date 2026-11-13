@@ -192,8 +192,11 @@ class SearchAgent:
             choice = actions[self.rng.choice(len(actions), p=p / p.sum())]
         else:
             ### Ties go to the action the policy prefers
+            score = dict(zip(actions, scores))
             best = scores.max()
-            choice = next(a for a in candidates if a in q and q[a] >= best - 1e-9)
+            choice = next(
+                a for a in candidates if a in score and score[a] >= best - 1e-9
+            )
         return choice, {"q": q, "prior": {a: float(probs[a]) for a in candidates}}
 
     def shop_env(self, env, record=None):
