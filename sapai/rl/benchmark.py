@@ -136,11 +136,39 @@ def latest_steps(run_dir):
     return int(rows[-1]["timesteps"]) if rows else None
 
 
+def previous_pool_results(csv_path, names):
+    """Pool round robin results saved by an earlier watch, if complete"""
+    if not os.path.exists(csv_path):
+        return None
+    results = {}
+    with open(csv_path) as f:
+        for row in csv.DictReader(f):
+            if (
+                row["steps"] == ""
+                and row["model"] in names
+                and row["opponent"] in names
+            ):
+                results[(row["model"], row["opponent"])] = float(row["score"])
+    pairs = list(itertools.combinations(names, 2))
+    if not all(pair in results for pair in pairs):
+        return None
+    return [(a, b, results[(a, b)]) for a, b in pairs]
+
+
 def watch(run_dirs, pool, games, turns, seed, every_minutes, out_dir, csv_path):
     os.makedirs(out_dir, exist_ok=True)
-    print("Rating the benchmark pool", flush=True)
-    pool_results = round_robin(pool, games, turns, seed)
-    pool_ratings = fit_ratings([p.name for p in pool], pool_results)
+    names = [p.name for p in pool]
+    ### Reuse pool results from an earlier watch with the same pool, so a
+    ###   restart does not replay the pool round robin
+    pool_results = previous_pool_results(csv_path, names)
+    if pool_results is None:
+        print("Rating the benchmark pool", flush=True)
+        pool_results = round_robin(pool, games, turns, seed)
+        save_pool_results = True
+    else:
+        print("Using pool results from " + csv_path, flush=True)
+        save_pool_results = False
+    pool_ratings = fit_ratings(names, pool_results)
     print_ratings(pool_ratings)
 
     new_file = not os.path.exists(csv_path)
@@ -160,20 +188,21 @@ def watch(run_dirs, pool, games, turns, seed, every_minutes, out_dir, csv_path):
                     "rating",
                 ]
             )
-        for a, b, s in pool_results:
-            writer.writerow(
-                [
-                    time.strftime("%Y-%m-%d %H:%M"),
-                    a,
-                    "",
-                    b,
-                    round(s, 4),
-                    "",
-                    "",
-                    "",
-                    round(pool_ratings[a], 1),
-                ]
-            )
+        if save_pool_results:
+            for a, b, s in pool_results:
+                writer.writerow(
+                    [
+                        time.strftime("%Y-%m-%d %H:%M"),
+                        a,
+                        "",
+                        b,
+                        round(s, 4),
+                        "",
+                        "",
+                        "",
+                        round(pool_ratings[a], 1),
+                    ]
+                )
 
     done = {}
     while True:

@@ -500,6 +500,17 @@ class TestBenchmark(unittest.TestCase):
             self.assertEqual(len(rows), 4)
             self.assertTrue(rows[-1].split(",")[1] == "run")
 
+            ### Watching again reuses the saved pool results
+            from unittest import mock
+
+            with mock.patch.object(benchmark, "round_robin") as rr:
+                benchmark.watch(
+                    [run], pool, 2, 4, 0, 0, os.path.join(d, "bench"), csv_path
+                )
+                rr.assert_not_called()
+            with open(csv_path) as f:
+                self.assertEqual(len(f.read().splitlines()), 6)
+
     def test_fit_ratings(self):
         from sapai.rl.benchmark import fit_ratings
 
