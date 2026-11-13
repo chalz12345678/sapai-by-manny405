@@ -5,7 +5,8 @@ MaskablePPO agents (sb3-contrib) trained on the Turtle Pack with
 
 | File | Policy | Training steps | Benchmark rating |
 |---|---|---|---|
-| **`token_4.3M.zip`** | token network (`TokenMaskablePolicy`) | 4.3M | **1426** (best) |
+| **`token_6.3M.zip`** | token network (`TokenMaskablePolicy`) | 6.3M | **1427** (best, plateau) |
+| `token_4.3M.zip` | token network (`TokenMaskablePolicy`) | 4.3M | 1426 |
 | `token_3.6M.zip` | token network (`TokenMaskablePolicy`) | 3.6M | 1395 |
 | `token_3.5M.zip` | token network (`TokenMaskablePolicy`) | 3.5M | 1393 |
 | **`mlp_10.9M.zip`** | MLP (`MlpPolicy`, 256x256) | 10.9M | **1332** (best MLP) |
@@ -19,10 +20,13 @@ so 0.5 is even:
 
 | Model | greedy | mlp_8.2M | token_3.5M |
 |---|---|---|---|
+| `token_6.3M` | 0.862 | 0.734 | 0.548 |
 | `token_4.3M` | 0.863 | 0.713 | 0.560 |
 | `mlp_10.9M` | 0.849 | 0.543 | 0.386 |
 
-Training continues with self-play; these are snapshots.
+The token network plateaued under self-play: its ratings stayed between
+1417 and 1427 from 4.3M to 7.0M steps, so `token_6.3M` is its plateau best.
+The MLP was still improving when these were saved.
 
 In normal games against the greedy bot (10 wins to win a game) the token
 models win about 95-99% of games and `mlp_8.2M` about 87-90%; the greedy bot
