@@ -82,6 +82,12 @@ def is_running(commands, *needles):
     return any(all(n in line for n in needles) for line in commands)
 
 
+def is_training(commands, folder):
+    """Whether a training process is writing to folder (its --out)"""
+    pattern = re.compile(r"--out[= ]" + re.escape(folder) + r"( |$)")
+    return any("sapai.rl." in line and pattern.search(line) for line in commands)
+
+
 def train_command(args, folder, new_folder):
     """
     Command continuing folder in new_folder with the same settings. Returns
@@ -171,10 +177,10 @@ def main(argv=None):
     watched = []
     for series, (number, folder) in sorted(latest_runs(args.runs_dir).items()):
         if args.only and series != args.only:
-            if is_running(commands, "sapai.rl.", folder):
+            if is_training(commands, folder):
                 watched.append(folder)
             continue
-        if is_running(commands, "sapai.rl.", folder):
+        if is_training(commands, folder):
             print(f"{folder} is still training")
             watched.append(folder)
             continue

@@ -684,6 +684,20 @@ class TestResumeAll(unittest.TestCase):
             self.assertIn("mlp3 is still training", log.getvalue())
             self.assertNotIn("--policy=mlp", log.getvalue())
 
+            ### A benchmark watcher watching a folder is not training it
+            log = io.StringIO()
+            running = [
+                f"python -m sapai.rl.benchmark --watch {os.path.join(d, 'mlp3')}"
+            ]
+            with mock.patch.object(
+                resume_all, "running_commands", return_value=running
+            ):
+                with contextlib.redirect_stdout(log):
+                    resume_all.main(
+                        ["--runs-dir", d, "--benchmark-csv", csv_path, "--dry-run"]
+                    )
+            self.assertIn("--policy=mlp", log.getvalue())
+
             ### --only resumes one series
             log = io.StringIO()
             with mock.patch.object(resume_all, "running_commands", return_value=[]):
