@@ -92,9 +92,14 @@ training, and turning on free-form chat with an Anthropic API key.
 Playing a Game in the Terminal
 -------------------------------
 
-A simple interactive game is included. Each turn you shop, then your team
-battles a computer opponent that shops with the same rules. Win 10 battles
-before running out of lives.
+A simple interactive game is included: a 1v1 match against one computer
+opponent that you meet every turn. Each turn you both shop at the same time,
+then your teams battle. Before you shop you can see the opponent's lives,
+wins and the team it fielded in the last battle. The first to 10 wins, or the
+last with lives left, wins the match.
+
+The match rules are in ``sapai/match.py`` (``Match``), which can also be used
+directly to play two programs against each other.
 
 .. code-block:: bash
 

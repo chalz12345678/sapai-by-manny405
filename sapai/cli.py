@@ -20,6 +20,8 @@ import numpy as np
 
 from sapai.battle import Battle
 from sapai.data import data, RULES
+from sapai.match import Match, lives_lost
+from sapai.teams import Team
 from sapai.foods import Food
 from sapai.pets import Pet
 from sapai.player import Player
@@ -243,8 +245,14 @@ class ModelBot:
     def shop_turn(self):
         self.model_opponent.shop()
 
-    def record_result(self, result):
-        self.model_opponent.record_result(result)
+    def record_result(self, result, wins):
+        """
+        What the model sees of the last battle: its wins and result. result
+        is from the player's side (0 means the model lost). The match keeps
+        lives, so they are not changed here.
+        """
+        self.model_opponent.wins = wins
+        self.model_opponent.last_result = {0: 1, 1: 0, 2: 2}[result]
 
 
 def find_model(kind, models_dir=MODELS_DIR):
@@ -300,6 +308,13 @@ class Game:
         self.opponent, self.opponent_name = make_opponent(
             opponent, self.rng, models_dir
         )
+        ### The same opponent every turn; its team from the last battle is
+        ###   shown before you shop
+        self.match = Match(
+            lives=lives,
+            wins_to_win=wins_needed,
+            players=[self.player, self.opponent.player],
+        )
         self.wins = 0
         self.losses = 0
         self.draws = 0
@@ -319,6 +334,14 @@ class Game:
             f"=== Turn {p.turn} | Gold {p.gold} | Lives {p.lives}/{self.max_lives}"
             + f" | Wins {self.wins}/{self.wins_needed} ==="
         )
+        o = self.opponent.player
+        self.print(
+            f"Opponent: Lives {o.lives}/{self.max_lives}"
+            + f" | Wins {self.match.wins[1]}/{self.wins_needed}"
+        )
+        last = self.match.opponent_last_team(0)
+        if last is not None:
+            self.print("Opponent's team in the last battle: " + self.team_line(last))
         self.print("Shop:")
         for i, slot in enumerate(p.shop):
             if slot.empty:
@@ -531,45 +554,41 @@ class Game:
 
     def battle(self):
         p = self.player
-        o = self.opponent.player
         turn = p.turn
 
-        p.end_turn()
+        ### The opponent shops at the same time, without seeing your team
         self.opponent.shop_turn()
-        o.end_turn()
         p.team.move_forward()
+
+        record = self.match.battle()
+        result = record["result"]
+        b = self.match.last_battle
+        self.last_battle = b
+        self.last_result = result
 
         self.print("")
         self.print("--- Battle ---")
-        self.print("You:      " + self.team_line(p.team))
-        self.print("Opponent: " + self.team_line(o.team))
-        b = Battle(p.team, o.team)
-        result = b.battle()
-        self.last_battle = b
-        self.last_result = result
-        ### A model opponent sees its own wins, lives and last result
+        self.print("You:      " + self.team_line(Team.from_state(record["teams"][0])))
+        self.print("Opponent: " + self.team_line(Team.from_state(record["teams"][1])))
+        ### A model opponent sees its own wins and last result
         if hasattr(self.opponent, "record_result"):
-            self.opponent.record_result(result)
+            self.opponent.record_result(result, self.match.wins[1])
 
-        lives_lost = data["turns"][f"turn-{min(turn, 11)}"]["livesLost"]
+        lost = lives_lost(turn)
+        plural = "life" if lost == 1 else "lives"
         if result == 0:
             self.wins += 1
             self.print(f"You won! ({self.wins}/{self.wins_needed} wins)")
+            self.print(f"Your opponent loses {lost} {plural}.")
         elif result == 1:
             self.losses += 1
-            p.lives -= lives_lost
-            plural = "life" if lives_lost == 1 else "lives"
-            self.print(f"You lost and lose {lives_lost} {plural}.")
+            self.print(f"You lost and lose {lost} {plural}.")
         else:
             self.draws += 1
             self.print("Draw.")
         self.print("Survivors (you): " + self.team_line(b.t0))
         self.print("Survivors (opp): " + self.team_line(b.t1))
         self.print("Type log to see what happened in the battle.")
-
-        ### A loss counts as losing the last battle for Snail
-        p.start_turn(winner=(result != 1))
-        o.start_turn(winner=(result != 0))
         return result
 
     @staticmethod
@@ -582,19 +601,28 @@ class Game:
         return ", ".join(pets) if pets else "(none)"
 
     def game_over(self):
-        if self.wins >= self.wins_needed:
-            self.print(
-                f"\nYou win the game with {self.wins} wins on turn"
-                + f" {self.player.turn - 1}!"
-            )
-            return True
-        if self.player.lives <= 0:
-            self.print(
-                f"\nGame over. You ran out of lives with {self.wins} wins"
-                + f" on turn {self.player.turn - 1}."
-            )
-            return True
-        return False
+        m = self.match
+        if not m.over:
+            return False
+        turn = self.player.turn
+        if m.winner == 0:
+            if self.wins >= self.wins_needed:
+                self.print(f"\nYou win the game with {self.wins} wins on turn {turn}!")
+            else:
+                self.print(f"\nYou win! Your opponent ran out of lives on turn {turn}.")
+        elif m.winner == 1:
+            if m.wins[1] >= self.wins_needed:
+                self.print(
+                    f"\nGame over. Your opponent reached {m.wins[1]} wins on turn {turn}."
+                )
+            else:
+                self.print(
+                    f"\nGame over. You ran out of lives with {self.wins} wins"
+                    + f" on turn {turn}."
+                )
+        else:
+            self.print(f"\nThe game is a draw on turn {turn}.")
+        return True
 
     def run(self):
         self.print("Super Auto Pets (Turtle Pack) in sapai. Type help for commands.")
@@ -616,7 +644,7 @@ class Game:
             if action == "end":
                 self.battle()
                 if self.game_over():
-                    return "won" if self.wins >= self.wins_needed else "lost"
+                    return {0: "won", 1: "lost"}.get(self.match.winner, "draw")
                 self.show()
             elif action == "changed":
                 self.show()
