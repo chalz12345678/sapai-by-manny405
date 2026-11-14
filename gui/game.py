@@ -438,8 +438,8 @@ LAYOUT = {
 }
 
 MODEL_INFO = {
-    "token_16.8M": ("Token net 16.8M", 1470), "token_13.5M": ("Token net 13.5M", 1459),
-    "token_11.8M": ("Token net 11.8M", 1440), "token_6.3M": ("Token net 6.3M", 1427),
+    "token_22.5M": ("Token net 22.5M", 1475), "token_16.8M": ("Token net 16.8M", 1470), "token_13.5M": ("Token net 13.5M", 1459),
+    "token_11.8M": ("Token net 11.8M", 1440),
     "token_3.5M": ("Token net 3.5M", 1393), "mlp_19.3M": ("MLP 19.3M", 1420),
     "mlp_10.9M": ("MLP 10.9M", 1332), "mlp_8.2M": ("MLP 8.2M", 1312),
 }
