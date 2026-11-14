@@ -123,7 +123,7 @@ def diff(a, b, roll=False):
     else:
         for x in a["shop"]:
             if x["id"] not in sb and x["id"] not in tb:
-                lines.append(f"shop: {_item_str(x)} {'used' if x['kind'] == 'food' else 'removed'}")
+                lines.append(f"shop: {_item_str(x)} {'used or replaced' if x['kind'] == 'food' else 'removed'}")
         for x in b["shop"]:
             if x["id"] not in sa:
                 lines.append(f"shop: new {_item_str(x)}")
@@ -379,5 +379,5 @@ def effect_lines(events):
         if e["changes"]:
             out.append(head + " → " + "; ".join(e["changes"]))
         else:
-            out.append(head + " → no visible change (no valid target, or it changes gold or the shop)")
+            out.append(head + " → no stat changes (it changes gold or the shop items, see above, or had no target)")
     return out

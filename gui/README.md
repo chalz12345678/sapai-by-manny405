@@ -38,6 +38,17 @@ under the replay; **Step** waits for you, and ← / → (or ◀ / ▶) move one 
 back or forward. The replay wraps the engine's own phase function rather than
 reimplementing battles, so it follows the real rules.
 
+### 3D view (prototype)
+
+Switch a battle to **3D** with the 2D / 3D toggle on the battle panel. Pets are
+cardboard standees on a small 3D meadow, and every replay step is animated
+from the step's events: front pets lunge and collide on attacks, an ability
+makes its pet glow and sends an orb to each target, damage flashes red with a
+number, buffs sparkle, fainted pets tip over and sink away, and summons pop
+up. It follows the same step controls and battle speed as the 2D view. It uses
+Three.js r128, loaded from cdnjs the first time you open the 3D view, so it
+needs an internet connection then; everything else works offline.
+
 ## Talking to the model
 
 Press **Talk to the model** to ask the trained model about its play. The models

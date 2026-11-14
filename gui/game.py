@@ -516,6 +516,8 @@ def _lines(entries_by_phase, names):
                 line = None
             if line:
                 line = line.replace("deals damage to nothing", "has no enemy left to hit")
+                ### "Hippo buffs Hippo (now 10/6)" reads like a glitch
+                line = re.sub(r"^(.*?: )?([A-Z][\w ]*?) buffs \2 \(now", r"\1\2 gains stats (now", line)
                 out.append(_rename(line, names))
     return out
 
