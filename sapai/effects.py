@@ -705,15 +705,20 @@ def ModifyStats(apet, apet_idx, teams, te=None, te_idx=None, fixed_targets=None)
         else:
             target_pet._attack += attack_amount
             target_pet._health += health_amount
-        if (
-            "includingFuture" in apet.ability["effect"]["target"]
-            and apet.ability["effect"]["target"]["includingFuture"] is True
-        ):
-            if target_pet.shop is not None:
-                target_pet.shop.shop_attack += attack_amount
-                target_pet.shop.shop_health += health_amount
         target_pet._attack = min([target_pet._attack, 50])
         target_pet._health = min([target_pet._health, 50])
+
+    ### "Current and future shop pets": the bonus for future pets is added
+    ###   once, not once per current shop pet
+    if (
+        "includingFuture" in apet.ability["effect"]["target"]
+        and apet.ability["effect"]["target"]["includingFuture"] is True
+    ):
+        shop = apet.shop if getattr(apet, "shop", None) is not None else (
+            target[0].shop if target else None)
+        if shop is not None:
+            shop.shop_attack += attack_amount
+            shop.shop_health += health_amount
 
     return target, possible
 

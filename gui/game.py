@@ -51,7 +51,7 @@ def _stub_missing():
 _stub_missing()
 
 from sapai.battle import Battle  # noqa: E402
-from sapai.cli import Opponent as GreedyShopper, log_line  # noqa: E402
+from sapai.cli import Opponent as GreedyShopper, log_line, pet_parts  # noqa: E402
 from sapai.data import data  # noqa: E402
 from sapai.player import Player  # noqa: E402
 from sapai.rl import env as E  # noqa: E402
@@ -530,6 +530,26 @@ PHASE_LABELS = {
 }
 
 
+def _events(entries):
+    """Who did what to whom in one phase, for animating it: kind (Attack,
+    Fainted, or the effect function such as DealDamage or ModifyStats), the
+    acting pet's side and name, and the names of its targets."""
+    out = []
+    for entry in entries:
+        try:
+            if len(entry) < 4 or type(entry[0]) != str:
+                continue
+            src = pet_parts(entry[2])
+            if not src:
+                continue
+            targets = [p[0].lower() for t in entry[3] for p in pet_parts(t)]
+            out.append({"kind": entry[0], "side": int(entry[1][0]), "src": src[0][0].lower(),
+                        "targets": targets})
+        except Exception:
+            continue
+    return out
+
+
 def replay_battle(t0, t1, names=("You", "Opponent")):
     """Run a battle and snapshot the board after every engine phase that did
     something, so the replay can step through each action. The engine's own
@@ -549,6 +569,7 @@ def replay_battle(t0, t1, names=("You", "Opponent")):
         lines = _lines({phase: entries}, names) if not phase.startswith("phase_move") else []
         f = _snap(b, f"{where['round']} · {PHASE_LABELS.get(phase, phase)}", lines)
         f["phase"] = phase
+        f["events"] = _events(entries) if not phase.startswith("phase_move") else []
         if lines or f["teams"] != frames[-1]["teams"]:
             frames.append(f)
 

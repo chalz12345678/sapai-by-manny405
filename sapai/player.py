@@ -221,6 +221,10 @@ class Player:
         ### Make all updates
         self.gold -= cost
         self.shop.buy(food)
+        if food.name == "food-canned-food":
+            ### Future shop pets get the bonus too: added once per purchase
+            self.shop.shop_attack += food.attack
+            self.shop.shop_health += food.health
         for pet in targets:
             levelup = pet.eat(food)
             ### Check for levelup triggers if appropriate
@@ -228,7 +232,11 @@ class Player:
                 pet.levelup_trigger(pet)
                 self.shop.levelup()
 
-            ### After feeding, check for eats_shop_food triggers
+            ### After feeding, check for eats_shop_food triggers. Only for team
+            ###   pets: canned food "feeds" shop pets, which are not friends,
+            ###   so a Rabbit must not buff them or spend its uses on them.
+            if not self.team.check_friend(pet):
+                continue
             for slot in self.team:
                 slot._pet.eats_shop_food_trigger(pet)
 
