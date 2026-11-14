@@ -99,6 +99,18 @@ or perk that fired, with exactly whose stats it changed, for example
 negative gold are flagged in red. Use **Copy log** or **Download log** to share a
 game when reporting a bug.
 
+## Replays
+
+Every game you play or watch (not series) is kept in `gui/replays/`, one
+compressed file per game plus an index, updated after every round. The
+**Replays** tab lists them newest first, with search and filters (your games,
+watched matches, games you won, finished or unfinished). Open one to rename it,
+add a note, and step through any turn: both sides' shop moves, the models'
+confidence for each move, the battle step by step in 2D or 3D, and that turn's
+game log. **View replay** on the game-over banner opens the game you just
+finished. Games saved before replays existed are imported on startup from
+their game log, so their battles show as text.
+
 ## Updating the models
 
 `gui/models/*.npz` are the actor weights exported from `models/*.zip`. After

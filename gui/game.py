@@ -222,6 +222,11 @@ def shop_dict(slot):
     return d
 
 
+def _now():
+    import datetime
+    return datetime.datetime.now().astimezone().isoformat(timespec="seconds")
+
+
 def lives_lost(turn):
     return data["turns"][f"turn-{min(turn, 11)}"]["livesLost"]
 
@@ -622,6 +627,8 @@ class Match:
         self.over = False
         self.result = None
         self.history = []
+        self.rounds = []  # full record of every round, for the replay catalog
+        self.created = _now()
         for i, st in enumerate(self.seats):
             snap = audit.snapshot(st.player)
             self._event("start", i, "turn 1 starts", [
@@ -683,7 +690,7 @@ class Match:
         p = s.player
         legal = s.mask()
         return {"kind": s.kind, "label": self.label(i), "turn": int(p.turn),
-                "gold": int(p.gold), "lives": int(p.lives), "wins": int(s.wins),
+                "gold": int(p.gold), "lives": max(0, int(p.lives)), "wins": int(s.wins),
                 "team": [pet_dict(x) for x in E.team_pets(p)],
                 "shop": [dict(shop_dict(x), index=i) for i, x in enumerate(p.shop.slots[:E.MAX_SHOP])
                          if not x.empty],
@@ -802,6 +809,12 @@ class Match:
                 s.actions = 0
                 s.log = []
             self._record_phase("start", f"turn {turn + 1} starts", before, "start_turn", effects)
+        thoughts = [[{k: t[k] for k in ("step", "choice", "confidence", "options", "value") if k in t}
+                     for t in s.thoughts if t.get("turn") == turn] for s in self.seats]
+        self.rounds.append({
+            "turn": turn, "outcome": ["win", "loss", "draw"][w], "lives": lost, "frames": frames,
+            "shopLogs": logs, "thoughts": thoughts,
+            "after": [{"wins": s.wins, "lives": max(0, int(s.player.lives))} for s in self.seats]})
         return {"frames": frames, "outcome": ["win", "loss", "draw"][w], "lives": lost,
                 "turn": turn, "shopLogs": logs}
 
@@ -814,7 +827,7 @@ class Match:
                            "thoughts": x.thoughts}
                           for x in self.seats],
                 "events": self.events, "history": self.history, "over": self.over,
-                "chat": self.chat,
+                "chat": self.chat, "created": self.created,
                 "result": self.result, "rng": list(self.rng.getstate()[1]),
                 "rng_version": self.rng.getstate()[0]}
 
@@ -834,6 +847,8 @@ class Match:
             m.seats.append(seat)
         m.events, m.history = list(d["events"]), list(d["history"])
         m.chat = list(d.get("chat", []))
+        m.rounds = []  # kept in the replay file, loaded back by the server
+        m.created = d.get("created") or _now()
         m.over, m.result = d["over"], d["result"]
         return m
 

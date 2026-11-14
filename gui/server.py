@@ -22,7 +22,7 @@ import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from gui import chat, game
+from gui import chat, game, replays
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MATCHES = {}
@@ -121,6 +121,15 @@ class Handler(BaseHTTPRequestHandler):
             MATCHES[mid] = game.Match(a, b, seed=req.get("seed"))
             save(mid)
             return {"ok": True, "id": mid, "state": MATCHES[mid].state()}
+        if path == "/api/replays":
+            return {"ok": True, "replays": replays.listing()}
+        if path == "/api/replay":
+            return {"ok": True, "replay": replays.get(req.get("id", ""))}
+        if path == "/api/replay/rename":
+            return {"ok": True, "meta": replays.rename(req.get("id", ""), req.get("title"), req.get("note"))}
+        if path == "/api/replay/delete":
+            replays.delete(req.get("id", ""))
+            return {"ok": True}
         if path == "/api/series":
             for k in (req.get("a"), req.get("b")):
                 if k not in game.AGENTS:
@@ -144,6 +153,7 @@ class Handler(BaseHTTPRequestHandler):
             m.chat[:] = m.chat[-200:]
             save(mid)
             return {"ok": True, "reply": out, "claude": chat.claude_available()}
+        rounds = len(m.history)
         if path == "/api/act":
             out = m.do(req["name"], *req.get("args", []))
         elif path == "/api/step":
@@ -151,6 +161,11 @@ class Handler(BaseHTTPRequestHandler):
         else:
             raise Exception("Unknown request")
         save(mid)
+        if len(m.history) != rounds:
+            try:
+                replays.record(mid, m)
+            except OSError as e:
+                print(f"Could not save replay {mid}: {e}")
         return out
 
 
@@ -191,6 +206,7 @@ def find(mid):
         return None
     with open(path) as f:
         m = game.Match.from_save(json.load(f))
+    m.rounds = replays.load_rounds(mid)
     for s in m.seats:
         if s.kind != "human" and s.kind not in game.AGENTS:
             raise Exception(f"This saved game uses agent {s.kind}, which is not loaded.")
@@ -208,6 +224,9 @@ def main(argv=None):
                     help="Python file defining shop(seat, rng); can be repeated")
     args = ap.parse_args(argv)
     load_models()
+    added = replays.import_saves(SAVE_DIR, game.Match.from_save)
+    if added:
+        print(f"Added {added} earlier saved games to the replay catalog")
     for path in args.agent:
         name = os.path.splitext(os.path.basename(path))[0]
         with open(path) as f:

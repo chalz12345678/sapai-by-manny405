@@ -28,7 +28,7 @@ The game went from a terminal prompt to a 3D battle viewer in one long build ses
 
 | # | Step | What happened |
 | --- | --- | --- |
-| 25 | Replay catalog | Every finished game is kept with its full history and can be replayed later (in progress) |
+| 25 | Replay catalog | Every game is kept with its full history in a Replays tab: list, search, rename, step through any turn |
 | 24 | Design doc | This file, after the first wins |
 | 23 | 3D polish | Camera follows attacks and abilities, summons flip over from a card back, standees sway |
 | 22 | Swap copies | Tapping a copy of a pet asks: combine or swap places |
@@ -118,10 +118,11 @@ The trained models learned under the old rules. The changes only matter in the s
 - **Help for new players:** How to play panel, plain explanations of every pet, food, perk and trigger word.
 - **Look and sound:** tier-colored art, particle effects, synthesized sound effects, two original music tracks, light and dark themes.
 - **Saves:** games survive a refresh and a server restart.
+- **Replays:** every game played or watched is kept in `gui/replays/` with each turn's shop moves, the models' reasoning, every battle step and the game log. The Replays tab lists them with search and filters; open one to rename it, add a note, and step through any turn in 2D or 3D. Games saved before replays existed are imported with their battle logs.
 
 ## Testing and verification
 
-- **Unit tests:** `python -m unittest tests.test_gui tests.test_sell_triggers tests.test_battle_fixes tests.test_food_fixes`. The full suite passes except two older test files that import torch.
+- **Unit tests:** `python -m unittest tests.test_gui tests.test_sell_triggers tests.test_battle_fixes tests.test_food_fixes tests.test_replays`. The full suite passes except two older test files that import torch.
 - **Model parity:** the numpy port beats the greedy bot at the rates in `models/README.md`: Token net 16.8M won 12 of 12 games, MLP 8.2M won 11 of 12.
 - **Replay parity:** step-by-step replays give the same result as the engine's own battle in every game tested.
 - **Game log scan:** about 2,900 logged events over 30 full model games, with no rule problems and no unexplained gold changes.
@@ -143,9 +144,8 @@ python -m gui.server
 
 ## Known issues and next steps
 
-- **Replay catalog (in progress):** keep every finished game with its full history, list and filter them, and replay any game turn by turn.
-- **Negative lives:** a side can show -1 lives at the end of a game; it should show 0.
 - **Chat:** without an API key, the chat only understands its set questions and answers everything else with its help text.
+- **Sharing replays:** replays live on each person's own computer; exporting one as a file to send to a friend would let Charlie and you trade games.
 - **Retraining:** the models learned under the old engine rules; retraining on the fixed engine would make them match the game you play.
 - **3D view:** needs an internet connection the first time, to load Three.js.
 - **Automated checks:** GitHub Actions don't run on this repo, so tests run locally before each merge.

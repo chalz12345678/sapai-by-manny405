@@ -319,6 +319,25 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
 .note.bad { color: var(--loss); font-weight: 600; }
 
 .pair-menu { position: absolute; z-index: 25; display: flex; gap: 6px; padding: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.22); }
+.grow-field { flex: 1 1 220px; }
+.grow-field input, #replaySearch { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--surface); color: var(--fg); font: inherit; }
+.replay-table-wrap { overflow-x: auto; }
+.replay-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.replay-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.replay-table td { padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.replay-table tr.rrow { cursor: pointer; }
+.replay-table tr.rrow:hover td, .replay-table tr.rrow:focus td { background: var(--sunk); }
+#replayShops .panel { align-content: start; }
+.replay-table .t { font-weight: 600; }
+.replay-table .sub { color: var(--muted); font-size: 12px; }
+.pill { display: inline-block; border-radius: 999px; padding: 2px 9px; font-size: 12px; font-weight: 600; background: var(--sunk); color: var(--muted); }
+.pill.win { background: var(--accent-soft); color: var(--win); } .pill.loss { background: var(--hp-soft); color: var(--loss); }
+.replay-head { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: end; }
+.turn-strip { display: flex; gap: 6px; flex-wrap: wrap; }
+.turn-strip button { min-width: 40px; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 6px 8px; font: 600 12px var(--f-mono); cursor: pointer; color: var(--fg); }
+.turn-strip button.win { border-bottom: 3px solid var(--win); } .turn-strip button.loss { border-bottom: 3px solid var(--loss); } .turn-strip button.draw { border-bottom: 3px solid var(--draw); }
+.turn-strip button[aria-selected="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.thoughts { margin: 4px 0 0; padding-left: 18px; font-size: 12px; color: var(--muted); display: grid; gap: 2px; }
 .chat-fab { position: fixed; right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 18;
   border: 0; border-radius: 999px; padding: 12px 18px; font-weight: 700; cursor: pointer; background: var(--accent); color: var(--accent-fg); box-shadow: 0 6px 20px rgba(0,0,0,.2); }
 .chat-fab:hover { transform: translateY(-1px); }
@@ -378,6 +397,7 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
     <div class="seg" role="group" aria-label="Mode">
       <button id="modePlay" aria-pressed="true">Play</button>
       <button id="modeWatch" aria-pressed="false">Watch models</button>
+      <button id="modeReplays" aria-pressed="false">Replays</button>
     </div>
   </header>
 
@@ -440,6 +460,36 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
 
   <section class="score" id="score" hidden></section>
   <section id="over" hidden></section>
+
+  <section class="panel" id="replayList" hidden>
+    <div class="panel-head"><h2>Replays</h2><span class="note" id="replayCount"></span></div>
+    <p class="help">Every game you play or watch is kept here with its full history: each turn's teams, shop moves, the models' reasoning, every battle step and the game log.</p>
+    <div class="setup">
+      <div class="field grow-field"><label for="replaySearch">Search</label><input id="replaySearch" type="search" placeholder="Title, player or note"></div>
+      <div class="field"><label for="replayFilter">Show</label>
+        <select id="replayFilter"><option value="all">All games</option><option value="play">Your games</option><option value="watch">Watched matches</option><option value="won">Games you won</option><option value="finished">Finished</option><option value="unfinished">Unfinished</option></select></div>
+    </div>
+    <div class="replay-table-wrap"><table class="replay-table"><thead><tr><th>Game</th><th>Result</th><th>Turns</th><th>Battles W / L / D</th><th>Played</th></tr></thead><tbody id="replayRows"></tbody></table></div>
+  </section>
+
+  <section class="panel" id="replayView" hidden>
+    <div class="bar">
+      <button class="btn" id="replayBack">← All replays</button>
+      <span class="grow"></span>
+      <button class="btn" id="replayDelete">Delete replay</button>
+    </div>
+    <div class="replay-head">
+      <div class="field grow-field"><label for="replayTitle">Title</label><input id="replayTitle" maxlength="120"></div>
+      <div class="field grow-field"><label for="replayNote">Note</label><input id="replayNote" maxlength="1000" placeholder="What happened in this game?"></div>
+      <button class="btn primary" id="replaySave">Save</button>
+    </div>
+    <p class="help" id="replayMeta"></p>
+    <div class="turn-strip" id="turnStrip" role="tablist" aria-label="Turns"></div>
+    <div class="bar"><button class="btn" id="turnPrev">◀ Previous turn</button><span class="grow frame-label" id="turnLabel"></span><button class="btn" id="turnNext">Next turn ▶</button></div>
+    <div class="duo" id="replayShops"></div>
+    <div class="log" id="replayLines" hidden></div>
+    <details class="panel how" id="replayLogBox"><summary>Game log for this turn</summary><div class="loglist" id="replayLog"></div></details>
+  </section>
 
   <section class="panel" id="battle" hidden>
     <div class="panel-head">
@@ -822,7 +872,7 @@ function petCard(p, opts = {}) {
     ${status}
     <span class="art"><span class="bob" style="--d:${bobDelay(p.name)}s"><span class="emo" aria-hidden="true">${p.emoji}</span></span></span>
     <span class="nm">${esc(p.name)}</span>
-    <span class="stats"><span class="stat a" aria-label="attack">${p.attack}</span><span class="stat h" aria-label="health">${p.health}</span></span>
+    <span class="stats"><span class="stat a" aria-label="attack">${p.attack}</span><span class="stat h" aria-label="health">${Math.max(0, p.health)}</span></span>
     <span class="lvl">${lv >= 3 ? "MAX" : "Lv" + lv} ${dots}</span>
     ${p.frozen ? `<span class="ice">FROZEN</span>` : ""}
   </div>`;
@@ -922,8 +972,9 @@ function renderOver() {
   const title = human ? (st.result === "seat0" ? "You won the game" : `${winner} won the game`) : `${winner} wins the match`;
   el.innerHTML = `<div class="banner"><div><h2>${esc(title)}</h2>
     <span class="help">${st.history.filter((h) => h === "win").length} wins, ${st.history.filter((h) => h === "loss").length} losses, ${st.history.filter((h) => h === "draw").length} draws over ${st.history.length} turns.</span></div>
-    <button class="btn primary" id="againBtn">Play again</button></div>`;
+    <div class="bar"><button class="btn" id="viewReplayBtn">View replay</button><button class="btn primary" id="againBtn">Play again</button></div></div>`;
   $("againBtn").onclick = () => (S.mode === "play" ? newGame() : newMatch());
+  $("viewReplayBtn").onclick = () => { const id = S.id; switchMode("replays").then(() => openReplay(id)); };
 }
 
 function renderPlay() {
@@ -1018,6 +1069,14 @@ function render() {
   $("stepBtn").disabled = !S.id || !S.st || S.st.over || S.busy;
   $("autoBtn").textContent = S.auto ? "Stop" : "Auto play";
   $("autoBtn").setAttribute("aria-pressed", S.auto);
+  $("modeReplays").setAttribute("aria-pressed", S.mode === "replays");
+  const rep = S.mode === "replays";
+  $("replayList").hidden = !rep || !!REP.doc;
+  $("replayView").hidden = !rep || !REP.doc;
+  $("logPanel").hidden = rep;
+  $("how").hidden = rep;
+  $("chatFab").hidden = rep || CHAT.open;
+  if (rep) { $("setupPlay").hidden = $("setupWatch").hidden = true; $("score").hidden = $("over").hidden = true; $("teamPanel").hidden = $("watchArea").hidden = true; return; }
   renderScore(); renderOver(); renderPlay(); renderWatch(); syncLog();
   if (CHAT.open && CHAT.loadedFor !== S.id) chatLoad();
   else if (CHAT.open) chatHeader();
@@ -1047,14 +1106,14 @@ function startBattle(b) {
   S.battle = b; S.frame = 0; S.playing = true; S.soundFrame = -1; S.last3d = -1;
   $("battle").hidden = false;
   if (S.view === "3d") {
-    $("lbl3L").textContent = S.st.seats[0].label; $("lbl3R").textContent = S.st.seats[1].label;
+    $("lbl3L").textContent = battleLabels(b)[0]; $("lbl3R").textContent = battleLabels(b)[1];
     Battle3D.reset($("stage3d")).then(() => { $("stage3dLoading").hidden = true; S.last3d = -1; for (let k = 0; k <= S.frame; k++) { const fr = S.battle.frames[k]; Battle3D.show(fr, k ? S.battle.frames[k - 1] : null, { animate: false }); } S.last3d = S.frame; })
       .catch((e) => { toast(e.message); setView("2d"); });
   }
   FX.attachScene($("scene"));
   if (speed() > 0) MUSIC.setMood("battle");
-  $("lblL").textContent = S.st.seats[0].label;
-  $("lblR").textContent = S.st.seats[1].label;
+  $("lblL").textContent = battleLabels(b)[0];
+  $("lblR").textContent = battleLabels(b)[1];
   $("battleTitle").textContent = `Turn ${b.turn} battle`;
   $("bClose").hidden = S.mode !== "play";
   $("bResult").textContent = "";
@@ -1065,6 +1124,7 @@ function startBattle(b) {
   tick();
   $("battle").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "nearest" });
 }
+function battleLabels(b) { return b.labels || (S.st ? [S.st.seats[0].label, S.st.seats[1].label] : ["Left", "Right"]); }
 function speed() { const v = $("bspeed").value; return v === "step" ? -1 : Number(v); }
 function setSpeed(v) {
   $("bspeed").value = v; $("speed").value = v;
@@ -1123,6 +1183,14 @@ function finishBattle() {
   S.playing = false;
   $("bPlay").textContent = "Replay";
   const b = S.battle, o = b.outcome;
+  if (S.mode === "replays" || !S.st) {
+    const [l, r] = battleLabels(b);
+    $("bResult").textContent = o === "draw" ? "Draw" : `${o === "win" ? l : r} won`;
+    $("bResult").className = "result " + o;
+    SFX.play(o === "draw" ? "draw" : "win");
+    setTimeout(() => MUSIC.setMood("shop"), 1500);
+    return;
+  }
   const human = S.st.seats[0].kind === "human";
   const txt = o === "draw" ? "Draw" : human ? (o === "win" ? "You won the battle" : `You lost · −${b.lives} lives`)
     : `${o === "win" ? S.st.seats[0].label : S.st.seats[1].label} won`;
@@ -1171,10 +1239,119 @@ async function resume(id) {
 }
 async function switchMode(mode) {
   stopAll();
-  S.mode = mode; S.id = null; S.st = null; $("battle").hidden = true;
+  if (CHAT.open) chatToggle(false);
+  S.mode = mode; S.id = null; S.st = null; S.battle = null; $("battle").hidden = true;
+  if (Battle3D.mounted) Battle3D.unmount();
+  REP.doc = null;
   render();
+  if (mode === "replays") { await loadReplays(); return; }
   if (!(await resume(recall()[mode]))) (mode === "play" ? newGame() : newMatch());
 }
+
+// ---------------------------------------------------------------- replays
+const REP = { list: [], doc: null, turn: 0, confirmDelete: false };
+function when(iso) {
+  const d = new Date(iso);
+  return isNaN(d) ? "" : d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+async function loadReplays() {
+  try { REP.list = (await api("/api/replays", {})).replays; } catch (e) { toast(e.message); REP.list = []; }
+  renderReplayList();
+}
+function replayMatches(m) {
+  const f = $("replayFilter").value, q = $("replaySearch").value.trim().toLowerCase();
+  if (f === "play" && m.mode !== "play") return false;
+  if (f === "watch" && m.mode !== "watch") return false;
+  if (f === "won" && !(m.mode === "play" && m.status === "finished" && m.result === "You won")) return false;
+  if (f === "finished" && m.status !== "finished") return false;
+  if (f === "unfinished" && m.status !== "unfinished") return false;
+  if (q && ![m.title, m.note, ...(m.players || [])].join(" ").toLowerCase().includes(q)) return false;
+  return true;
+}
+function renderReplayList() {
+  const rows = REP.list.filter(replayMatches);
+  $("replayCount").textContent = `${REP.list.length} ${REP.list.length === 1 ? "game" : "games"}`;
+  $("replayRows").innerHTML = rows.length ? rows.map((m) => {
+    const cls = m.status !== "finished" ? "" : m.mode === "play" ? (m.result === "You won" ? "win" : "loss") : "";
+    const b = m.battles || {};
+    const vs = (m.players || []).join(" vs "), sub = [m.title.replace(/^You vs /, "") === (m.players || [])[1] || m.title === vs ? "" : esc(vs), m.note ? esc(m.note) : "", m.steps === false ? "log only" : ""].filter(Boolean).join(" · ");
+    return `<tr class="rrow" tabindex="0" data-rid="${esc(m.id)}"><td><div class="t">${esc(m.title)}</div>${sub ? `<div class="sub">${sub}</div>` : ""}</td>
+      <td><span class="pill ${cls}">${esc(m.result)}</span></td><td>${m.turns}</td><td>${b.win ?? 0} / ${b.loss ?? 0} / ${b.draw ?? 0}</td><td class="sub">${esc(when(m.updated))}</td></tr>`;
+  }).join("") : `<tr><td colspan="5" class="sub">${REP.list.length ? "No games match." : "No games yet. Finish a turn in Play or Watch mode and it shows up here."}</td></tr>`;
+  render();
+}
+async function openReplay(id) {
+  try {
+    REP.doc = (await api("/api/replay", { id })).replay;
+  } catch (e) { toast(e.message); return; }
+  REP.confirmDelete = false;
+  $("replayDelete").textContent = "Delete replay";
+  const m = REP.doc.meta;
+  $("replayTitle").value = m.title; $("replayNote").value = m.note || "";
+  render();
+  renderReplayMeta();
+  selectTurn(Math.max(0, REP.doc.rounds.length - 1), false);
+  window.scrollTo({ top: 0 });
+}
+function renderReplayMeta() {
+  const m = REP.doc.meta, sc = m.score || [{}, {}];
+  $("replayMeta").textContent = `${(m.players || []).join(" vs ")} · ${m.result} · ${m.turns} turns · final score ${sc[0].wins ?? "?"} wins / ${sc[0].lives ?? "?"} lives against ${sc[1].wins ?? "?"} wins / ${sc[1].lives ?? "?"} lives · played ${when(m.created)}` +
+    (m.steps === false ? " · saved before replays existed, so battles show their log only" : "");
+  const r = REP.doc.rounds;
+  $("turnStrip").innerHTML = r.map((x, k) => `<button type="button" role="tab" class="${x.outcome}" data-turn="${k}" aria-selected="${k === REP.turn}" title="Turn ${x.turn}: ${x.outcome}">T${x.turn}</button>`).join("") || `<span class="help">No turns played yet.</span>`;
+}
+function selectTurn(k, play = true) {
+  const rounds = REP.doc.rounds;
+  if (!rounds.length) return;
+  REP.turn = Math.max(0, Math.min(rounds.length - 1, k));
+  const r = rounds[REP.turn], labels = REP.doc.meta.players || ["Left", "Right"];
+  $("turnStrip").querySelectorAll("button").forEach((b) => b.setAttribute("aria-selected", String(Number(b.dataset.turn) === REP.turn)));
+  const res = r.outcome === "draw" ? "draw" : `${r.outcome === "win" ? labels[0] : labels[1]} won the battle`;
+  const n = (v, one, many) => `${v} ${v === 1 ? one : many}`;
+  const after = r.after ? ` · after it: ${labels[0]} ${n(r.after[0].wins, "win", "wins")}, ${n(r.after[0].lives, "life", "lives")}; ${labels[1]} ${n(r.after[1].wins, "win", "wins")}, ${n(r.after[1].lives, "life", "lives")}` : "";
+  $("turnLabel").textContent = `Turn ${r.turn} of ${rounds.at(-1).turn} · ${res}${after}`;
+  $("turnPrev").disabled = REP.turn === 0; $("turnNext").disabled = REP.turn === rounds.length - 1;
+  // shop moves and the models' reasoning for each side
+  $("replayShops").innerHTML = [0, 1].map((i) => {
+    const log = (r.shopLogs || [[], []])[i] || [], th = (r.thoughts || [[], []])[i] || [];
+    const moves = log.length ? log.map((x) => `<li>${esc(x)}</li>`).join("") : "<li>did nothing</li>";
+    const why = th.length ? `<div class="front-note">Model confidence per move</div><ol class="thoughts">${th.map((t) => `<li>${esc(t.choice)} · ${Math.round((t.confidence || 0) * 100)}%${t.options && t.options[1] ? ` (next best: ${esc(t.options[1][0])}, ${Math.round(t.options[1][1] * 100)}%)` : ""}</li>`).join("")}</ol>` : "";
+    return `<div class="panel"><div class="panel-head"><h2>${esc(labels[i])}</h2><span class="note">shopping on turn ${r.turn}</span></div><ol class="shoplog">${moves}</ol>${why}</div>`;
+  }).join("");
+  // the battle: step-by-step frames, or the log lines for games saved before replays
+  const hasFrames = r.frames && r.frames.length > 1;
+  $("replayLines").hidden = hasFrames;
+  if (hasFrames) {
+    startBattle({ frames: r.frames, outcome: r.outcome, lives: r.lives, turn: r.turn, shopLogs: r.shopLogs, labels });
+    if (!play) { S.playing = false; tick(); }
+  } else {
+    clearTimeout(S.timer); $("battle").hidden = true;
+    $("replayLines").innerHTML = (r.lines || []).map((l) => `<p>${esc(l)}</p>`).join("") || `<p class="dim">No battle recorded.</p>`;
+  }
+  // this turn's game log
+  const ev = (REP.doc.events || []).filter((e) => e.turn === r.turn);
+  $("replayLog").innerHTML = ev.length ? ev.map((e) => `<div class="log-e ${e.kind} ${e.warn && e.warn.length ? "bad" : e.ok === false ? "odd" : ""}"><div class="log-h"><span class="who">${esc(e.who || "Battle")}</span> ${esc(e.title)}</div><ul>${e.lines.map((l) => `<li class="${/^(rule|check|ability|effect)/.test(l) ? "meta" : ""}">${esc(l)}</li>`).join("")}</ul></div>`).join("") : `<p class="help">No log entries for this turn.</p>`;
+}
+$("modeReplays").onclick = () => switchMode("replays");
+$("replaySearch").addEventListener("input", renderReplayList);
+$("replayFilter").onchange = renderReplayList;
+$("replayRows").addEventListener("click", (e) => { const tr = e.target.closest("[data-rid]"); if (tr) openReplay(tr.dataset.rid); });
+$("replayRows").addEventListener("keydown", (e) => { const tr = e.target.closest("[data-rid]"); if (tr && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openReplay(tr.dataset.rid); } });
+$("replayBack").onclick = () => { clearTimeout(S.timer); $("battle").hidden = true; if (Battle3D.mounted) Battle3D.unmount(); REP.doc = null; loadReplays(); };
+$("turnStrip").addEventListener("click", (e) => { const b = e.target.closest("[data-turn]"); if (b) selectTurn(Number(b.dataset.turn)); });
+$("turnPrev").onclick = () => selectTurn(REP.turn - 1);
+$("turnNext").onclick = () => selectTurn(REP.turn + 1);
+$("replaySave").onclick = async () => {
+  try {
+    const j = await api("/api/replay/rename", { id: REP.doc.meta.id, title: $("replayTitle").value, note: $("replayNote").value });
+    REP.doc.meta = j.meta; renderReplayMeta(); toast("Saved.");
+  } catch (e) { toast(e.message); }
+};
+$("replayDelete").onclick = async () => {
+  if (!REP.confirmDelete) { REP.confirmDelete = true; $("replayDelete").textContent = "Click again to delete for good"; return; }
+  try { await api("/api/replay/delete", { id: REP.doc.meta.id }); toast("Replay deleted."); } catch (e) { toast(e.message); }
+  REP.doc = null; $("battle").hidden = true; loadReplays();
+};
 
 // ------------------------------------------------------------- game log
 S.log = []; S.logId = null; S.logBusy = false;

@@ -141,3 +141,6 @@ runs/
 
 # GUI saved games
 gui/saves/
+
+# GUI replay catalog
+gui/replays/
