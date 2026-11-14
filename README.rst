@@ -75,7 +75,7 @@ the trained models in ``models/`` (this needs ``torch``, ``gymnasium`` and
 
     python -m sapai.cli --opponent token   # strongest: the most trained token model
     python -m sapai.cli --opponent mlp     # the most trained MLP model
-    python -m sapai.cli --opponent models/token_4.3M.zip
+    python -m sapai.cli --opponent models/token_13.5M.zip
 
 ---------------------------
 Introduction: Code Examples
