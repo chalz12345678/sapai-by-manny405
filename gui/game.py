@@ -69,11 +69,18 @@ def _short(name):
 
 
 FALLBACK_EMOJI = {
-    "pet-pigeon": "\U0001F426", "pet-armadillo": "\U0001F994", "pet-wolverine": "\U0001F9A1",
-    "food-cake": "\U0001F370", "food-bread": "\U0001F35E", "food-bread-crumbs": "\U0001F35E",
-    "food-better-apple": "\U0001F34E", "food-best-apple": "\U0001F34E",
-    "food-better-milk": "\U0001F95B", "food-best-milk": "\U0001F95B",
-    "status-cake": "\U0001F370", "status-bread": "\U0001F35E",
+    "pet-pigeon": "\U0001F426",
+    "pet-armadillo": "\U0001F994",
+    "pet-wolverine": "\U0001F9A1",
+    "food-cake": "\U0001F370",
+    "food-bread": "\U0001F35E",
+    "food-bread-crumbs": "\U0001F35E",
+    "food-better-apple": "\U0001F34E",
+    "food-best-apple": "\U0001F34E",
+    "food-better-milk": "\U0001F95B",
+    "food-best-milk": "\U0001F95B",
+    "status-cake": "\U0001F370",
+    "status-bread": "\U0001F35E",
 }
 
 
@@ -98,9 +105,12 @@ def _status(status):
     if status in (None, "none"):
         return None
     e = data["statuses"].get(status, {})
-    return {"name": e.get("name", _short(status)),
-            "emoji": (e.get("image") or {}).get("unicodeCodePoint") or FALLBACK_EMOJI.get(status, ""),
-            "desc": (e.get("ability") or {}).get("description", "")}
+    return {
+        "name": e.get("name", _short(status)),
+        "emoji": (e.get("image") or {}).get("unicodeCodePoint")
+        or FALLBACK_EMOJI.get(status, ""),
+        "desc": (e.get("ability") or {}).get("description", ""),
+    }
 
 
 ### Plain explanations of ability trigger words, for new players
@@ -129,16 +139,42 @@ TRIGGERS = {
 }
 
 TERMS = [
-    ("until end of battle", "until end of battle",
-     "The bonus lasts for the next battle only, then goes away."),
-    (r"\bsummon", "Summon", "Adds a new pet to a team during the battle, if that team has room (5 pets max)."),
-    (r"\bexperience", "Experience",
-     "Pets level up from experience: 2 to reach level 2, then 3 more for level 3."),
-    (r"\bahead\b", "Ahead", "Ahead means closer to the front of the line, which fights first."),
+    (
+        "until end of battle",
+        "until end of battle",
+        "The bonus lasts for the next battle only, then goes away.",
+    ),
+    (
+        r"\bsummon",
+        "Summon",
+        "Adds a new pet to a team during the battle, if that team has room (5 pets max).",
+    ),
+    (
+        r"\bexperience",
+        "Experience",
+        "Pets level up from experience: 2 to reach level 2, then 3 more for level 3.",
+    ),
+    (
+        r"\bahead\b",
+        "Ahead",
+        "Ahead means closer to the front of the line, which fights first.",
+    ),
     (r"\bbehind\b", "Behind", "Behind means further from the front of the line."),
-    (r"works \d+ times?", "Works N times", "The ability stops after that many uses in one turn or battle."),
-    (r"triggers \d+ times?", "Triggers N times", "The ability stops after that many uses in one battle."),
-    (r"\btier\b", "Tier", "Pets come in tiers 1 to 6. Higher tiers show up in the shop on later turns."),
+    (
+        r"works \d+ times?",
+        "Works N times",
+        "The ability stops after that many uses in one turn or battle.",
+    ),
+    (
+        r"triggers \d+ times?",
+        "Triggers N times",
+        "The ability stops after that many uses in one battle.",
+    ),
+    (
+        r"\btier\b",
+        "Tier",
+        "Pets come in tiers 1 to 6. Higher tiers show up in the shop on later turns.",
+    ),
     (r"\bknocks? out\b", "Knock out", "Knocking out a pet means making it faint."),
 ]
 
@@ -196,24 +232,47 @@ def pet_dict(pet):
         sell = int(pet.sell_value)
     except Exception:
         sell = level
-    return {"name": _short(pet.name).replace("-", " "), "emoji": _emoji(pet.name),
-            "attack": int(pet.attack), "health": int(pet.health),
-            "level": level, "xp": int(pet.experience),
-            "tier": data["pets"].get(pet.name, {}).get("tier", 1),
-            "status": st, "desc": desc, "levels": _levels(pet.name),
-            "glossary": gloss, "sell": sell}
+    return {
+        "name": _short(pet.name).replace("-", " "),
+        "emoji": _emoji(pet.name),
+        "attack": int(pet.attack),
+        "health": int(pet.health),
+        "level": level,
+        "xp": int(pet.experience),
+        "tier": data["pets"].get(pet.name, {}).get("tier", 1),
+        "status": st,
+        "desc": desc,
+        "levels": _levels(pet.name),
+        "glossary": gloss,
+        "sell": sell,
+    }
 
 
 def shop_dict(slot):
     o = slot.obj
     if slot.slot_type == "food":
         desc = _ability(o.name)
-        perk_id = (data["foods"].get(o.name, {}).get("ability") or {}).get("effect", {}).get("status")
+        perk_id = (
+            (data["foods"].get(o.name, {}).get("ability") or {})
+            .get("effect", {})
+            .get("status")
+        )
         perk = _status(perk_id) if perk_id else None
-        gloss = [g for g in glossary(desc) if not (perk and g["term"].endswith(perk["name"] + " perk"))]
-        d = {"kind": "food", "name": _short(o.name).replace("-", " "), "emoji": _emoji(o.name),
-             "desc": desc, "targeted": E.food_needs_target(o), "perk": perk,
-             "tier": data["foods"].get(o.name, {}).get("tier", 1), "glossary": gloss}
+        gloss = [
+            g
+            for g in glossary(desc)
+            if not (perk and g["term"].endswith(perk["name"] + " perk"))
+        ]
+        d = {
+            "kind": "food",
+            "name": _short(o.name).replace("-", " "),
+            "emoji": _emoji(o.name),
+            "desc": desc,
+            "targeted": E.food_needs_target(o),
+            "perk": perk,
+            "tier": data["foods"].get(o.name, {}).get("tier", 1),
+            "glossary": gloss,
+        }
     else:
         d = pet_dict(o)
         d["kind"] = slot.slot_type
@@ -224,6 +283,7 @@ def shop_dict(slot):
 
 def _now():
     import datetime
+
     return datetime.datetime.now().astimezone().isoformat(timespec="seconds")
 
 
@@ -252,7 +312,8 @@ def describe_action(p, a):
             "buy_food": lambda: f"fed {sn(args[0])} to {tn(args[1])}",
             "buy_food_untargeted": lambda: f"bought {sn(args[0])}",
             "sell": lambda: f"sold {tn(args[0])}",
-            "freeze": lambda: ("unfroze " if shop[args[0]].frozen else "froze ") + sn(args[0]),
+            "freeze": lambda: ("unfroze " if shop[args[0]].frozen else "froze ")
+            + sn(args[0]),
             "swap": lambda: f"swapped {tn(args[0])} and {tn(args[1])}",
             "combine": lambda: f"combined {tn(args[0])} with {tn(args[1])}",
         }[name]()
@@ -293,7 +354,9 @@ class Seat:
             self.actions += 1
             self.log.append(text)
             if self.recorder:
-                self.recorder(self, text, before, audit.snapshot(self.player), name, args, effects)
+                self.recorder(
+                    self, text, before, audit.snapshot(self.player), name, args, effects
+                )
         return text
 
 
@@ -302,8 +365,13 @@ AGENTS = {}
 
 def register_agent(agent_id, label, desc, group, shop):
     """shop(seat, rng) plays one shop phase for a Seat (stop before end turn)."""
-    AGENTS[agent_id] = {"id": agent_id, "label": label, "desc": desc,
-                        "group": group, "shop": shop}
+    AGENTS[agent_id] = {
+        "id": agent_id,
+        "label": label,
+        "desc": desc,
+        "group": group,
+        "shop": shop,
+    }
 
 
 def _greedy(seat, rng):
@@ -343,10 +411,18 @@ def _greedy_args(entry, before):
     """Shop and team indices of a greedy action, for the log's rule checks."""
     name, args = entry[0], entry[1]
     names = [str(x.get("name")) for x in args if isinstance(x, dict)]
-    shop_i = next((x["i"] for x in before["shop"]
-                   if names and x["name"] == audit._short(names[0])), 0)
+    shop_i = next(
+        (
+            x["i"]
+            for x in before["shop"]
+            if names and x["name"] == audit._short(names[0])
+        ),
+        0,
+    )
     if name == "buy_combine" and len(names) > 1:
-        team_i = next((k for k, x in enumerate(before["team"]) if x["pet"] == names[1]), 0)
+        team_i = next(
+            (k for k, x in enumerate(before["team"]) if x["pet"] == names[1]), 0
+        )
         return (shop_i, team_i)
     return (shop_i,)
 
@@ -355,11 +431,19 @@ def _history_text(entry):
     """Log text for one Player.action_history entry made by the greedy bot."""
     try:
         name, args = entry[0], entry[1]
-        names = [_short(str(x["name"])).replace("-", " ")
-                 for x in args if isinstance(x, dict) and "name" in x]
-        verb = {"buy_pet": "bought", "buy_combine": "bought and stacked",
-                "buy_food": "bought", "roll": "rolled", "sell": "sold",
-                "combine": "combined"}.get(name, name.replace("_", " "))
+        names = [
+            _short(str(x["name"])).replace("-", " ")
+            for x in args
+            if isinstance(x, dict) and "name" in x
+        ]
+        verb = {
+            "buy_pet": "bought",
+            "buy_combine": "bought and stacked",
+            "buy_food": "bought",
+            "roll": "rolled",
+            "sell": "sold",
+            "combine": "combined",
+        }.get(name, name.replace("_", " "))
         if name == "buy_food" and len(names) > 1:
             return f"fed {names[0]} to {', '.join(names[1:])}"
         return " ".join([verb] + names[:1])
@@ -399,12 +483,22 @@ def think(policy, seat, obs=None, mask=None):
         counts[v] = counts.get(v, 0) + 1
     for k, v in names.items():
         args = E.ACTIONS[k][1]
-        if counts[v] > 1 and args and E.ACTIONS[k][0] in ("buy_pet", "buy_combine", "buy_food", "freeze"):
+        if (
+            counts[v] > 1
+            and args
+            and E.ACTIONS[k][0] in ("buy_pet", "buy_combine", "buy_food", "freeze")
+        ):
             names[k] = f"{v} (shop slot {args[0] + 1})"
     options = [[names[int(legal[k])], round(float(pr[k]), 4)] for k in order[:5]]
     chosen_p = float(pr[list(legal).index(a)])
-    return {"choice": names[int(a)], "action": int(a), "confidence": round(chosen_p, 4),
-            "options": options, "value": policy.value(obs), "legal_moves": int(len(legal))}
+    return {
+        "choice": names[int(a)],
+        "action": int(a),
+        "confidence": round(chosen_p, 4),
+        "options": options,
+        "value": policy.value(obs),
+        "legal_moves": int(len(legal)),
+    }
 
 
 def model_shop(policy):
@@ -423,25 +517,42 @@ def model_shop(policy):
                 seat.actions += 1
         oldest = turn - MAX_THOUGHT_TURNS
         seat.thoughts[:] = [x for x in seat.thoughts if x["turn"] > oldest]
+
     return shop
 
 
-register_agent("greedy", "Greedy bot", "Merges duplicates, buys the highest tier pets, feeds food. Rated 1000.",
-               "bot", _greedy)
-register_agent("random", "Random bot", "Takes random legal shop actions.", "bot", _random)
+register_agent(
+    "greedy",
+    "Greedy bot",
+    "Merges duplicates, buys the highest tier pets, feeds food. Rated 1000.",
+    "bot",
+    _greedy,
+)
+register_agent(
+    "random", "Random bot", "Takes random legal shop actions.", "bot", _random
+)
 
 LAYOUT = {
-    "MAX_TEAM": E.MAX_TEAM, "MAX_SHOP": E.MAX_SHOP, "TEAM_TOKEN": E.TEAM_TOKEN,
-    "SHOP_TOKEN": E.SHOP_TOKEN, "GLOBAL_TOKEN": E.GLOBAL_TOKEN,
-    "TEAM_PRESENT": E.N_PETS + E.N_STATUSES, "N_SHOP_KINDS": len(E.SHOP_KINDS),
-    "PAIR_A": [a for a, b in E.PAIRS], "PAIR_B": [b for a, b in E.PAIRS],
+    "MAX_TEAM": E.MAX_TEAM,
+    "MAX_SHOP": E.MAX_SHOP,
+    "TEAM_TOKEN": E.TEAM_TOKEN,
+    "SHOP_TOKEN": E.SHOP_TOKEN,
+    "GLOBAL_TOKEN": E.GLOBAL_TOKEN,
+    "TEAM_PRESENT": E.N_PETS + E.N_STATUSES,
+    "N_SHOP_KINDS": len(E.SHOP_KINDS),
+    "PAIR_A": [a for a, b in E.PAIRS],
+    "PAIR_B": [b for a, b in E.PAIRS],
 }
 
 MODEL_INFO = {
-    "token_22.5M": ("Token net 22.5M", 1475), "token_16.8M": ("Token net 16.8M", 1470), "token_13.5M": ("Token net 13.5M", 1459),
+    "token_22.5M": ("Token net 22.5M", 1475),
+    "token_16.8M": ("Token net 16.8M", 1470),
+    "token_13.5M": ("Token net 13.5M", 1459),
     "token_11.8M": ("Token net 11.8M", 1440),
-    "token_3.5M": ("Token net 3.5M", 1393), "mlp_19.3M": ("MLP 19.3M", 1420),
-    "mlp_10.9M": ("MLP 10.9M", 1332), "mlp_8.2M": ("MLP 8.2M", 1312),
+    "token_3.5M": ("Token net 3.5M", 1393),
+    "mlp_19.3M": ("MLP 19.3M", 1420),
+    "mlp_10.9M": ("MLP 10.9M", 1332),
+    "mlp_8.2M": ("MLP 8.2M", 1312),
 }
 
 
@@ -452,9 +563,15 @@ def load_model(name, path):
     with np.load(path) as f:
         policy = NumpyPolicy(dict(f), layout=LAYOUT)
     label, rating = MODEL_INFO.get(name, (name, None))
-    kind = "transformer over team and shop tokens" if policy.kind == "token" else "256x256 MLP"
+    kind = (
+        "transformer over team and shop tokens"
+        if policy.kind == "token"
+        else "256x256 MLP"
+    )
     steps = name.split("_")[-1]
-    desc = f"MaskablePPO, {kind}, {steps} training steps" + (f". Rated {rating}." if rating else ".")
+    desc = f"MaskablePPO, {kind}, {steps} training steps" + (
+        f". Rated {rating}." if rating else "."
+    )
     register_agent(name, label, desc, "model", model_shop(policy))
     AGENTS[name]["policy"] = policy
     AGENTS[name]["rating"] = rating
@@ -474,7 +591,10 @@ def load_agent_source(agent_id, source):
 
 
 def agent_list():
-    return [{k: v for k, v in a.items() if k not in ("shop", "policy")} for a in AGENTS.values()]
+    return [
+        {k: v for k, v in a.items() if k not in ("shop", "policy")}
+        for a in AGENTS.values()
+    ]
 
 
 def agents_json():
@@ -504,9 +624,14 @@ def _rename(line, names):
     a, b = names
     if a == "You":
         return line
-    return (line.replace("Your ", f"{a}'s ").replace(" their ", f" {b}'s ")
-            .replace("yours takes", f"{a}'s takes").replace("theirs takes", f"{b}'s takes")
-            .replace("You:", f"{a}:").replace("Opponent:", f"{b}:"))
+    return (
+        line.replace("Your ", f"{a}'s ")
+        .replace(" their ", f" {b}'s ")
+        .replace("yours takes", f"{a}'s takes")
+        .replace("theirs takes", f"{b}'s takes")
+        .replace("You:", f"{a}:")
+        .replace("Opponent:", f"{b}:")
+    )
 
 
 def _lines(entries_by_phase, names):
@@ -520,19 +645,30 @@ def _lines(entries_by_phase, names):
             except Exception:
                 line = None
             if line:
-                line = line.replace("deals damage to nothing", "has no enemy left to hit")
+                line = line.replace(
+                    "deals damage to nothing", "has no enemy left to hit"
+                )
                 ### "Hippo buffs Hippo (now 10/6)" reads like a glitch
-                line = re.sub(r"^(.*?: )?([A-Z][\w ]*?) buffs \2 \(now", r"\1\2 gains stats (now", line)
+                line = re.sub(
+                    r"^(.*?: )?([A-Z][\w ]*?) buffs \2 \(now",
+                    r"\1\2 gains stats (now",
+                    line,
+                )
                 out.append(_rename(line, names))
     return out
 
 
 PHASE_LABELS = {
-    "phase_move_start": "pets move up", "phase_start": "start of battle abilities",
-    "phase_hurt_and_faint": "hurt and faint effects", "phase_move_end": "pets move up",
-    "phase_attack_before": "before-attack abilities", "phase_hurt_and_faint_ab": "hurt and faint effects",
-    "phase_attack": "the front pets attack", "phase_attack_after": "after-attack abilities",
-    "phase_hurt_and_faint_aa": "hurt and faint effects", "phase_knockout": "knock-out abilities",
+    "phase_move_start": "pets move up",
+    "phase_start": "start of battle abilities",
+    "phase_hurt_and_faint": "hurt and faint effects",
+    "phase_move_end": "pets move up",
+    "phase_attack_before": "before-attack abilities",
+    "phase_hurt_and_faint_ab": "hurt and faint effects",
+    "phase_attack": "the front pets attack",
+    "phase_attack_after": "after-attack abilities",
+    "phase_hurt_and_faint_aa": "hurt and faint effects",
+    "phase_knockout": "knock-out abilities",
     "phase_hurt_and_faint_k": "hurt and faint effects",
 }
 
@@ -550,8 +686,14 @@ def _events(entries):
             if not src:
                 continue
             targets = [p[0].lower() for t in entry[3] for p in pet_parts(t)]
-            out.append({"kind": entry[0], "side": int(entry[1][0]), "src": src[0][0].lower(),
-                        "targets": targets})
+            out.append(
+                {
+                    "kind": entry[0],
+                    "side": int(entry[1][0]),
+                    "src": src[0][0].lower(),
+                    "targets": targets,
+                }
+            )
         except Exception:
             continue
     return out
@@ -570,10 +712,16 @@ def replay_battle(t0, t1, names=("You", "Opponent")):
     where = {"round": "Start of battle"}
     original = battle_mod.battle_phase
 
-    stack = []  # phases currently running, outermost first: [phase, phase_dict, flushed]
+    stack = (
+        []
+    )  # phases currently running, outermost first: [phase, phase_dict, flushed]
 
     def emit(phase, entries):
-        lines = _lines({phase: entries}, names) if not phase.startswith("phase_move") else []
+        lines = (
+            _lines({phase: entries}, names)
+            if not phase.startswith("phase_move")
+            else []
+        )
         f = _snap(b, f"{where['round']} · {PHASE_LABELS.get(phase, phase)}", lines)
         f["phase"] = phase
         f["events"] = _events(entries) if not phase.startswith("phase_move") else []
@@ -589,7 +737,7 @@ def replay_battle(t0, t1, names=("You", "Opponent")):
             ###   far first, so the hit appears before the faint it causes.
             parent = stack[-1]
             done = parent[1].get(parent[0], [])
-            emit(parent[0], done[parent[2]:])
+            emit(parent[0], done[parent[2] :])
             parent[2] = len(done)
         entry = [phase, phase_dict, len(phase_dict.get(phase, []))]
         stack.append(entry)
@@ -597,7 +745,7 @@ def replay_battle(t0, t1, names=("You", "Opponent")):
             out = original(battle_obj, phase, teams, pet_priority, phase_dict)
         finally:
             stack.pop()
-        emit(phase, phase_dict.get(phase, [])[entry[2]:])
+        emit(phase, phase_dict.get(phase, [])[entry[2] :])
         return out
 
     battle_mod.battle_phase = recording_phase
@@ -631,17 +779,31 @@ class Match:
         self.created = _now()
         for i, st in enumerate(self.seats):
             snap = audit.snapshot(st.player)
-            self._event("start", i, "turn 1 starts", [
-                f"gold {snap['gold']}, lives {snap['lives']}",
-                "shop now: " + ", ".join(audit._item_str(x) for x in snap["shop"])])
+            self._event(
+                "start",
+                i,
+                "turn 1 starts",
+                [
+                    f"gold {snap['gold']}, lives {snap['lives']}",
+                    "shop now: " + ", ".join(audit._item_str(x) for x in snap["shop"]),
+                ],
+            )
 
     # ------------------------------------------------------------- game log
     def _event(self, kind, seat, title, lines=(), warn=(), ok=None):
-        self.events.append({"n": len(self.events), "turn": int(self.seats[0].player.turn),
-                            "kind": kind, "seat": seat,
-                            "who": self.label(seat) if seat is not None else "",
-                            "title": title, "lines": list(lines), "warn": list(warn),
-                            "ok": ok})
+        self.events.append(
+            {
+                "n": len(self.events),
+                "turn": int(self.seats[0].player.turn),
+                "kind": kind,
+                "seat": seat,
+                "who": self.label(seat) if seat is not None else "",
+                "title": title,
+                "lines": list(lines),
+                "warn": list(warn),
+                "ok": ok,
+            }
+        )
 
     def _record_action(self, seat, text, before, after, name, args, effects=None):
         i = self.seats.index(seat)
@@ -665,8 +827,10 @@ class Match:
                 lines = [l for l in lines if not l.startswith("gold ")]
                 lines.insert(0, f"gold reset to {after['gold']}")
                 if any(l.startswith("team:") for l in lines):
-                    lines.append("rule: bonuses that last 'until end of battle' wear off here; "
-                                 "start of turn abilities, if any, are listed below")
+                    lines.append(
+                        "rule: bonuses that last 'until end of battle' wear off here; "
+                        "start of turn abilities, if any, are listed below"
+                    )
             fx = audit.effect_lines((effects or [[], []])[i])
             notes = fx or audit.ability_notes(phase, before[i], after)
             if kind == "end" and lines == [] and not fx:
@@ -674,7 +838,7 @@ class Match:
             self._event(kind, i, title, lines + notes, audit.violations(after))
 
     def events_since(self, n):
-        return self.events[max(0, int(n)):]
+        return self.events[max(0, int(n)) :]
 
     def label(self, i):
         k = self.seats[i].kind
@@ -689,19 +853,34 @@ class Match:
         s = self.seats[i]
         p = s.player
         legal = s.mask()
-        return {"kind": s.kind, "label": self.label(i), "turn": int(p.turn),
-                "gold": int(p.gold), "lives": max(0, int(p.lives)), "wins": int(s.wins),
-                "team": [pet_dict(x) for x in E.team_pets(p)],
-                "shop": [dict(shop_dict(x), index=i) for i, x in enumerate(p.shop.slots[:E.MAX_SHOP])
-                         if not x.empty],
-                "legal": [int(a) for a in np.flatnonzero(legal)], "log": s.log}
+        return {
+            "kind": s.kind,
+            "label": self.label(i),
+            "turn": int(p.turn),
+            "gold": int(p.gold),
+            "lives": max(0, int(p.lives)),
+            "wins": int(s.wins),
+            "team": [pet_dict(x) for x in E.team_pets(p)],
+            "shop": [
+                dict(shop_dict(x), index=i)
+                for i, x in enumerate(p.shop.slots[: E.MAX_SHOP])
+                if not x.empty
+            ],
+            "legal": [int(a) for a in np.flatnonzero(legal)],
+            "log": s.log,
+        }
 
     def state(self):
-        return {"seats": [self._seat_state(0), self._seat_state(1)], "over": self.over,
-                "result": self.result, "history": self.history, "maxWins": MAX_WINS,
-                "turn": int(self.seats[0].player.turn),
-                "nextDamage": lives_lost(self.seats[0].player.turn),
-                "logCount": len(self.events)}
+        return {
+            "seats": [self._seat_state(0), self._seat_state(1)],
+            "over": self.over,
+            "result": self.result,
+            "history": self.history,
+            "maxWins": MAX_WINS,
+            "turn": int(self.seats[0].player.turn),
+            "nextDamage": lives_lost(self.seats[0].player.turn),
+            "logCount": len(self.events),
+        }
 
     def state_json(self):
         return json.dumps(self.state())
@@ -734,8 +913,9 @@ class Match:
                 self.seats[0].act(a)
         except Exception as e:
             err = str(e)
-        return json.dumps({"ok": err is None, "error": err, "state": self.state(),
-                           "battle": battle})
+        return json.dumps(
+            {"ok": err is None, "error": err, "state": self.state(), "battle": battle}
+        )
 
     def play_round(self):
         for i, s in enumerate(self.seats):
@@ -757,10 +937,15 @@ class Match:
             s.player.team.move_forward()
         self._record_phase("end", "end of turn effects", before, "end_turn", effects)
         try:
-            frames, w = replay_battle(self.seats[0].player.team, self.seats[1].player.team,
-                                      (self.label(0), self.label(1)))
+            frames, w = replay_battle(
+                self.seats[0].player.team,
+                self.seats[1].player.team,
+                (self.label(0), self.label(1)),
+            )
         except Exception as e:
-            frames, w = [{"label": f"Engine error: {e}", "lines": [], "teams": [[], []]}], 2
+            frames, w = [
+                {"label": f"Engine error: {e}", "lines": [], "teams": [[], []]}
+            ], 2
         lost = lives_lost(turn)
         views = {0: (0, 1), 1: (1, 0), 2: (2, 2)}[w]
         for s, r in zip(self.seats, views):
@@ -770,22 +955,33 @@ class Match:
             elif r == 1:
                 s.player.lives -= lost
         self.history.append(["win", "loss", "draw"][w])
-        teams = [", ".join(f"{p['name']} {p['attack']}/{p['health']}" for p in t) or "no pets"
-                 for t in frames[0]["teams"]]
-        blines = [f"{self.label(0)} (front first): {teams[0]}",
-                  f"{self.label(1)} (front first): {teams[1]}"]
+        teams = [
+            ", ".join(f"{p['name']} {p['attack']}/{p['health']}" for p in t)
+            or "no pets"
+            for t in frames[0]["teams"]
+        ]
+        blines = [
+            f"{self.label(0)} (front first): {teams[0]}",
+            f"{self.label(1)} (front first): {teams[1]}",
+        ]
         for f in frames[1:]:
             for line in f["lines"]:
                 blines.append(f"{f['label']}: {line}")
-        surv = [", ".join(f"{p['name']} {p['attack']}/{p['health']}" for p in t) or "none"
-                for t in frames[-1]["teams"]]
-        blines.append(f"survivors: {self.label(0)}: {surv[0]} · {self.label(1)}: {surv[1]}")
+        surv = [
+            ", ".join(f"{p['name']} {p['attack']}/{p['health']}" for p in t) or "none"
+            for t in frames[-1]["teams"]
+        ]
+        blines.append(
+            f"survivors: {self.label(0)}: {surv[0]} · {self.label(1)}: {surv[1]}"
+        )
         res = {0: f"{self.label(0)} won", 1: f"{self.label(1)} won", 2: "draw"}[w]
         if w != 2:
             loser = 1 - w
-            blines.append(f"rule: losing on turn {turn} costs {lost} {'life' if lost == 1 else 'lives'}: "
-                          f"{self.label(loser)} {self.seats[loser].player.lives + lost} → "
-                          f"{self.seats[loser].player.lives}")
+            blines.append(
+                f"rule: losing on turn {turn} costs {lost} {'life' if lost == 1 else 'lives'}: "
+                f"{self.label(loser)} {self.seats[loser].player.lives + lost} → "
+                f"{self.seats[loser].player.lives}"
+            )
         else:
             blines.append("rule: a draw costs no lives")
         warn = []
@@ -808,28 +1004,69 @@ class Match:
                     effects.append(audit.stop_capture())
                 s.actions = 0
                 s.log = []
-            self._record_phase("start", f"turn {turn + 1} starts", before, "start_turn", effects)
-        thoughts = [[{k: t[k] for k in ("step", "choice", "confidence", "options", "value") if k in t}
-                     for t in s.thoughts if t.get("turn") == turn] for s in self.seats]
-        self.rounds.append({
-            "turn": turn, "outcome": ["win", "loss", "draw"][w], "lives": lost, "frames": frames,
-            "shopLogs": logs, "thoughts": thoughts,
-            "after": [{"wins": s.wins, "lives": max(0, int(s.player.lives))} for s in self.seats]})
-        return {"frames": frames, "outcome": ["win", "loss", "draw"][w], "lives": lost,
-                "turn": turn, "shopLogs": logs}
+            self._record_phase(
+                "start", f"turn {turn + 1} starts", before, "start_turn", effects
+            )
+        thoughts = [
+            [
+                {
+                    k: t[k]
+                    for k in ("step", "choice", "confidence", "options", "value")
+                    if k in t
+                }
+                for t in s.thoughts
+                if t.get("turn") == turn
+            ]
+            for s in self.seats
+        ]
+        self.rounds.append(
+            {
+                "turn": turn,
+                "outcome": ["win", "loss", "draw"][w],
+                "lives": lost,
+                "frames": frames,
+                "shopLogs": logs,
+                "thoughts": thoughts,
+                "after": [
+                    {"wins": s.wins, "lives": max(0, int(s.player.lives))}
+                    for s in self.seats
+                ],
+            }
+        )
+        return {
+            "frames": frames,
+            "outcome": ["win", "loss", "draw"][w],
+            "lives": lost,
+            "turn": turn,
+            "shopLogs": logs,
+        }
 
     # ---------------------------------------------------------- save / load
     def to_save(self):
         """JSON-safe dict of the whole match, for saving to disk."""
-        return {"version": 1, "kinds": [x.kind for x in self.seats],
-                "seats": [{"player": x.player.state, "wins": x.wins,
-                           "last_result": x.last_result, "actions": x.actions, "log": x.log,
-                           "thoughts": x.thoughts}
-                          for x in self.seats],
-                "events": self.events, "history": self.history, "over": self.over,
-                "chat": self.chat, "created": self.created,
-                "result": self.result, "rng": list(self.rng.getstate()[1]),
-                "rng_version": self.rng.getstate()[0]}
+        return {
+            "version": 1,
+            "kinds": [x.kind for x in self.seats],
+            "seats": [
+                {
+                    "player": x.player.state,
+                    "wins": x.wins,
+                    "last_result": x.last_result,
+                    "actions": x.actions,
+                    "log": x.log,
+                    "thoughts": x.thoughts,
+                }
+                for x in self.seats
+            ],
+            "events": self.events,
+            "history": self.history,
+            "over": self.over,
+            "chat": self.chat,
+            "created": self.created,
+            "result": self.result,
+            "rng": list(self.rng.getstate()[1]),
+            "rng_version": self.rng.getstate()[0],
+        }
 
     @classmethod
     def from_save(cls, d):
@@ -854,9 +1091,13 @@ class Match:
 
     def step_json(self):
         if self.over:
-            return json.dumps({"ok": False, "error": "The match is over.", "state": self.state()})
+            return json.dumps(
+                {"ok": False, "error": "The match is over.", "state": self.state()}
+            )
         b = self.play_round()
-        return json.dumps({"ok": True, "error": None, "state": self.state(), "battle": b})
+        return json.dumps(
+            {"ok": True, "error": None, "state": self.state(), "battle": b}
+        )
 
 
 def _why_illegal(p, name):
@@ -867,9 +1108,14 @@ def _why_illegal(p, name):
     if name == "roll":
         return "Rolling costs 1 gold."
     if name == "buy_food":
-        return "This food doesn't go on one pet. Press Buy to use it." if any(
-            s.slot_type == "food" and not s.empty and not E.food_needs_target(s.obj)
-            for s in p.shop.slots) else "Drop this food onto one of your pets."
+        return (
+            "This food doesn't go on one pet. Press Buy to use it."
+            if any(
+                s.slot_type == "food" and not s.empty and not E.food_needs_target(s.obj)
+                for s in p.shop.slots
+            )
+            else "Drop this food onto one of your pets."
+        )
     if name == "buy_combine":
         return "You can only stack a pet onto the same pet below level 3."
     if name == "combine":

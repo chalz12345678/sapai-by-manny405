@@ -47,17 +47,32 @@ def snapshot(p):
         if slot.empty:
             continue
         x = slot.pet
-        team.append({"id": uid(x), "name": _short(x.name), "pet": x.name,
-                     "atk": int(x.attack), "hp": int(x.health), "lvl": int(x.level),
-                     "xp": int(x.experience), "perk": _perk(x.status),
-                     "sell": int(getattr(x, "sell_value", x.level))})
+        team.append(
+            {
+                "id": uid(x),
+                "name": _short(x.name),
+                "pet": x.name,
+                "atk": int(x.attack),
+                "hp": int(x.health),
+                "lvl": int(x.level),
+                "xp": int(x.experience),
+                "perk": _perk(x.status),
+                "sell": int(getattr(x, "sell_value", x.level)),
+            }
+        )
     shop = []
     for i, s in enumerate(p.shop.slots):
         if s.empty:
             continue
         o = s.obj
-        item = {"id": uid(o), "i": i, "name": _short(o.name), "kind": s.slot_type,
-                "cost": int(s.cost), "frozen": bool(s.frozen)}
+        item = {
+            "id": uid(o),
+            "i": i,
+            "name": _short(o.name),
+            "kind": s.slot_type,
+            "cost": int(s.cost),
+            "frozen": bool(s.frozen),
+        }
         if s.slot_type != "food":
             item.update(atk=int(o.attack), hp=int(o.health))
         shop.append(item)
@@ -84,7 +99,9 @@ def diff(a, b, roll=False):
     lines = []
     if a["gold"] != b["gold"]:
         d = b["gold"] - a["gold"]
-        lines.append(f"gold {a['gold']} → {b['gold']} ({'+' if d > 0 else '−'}{abs(d)})")
+        lines.append(
+            f"gold {a['gold']} → {b['gold']} ({'+' if d > 0 else '−'}{abs(d)})"
+        )
 
     ta = {x["id"]: x for x in a["team"]}
     tb = {x["id"]: x for x in b["team"]}
@@ -114,16 +131,28 @@ def diff(a, b, roll=False):
     order_a = [x["id"] for x in a["team"] if x["id"] in tb]
     order_b = [x["id"] for x in b["team"] if x["id"] in ta]
     if order_a != order_b:
-        lines.append("team order (front first): " + ", ".join(x["name"] for x in b["team"]))
+        lines.append(
+            "team order (front first): " + ", ".join(x["name"] for x in b["team"])
+        )
 
     sb = {x["id"]: x for x in b["shop"]}
     if roll:
-        lines.append("shop now: " + (", ".join(
-            _item_str(x) + (" (frozen)" if x["frozen"] else "") for x in b["shop"]) or "empty"))
+        lines.append(
+            "shop now: "
+            + (
+                ", ".join(
+                    _item_str(x) + (" (frozen)" if x["frozen"] else "")
+                    for x in b["shop"]
+                )
+                or "empty"
+            )
+        )
     else:
         for x in a["shop"]:
             if x["id"] not in sb and x["id"] not in tb:
-                lines.append(f"shop: {_item_str(x)} {'used or replaced' if x['kind'] == 'food' else 'removed'}")
+                lines.append(
+                    f"shop: {_item_str(x)} {'used or replaced' if x['kind'] == 'food' else 'removed'}"
+                )
         for x in b["shop"]:
             if x["id"] not in sa:
                 lines.append(f"shop: new {_item_str(x)}")
@@ -132,7 +161,9 @@ def diff(a, b, roll=False):
         if not old:
             continue
         if x["kind"] != "food" and (old["atk"], old["hp"]) != (x["atk"], x["hp"]):
-            lines.append(f"shop: {x['name']} {old['atk']}/{old['hp']} → {x['atk']}/{x['hp']}")
+            lines.append(
+                f"shop: {x['name']} {old['atk']}/{old['hp']} → {x['atk']}/{x['hp']}"
+            )
         if old["frozen"] != x["frozen"]:
             lines.append(f"shop: {x['name']} {'frozen' if x['frozen'] else 'unfrozen'}")
     return lines
@@ -188,7 +219,9 @@ def expectations(name, args, before):
         gold = -(item["cost"] if item else 3)
         if name == "buy_combine" and len(args) > 1 and args[1] < len(team):
             t = team[args[1]]
-            notes.append(f"rule: stacking keeps the higher stats +1/+1 and adds 1 experience to {t['name']}")
+            notes.append(
+                f"rule: stacking keeps the higher stats +1/+1 and adds 1 experience to {t['name']}"
+            )
     elif name == "roll":
         gold = -1
     elif name == "sell":
@@ -197,7 +230,9 @@ def expectations(name, args, before):
         if t:
             notes.append(f"rule: selling gives level + Cake bonus = {gold} gold")
     elif name == "combine":
-        notes.append("rule: combining keeps the higher stats +1/+1 and adds 1 experience")
+        notes.append(
+            "rule: combining keeps the higher stats +1/+1 and adds 1 experience"
+        )
     return gold, notes
 
 
@@ -237,11 +272,17 @@ def ability_notes(name, before, after, args=()):
         if _trigger(x["pet"], x["lvl"]) not in triggers:
             continue
         kind = _trigger_kind(x["pet"], x["lvl"])
-        if kind == "Self" and name not in ("end_turn", "start_turn") and x["id"] not in acting:
+        if (
+            kind == "Self"
+            and name not in ("end_turn", "start_turn")
+            and x["id"] not in acting
+        ):
             continue
         if kind == "EachFriend" and x["id"] in acting:
             continue
-        out.append(f"ability in play: {x['name']} (L{x['lvl']}): {_ability(x['pet'], x['lvl'])}")
+        out.append(
+            f"ability in play: {x['name']} (L{x['lvl']}): {_ability(x['pet'], x['lvl'])}"
+        )
     return out
 
 
@@ -250,8 +291,11 @@ def gold_check(expected, before, after):
     sign = lambda v: ("+" if v > 0 else "−" if v < 0 else "±") + str(abs(v))
     if actual == expected:
         return f"check: gold {sign(actual)}, matches the rules", True
-    return (f"check: gold {sign(actual)}, the basic rule says {sign(expected)}"
-            " (the difference should come from an ability listed here)", False)
+    return (
+        f"check: gold {sign(actual)}, the basic rule says {sign(expected)}"
+        " (the difference should come from an ability listed here)",
+        False,
+    )
 
 
 # ------------------------------------------------------------ effect capture
@@ -262,11 +306,19 @@ def gold_check(expected, before, after):
 from sapai.pets import Pet  # noqa: E402
 
 TRIGGER_NAMES = {
-    "sot_trigger": "Start of turn", "cat_trigger": "Food bought (Cat)", "sell_trigger": "Sell",
-    "eats_shop_food_trigger": "Eats food", "buy_food_trigger": "Food bought",
-    "buy_friend_trigger": "Buy", "friend_summoned_trigger": "Friend summoned",
-    "levelup_trigger": "Level-up", "eot_trigger": "End turn", "faint_trigger": "Faint",
-    "hurt_trigger": "Hurt", "friend_hurt_trigger": "Friend hurt", "knockout_trigger": "Knock out",
+    "sot_trigger": "Start of turn",
+    "cat_trigger": "Food bought (Cat)",
+    "sell_trigger": "Sell",
+    "eats_shop_food_trigger": "Eats food",
+    "buy_food_trigger": "Food bought",
+    "buy_friend_trigger": "Buy",
+    "friend_summoned_trigger": "Friend summoned",
+    "levelup_trigger": "Level-up",
+    "eot_trigger": "End turn",
+    "faint_trigger": "Faint",
+    "hurt_trigger": "Hurt",
+    "friend_hurt_trigger": "Friend hurt",
+    "knockout_trigger": "Knock out",
 }
 
 _capture = {"events": None}
@@ -289,7 +341,16 @@ def _pets_in_reach(pet):
     if team is not None and hasattr(team, "slots"):
         groups.append(("team", [s.pet for s in team.slots if not s.empty]))
     if shop is not None and hasattr(shop, "slots"):
-        groups.append(("shop", [s.obj for s in shop.slots if s.slot_type in ("pet", "levelup") and not s.empty]))
+        groups.append(
+            (
+                "shop",
+                [
+                    s.obj
+                    for s in shop.slots
+                    if s.slot_type in ("pet", "levelup") and not s.empty
+                ],
+            )
+        )
     for where, pets in groups:
         for p in pets:
             if id(p) in seen or getattr(p, "name", "pet-none") == "pet-none":
@@ -303,7 +364,14 @@ def _stat_map(pet):
     m = {}
     for where, p in _pets_in_reach(pet):
         try:
-            m[id(p)] = (where, p, int(p.attack), int(p.health), _perk(p.status), int(p.level))
+            m[id(p)] = (
+                where,
+                p,
+                int(p.attack),
+                int(p.health),
+                _perk(p.status),
+                int(p.level),
+            )
         except Exception:
             pass
     return m
@@ -326,7 +394,9 @@ def _wrap(method_name):
         if not activated:
             return result
         ab_level = max(1, level - 1) if method_name == "levelup_trigger" else level
-        desc = (data["pets"].get(self.name, {}).get(f"level{ab_level}Ability") or {}).get("description", "")
+        desc = (
+            data["pets"].get(self.name, {}).get(f"level{ab_level}Ability") or {}
+        ).get("description", "")
         source = ""
         if getattr(self, "override_ability", False):
             ### A perk (Honey, Mushroom) runs by temporarily replacing the ability
@@ -334,8 +404,14 @@ def _wrap(method_name):
                 desc = self.ability.get("description", desc)
             except Exception:
                 pass
-            perk = next((v.get("name") for v in data["statuses"].values()
-                         if (v.get("ability") or {}).get("description") == desc), None)
+            perk = next(
+                (
+                    v.get("name")
+                    for v in data["statuses"].values()
+                    if (v.get("ability") or {}).get("description") == desc
+                ),
+                None,
+            )
             source = f"{perk} perk" if perk else "perk"
         after = _stat_map(self)
         changes = []
@@ -356,9 +432,16 @@ def _wrap(method_name):
         for key, (where, p, *_rest) in before.items():
             if key not in after and p is not self and method_name != "sell_trigger":
                 changes.append(f"{_short(p.name)} left the {where}")
-        events.append({"pet": _short(self.name), "level": ab_level, "source": source,
-                       "trigger": TRIGGER_NAMES.get(method_name, method_name),
-                       "text": desc, "changes": changes})
+        events.append(
+            {
+                "pet": _short(self.name),
+                "level": ab_level,
+                "source": source,
+                "trigger": TRIGGER_NAMES.get(method_name, method_name),
+                "text": desc,
+                "changes": changes,
+            }
+        )
         return result
 
     wrapped.__wrapped__ = original
@@ -374,10 +457,17 @@ def effect_lines(events):
     """Log lines for captured ability activations."""
     out = []
     for e in events:
-        who = f"{e['pet']}'s {e['source']}" if e.get("source") else f"{e['pet']} (L{e['level']})"
+        who = (
+            f"{e['pet']}'s {e['source']}"
+            if e.get("source")
+            else f"{e['pet']} (L{e['level']})"
+        )
         head = f"effect: {who}: {e['text'] or e['trigger'] + ' ability'}"
         if e["changes"]:
             out.append(head + " → " + "; ".join(e["changes"]))
         else:
-            out.append(head + " → no stat changes (it changes gold or the shop items, see above, or had no target)")
+            out.append(
+                head
+                + " → no stat changes (it changes gold or the shop items, see above, or had no target)"
+            )
     return out

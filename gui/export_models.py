@@ -17,8 +17,14 @@ import zipfile
 import numpy as np
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DTYPES = {"FloatStorage": np.float32, "LongStorage": np.int64, "IntStorage": np.int32,
-          "HalfStorage": np.float16, "DoubleStorage": np.float64, "BoolStorage": np.bool_}
+DTYPES = {
+    "FloatStorage": np.float32,
+    "LongStorage": np.int64,
+    "IntStorage": np.int32,
+    "HalfStorage": np.float16,
+    "DoubleStorage": np.float64,
+    "BoolStorage": np.bool_,
+}
 
 
 def load_state_dict(raw):
@@ -31,7 +37,8 @@ def load_state_dict(raw):
             return storage[offset].copy()
         item = storage.itemsize
         return np.lib.stride_tricks.as_strided(
-            storage[offset:], size, [s * item for s in stride]).copy()
+            storage[offset:], size, [s * item for s in stride]
+        ).copy()
 
     class Unpickler(pickle.Unpickler):
         def find_class(self, mod, name):
@@ -47,7 +54,9 @@ def load_state_dict(raw):
 
         def persistent_load(self, pid):
             _, stype, key, _, _ = pid
-            dtype = DTYPES.get(stype if isinstance(stype, str) else stype.__name__, np.float32)
+            dtype = DTYPES.get(
+                stype if isinstance(stype, str) else stype.__name__, np.float32
+            )
             return np.frombuffer(z.read(f"{root}/data/{key}"), dtype=dtype)
 
     return Unpickler(io.BytesIO(z.read(f"{root}/data.pkl"))).load()
