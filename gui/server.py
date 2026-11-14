@@ -41,7 +41,8 @@ def meta():
     order = {"model": 0, "bot": 1, "custom": 2}
     agents.sort(key=lambda a: (order.get(a["group"], 3), -(a.get("rating") or 0)))
     return {"agents": agents, "actionStart": E.ACTION_START, "maxTeam": E.MAX_TEAM,
-            "pairs": E.PAIRS, "maxWins": game.MAX_WINS, "lives": game.START_LIVES}
+            "pairs": E.PAIRS, "maxWins": game.MAX_WINS, "lives": game.START_LIVES,
+            "perks": [game._status(sid) for sid in game.data["statuses"]]}
 
 
 def series(a, b, n):

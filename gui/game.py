@@ -20,6 +20,7 @@ Works from a normal shell too::
 
 import json
 import random
+import re
 import sys
 import types
 
@@ -101,21 +102,117 @@ def _status(status):
             "desc": (e.get("ability") or {}).get("description", "")}
 
 
+### Plain explanations of ability trigger words, for new players
+TRIGGERS = {
+    "Faint": "Happens when this pet dies (its health drops to 0).",
+    "Start of battle": "Happens once, before the first attack of each battle.",
+    "Start of turn": "Happens when a new shop turn begins.",
+    "End turn": "Happens when you press End turn, before the battle.",
+    "Sell": "Happens when you sell this pet.",
+    "Buy": "Happens when you buy this pet from the shop.",
+    "Hurt": "Happens each time this pet takes damage and survives.",
+    "Level-up": "Happens when this pet reaches a new level.",
+    "Knock out": "Happens when this pet's attack makes an enemy faint.",
+    "Before attack": "Happens just before this pet attacks.",
+    "After attack": "Happens just after this pet attacks.",
+    "Summoned": "Happens when this pet is summoned onto the team during a battle.",
+    "Friend summoned": "Happens when another pet joins your team (bought or summoned).",
+    "Friend faints": "Happens when one of your other pets faints.",
+    "Friend ahead faints": "Happens when the pet directly in front of this one faints.",
+    "Friend ahead attacks": "Happens when the pet directly in front of this one attacks.",
+    "Friend hurt": "Happens when one of your other pets takes damage.",
+    "Friendly ate food": "Happens when any of your pets eats food from the shop.",
+    "Eats food": "Happens when this pet eats food from the shop.",
+    "Buy tier 1 pet": "Happens when you buy a tier 1 pet from the shop.",
+    "Passive": "Always active. It does not need a trigger.",
+}
+
+TERMS = [
+    ("until end of battle", "until end of battle",
+     "The bonus lasts for the next battle only, then goes away."),
+    (r"\bsummon", "Summon", "Adds a new pet to a team during the battle, if that team has room (5 pets max)."),
+    (r"\bexperience", "Experience",
+     "Pets level up from experience: 2 to reach level 2, then 3 more for level 3."),
+    (r"\bahead\b", "Ahead", "Ahead means closer to the front of the line, which fights first."),
+    (r"\bbehind\b", "Behind", "Behind means further from the front of the line."),
+    (r"works \d+ times?", "Works N times", "The ability stops after that many uses in one turn or battle."),
+    (r"triggers \d+ times?", "Triggers N times", "The ability stops after that many uses in one battle."),
+    (r"\btier\b", "Tier", "Pets come in tiers 1 to 6. Higher tiers show up in the shop on later turns."),
+    (r"\bknocks? out\b", "Knock out", "Knocking out a pet means making it faint."),
+]
+
+
+def _perk_by_name():
+    out = {}
+    for sid, e in data["statuses"].items():
+        name = e.get("name")
+        if name:
+            out[name] = sid
+    return out
+
+
+PERKS = _perk_by_name()
+
+
+def glossary(text):
+    """Explanations for the game words used in an ability or food text."""
+    out, seen = [], set()
+    if not text:
+        return out
+    head = text.split(":", 1)[0] if ":" in text else None
+    if head in TRIGGERS:
+        out.append({"term": head, "text": TRIGGERS[head]})
+        seen.add(head)
+    low = text.lower()
+    for name, expl in TRIGGERS.items():
+        if name not in seen and re.search(re.escape(name.lower()) + r" abilit", low):
+            out.append({"term": name, "text": expl})
+            seen.add(name)
+    for name, sid in PERKS.items():
+        if re.search(r"\b" + re.escape(name.lower()) + r"\b", low):
+            st = _status(sid)
+            out.append({"term": f"{st['emoji']} {name} perk", "text": st["desc"]})
+    for key, term, expl in TERMS:
+        if term not in seen and re.search(key, low):
+            out.append({"term": term, "text": expl})
+            seen.add(term)
+    return out
+
+
+def _levels(name):
+    e = data["pets"].get(name, {})
+    return [(e.get(f"level{i}Ability") or {}).get("description", "") for i in (1, 2, 3)]
+
+
 def pet_dict(pet):
     if pet is None or pet.name == "pet-none":
         return None
+    level = int(pet.level)
+    desc = _ability(pet.name, level)
+    st = _status(pet.status)
+    gloss = glossary(desc)
+    try:
+        sell = int(pet.sell_value)
+    except Exception:
+        sell = level
     return {"name": _short(pet.name).replace("-", " "), "emoji": _emoji(pet.name),
             "attack": int(pet.attack), "health": int(pet.health),
-            "level": int(pet.level), "xp": int(pet.experience),
+            "level": level, "xp": int(pet.experience),
             "tier": data["pets"].get(pet.name, {}).get("tier", 1),
-            "status": _status(pet.status), "desc": _ability(pet.name, int(pet.level))}
+            "status": st, "desc": desc, "levels": _levels(pet.name),
+            "glossary": gloss, "sell": sell}
 
 
 def shop_dict(slot):
     o = slot.obj
     if slot.slot_type == "food":
+        desc = _ability(o.name)
+        perk_id = (data["foods"].get(o.name, {}).get("ability") or {}).get("effect", {}).get("status")
+        perk = _status(perk_id) if perk_id else None
+        gloss = [g for g in glossary(desc) if not (perk and g["term"].endswith(perk["name"] + " perk"))]
         d = {"kind": "food", "name": _short(o.name).replace("-", " "), "emoji": _emoji(o.name),
-             "desc": _ability(o.name), "targeted": E.food_needs_target(o)}
+             "desc": desc, "targeted": E.food_needs_target(o), "perk": perk,
+             "tier": data["foods"].get(o.name, {}).get("tier", 1), "glossary": gloss}
     else:
         d = pet_dict(o)
         d["kind"] = slot.slot_type

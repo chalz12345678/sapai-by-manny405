@@ -188,6 +188,40 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
 .bars span:first-child { background: var(--accent); }
 .bars span:last-child { background: var(--atk); }
 
+/* ---------- explanations ---------- */
+.info { display: grid; gap: 8px; }
+.info-top { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.info-top .emo { font-size: 30px; line-height: 1; }
+.info-top h3 { margin: 0; font: 700 17px/1.2 var(--f-display); text-transform: capitalize; }
+.info-top .sub { color: var(--muted); font-size: 12.5px; }
+.info p { margin: 0; }
+.info .what { font-size: 14px; }
+.levels { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; font-size: 12.5px; }
+.levels li { display: grid; grid-template-columns: 26px 1fr; gap: 6px; color: var(--muted); }
+.levels li b { font-family: var(--f-mono); font-size: 11px; }
+.levels li.now { color: var(--fg); }
+.levels li.now b { color: var(--accent); }
+.gloss { display: grid; gap: 4px; font-size: 12.5px; border-top: 1px solid var(--line); padding-top: 8px; }
+.gloss dt { font-weight: 600; }
+.gloss dd { margin: 0 0 4px; color: var(--muted); }
+.perkbox { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px; background: var(--surface); }
+.how { cursor: pointer; }
+.how summary { font: 700 15px var(--f-display); list-style: none; display: flex; justify-content: space-between; gap: 8px; }
+.how summary::-webkit-details-marker { display: none; }
+.how summary::after { content: "Show"; font: 600 12px var(--f-body); color: var(--accent); }
+.how[open] summary::after { content: "Hide"; }
+.how-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px 20px; margin-top: 12px; cursor: auto; }
+.how-grid h3 { margin: 0 0 4px; font: 700 13px var(--f-display); }
+.how-grid p, .how-grid ul { margin: 0; font-size: 13px; color: var(--muted); }
+.how-grid ul { padding-left: 18px; display: grid; gap: 2px; }
+.how-grid b { color: var(--fg); font-weight: 600; }
+.perk-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 4px 16px; font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+.perk-list b { color: var(--fg); }
+.perk-head { margin: 14px 0 0; font: 700 13px var(--f-display); }
+.sheet { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); width: min(560px, calc(100% - 24px)); max-height: 70vh; overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; box-shadow: 0 8px 30px rgba(0,0,0,.25); z-index: 15; }
+.sheet .close { position: absolute; top: 8px; right: 8px; }
+.lane .card, .duo .card { cursor: pointer; }
+
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 13px; max-width: calc(100% - 32px); box-shadow: var(--shadow); z-index: 20; }
 .banner { border-radius: 14px; padding: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; background: var(--accent-soft); }
 .banner h2 { margin: 0; font: 800 22px var(--f-display); }
@@ -247,6 +281,38 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
     <div class="series" id="seriesOut" hidden></div>
   </section>
 
+  <details class="panel how" id="how">
+    <summary>How to play</summary>
+    <div class="how-grid">
+      <div><h3>Goal</h3><p>Build a team of up to 5 pets. Each turn you shop, then your team fights the other side's team automatically. <b>Win 10 battles</b> to win the game. You start with <b>10 lives</b>, and losing a battle costs lives: 1 on turns 1–2, 2 on turns 3–4, 3 on turns 5–8, 4 on turns 9–10 and 5 after that. A draw costs nothing.</p></div>
+      <div><h3>Shopping</h3><ul>
+        <li>You get <b>10 gold</b> every turn. Unspent gold is lost.</li>
+        <li>Pets and food cost <b>3 gold</b>. <b>Roll</b> costs 1 gold and refreshes the shop.</li>
+        <li><b>Freeze</b> keeps a shop item for next turn. It costs nothing.</li>
+        <li><b>Sell</b> a pet for gold equal to its level (plus any Cake bonus).</li>
+      </ul></div>
+      <div><h3>Battles</h3><ul>
+        <li>The pet at the <b>front</b> (right end of your row) fights the enemy's front pet.</li>
+        <li>Both deal damage equal to their <b>attack</b> (orange) to the other's <b>health</b> (red) at the same time.</li>
+        <li>A pet at 0 health <b>faints</b> and the next pet steps up. The team with pets left wins.</li>
+        <li>Shop stat boosts are permanent unless they say "until end of battle".</li>
+      </ul></div>
+      <div><h3>Leveling up</h3><ul>
+        <li>Buy a copy of a pet you own and drop it on that pet, or drop one of your pets onto its copy.</li>
+        <li>The combined pet keeps the higher attack and higher health of the two, plus 1 of each, and gains 1 experience. 2 experience reaches <b>level 2</b>, 3 more reach <b>level 3</b> (the max).</li>
+        <li>Higher levels make abilities stronger, and each level-up adds a bonus pet from a higher tier to the shop.</li>
+      </ul></div>
+      <div><h3>Abilities and perks</h3><ul>
+        <li>Most pets have an <b>ability</b> that fires on a trigger, written first: "Faint: …" fires when the pet faints.</li>
+        <li>Some foods give a <b>perk</b> 🍯 shown on the pet's card. A pet holds one perk, and a new one replaces it.</li>
+        <li>Tap any pet or food to read exactly what it does.</li>
+      </ul></div>
+      <div><h3>Tiers</h3><p>Pets come in <b>tiers 1 to 6</b> (the T number on each card). The shop offers higher tiers as turns go on: tier 2 from turn 3, tier 3 from turn 5, tier 4 from turn 7, tier 5 from turn 9 and tier 6 from turn 11. Higher tiers are usually stronger.</p></div>
+    </div>
+    <h3 class="perk-head">Every perk and what it does</h3>
+    <div class="perk-list" id="perkList"></div>
+  </details>
+
   <section class="score" id="score" hidden></section>
   <section id="over" hidden></section>
 
@@ -287,11 +353,15 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
         <span class="grow" id="hint"></span>
         <button class="btn primary big" id="endBtn">End turn</button>
       </div>
-      <p class="help">Shop pet → empty slot to buy, or onto the same pet to level it up. Food → a pet to feed it. Pet → another pet to swap them, or onto a copy to combine. Keys: <kbd>R</kbd> roll, <kbd>F</kbd> freeze, <kbd>S</kbd> sell, <kbd>Enter</kbd> end turn, <kbd>Esc</kbd> deselect.</p>
+      <p class="help">Orange number = attack (damage dealt), red number = health. L = level, dots = experience toward the next level, T = tier, ★ = summoned pet. Shop pet → empty slot to buy, or onto the same pet to level it up. Food → a pet to feed it. Pet → another pet to swap them, or onto a copy to combine. Keys: <kbd>R</kbd> roll, <kbd>F</kbd> freeze, <kbd>S</kbd> sell, <kbd>Enter</kbd> end turn, <kbd>Esc</kbd> deselect.</p>
     </section>
   </div>
 
   <section class="duo" id="watchArea" hidden></section>
+</div>
+<div class="sheet" id="sheet" role="dialog" aria-label="Details" hidden>
+  <button class="btn close" id="sheetClose" aria-label="Close details">✕</button>
+  <div id="sheetBody"></div>
 </div>
 <div class="toast" id="toast" hidden></div>
 
@@ -350,7 +420,7 @@ function petCard(p, opts = {}) {
   const cls = ["card", opts.cls || "", p.frozen ? "frozen" : ""].join(" ");
   const tip = `${p.name} ${p.attack}/${p.health} · level ${lv}${p.desc ? " · " + p.desc : ""}`;
   return `<div class="${cls}" ${opts.attrs || ""} title="${esc(tip)}">
-    <span class="tier">T${p.tier ?? "?"}</span>
+    <span class="tier">${Number.isInteger(p.tier) ? "T" + p.tier : "★"}</span>
     ${opts.cost ? `<span class="cost">${opts.cost}g</span>` : ""}
     ${status}
     <span class="emo" aria-hidden="true">${p.emoji}</span>
@@ -362,13 +432,62 @@ function petCard(p, opts = {}) {
 }
 function foodCard(f, opts = {}) {
   const cls = ["card", opts.cls || "", f.frozen ? "frozen" : ""].join(" ");
-  return `<div class="${cls}" ${opts.attrs || ""} title="${esc(f.name + ": " + f.desc)}">
+  const ftip = f.name + ": " + f.desc + (f.perk ? ` (${f.perk.name}: ${f.perk.desc})` : "");
+  return `<div class="${cls}" ${opts.attrs || ""} title="${esc(ftip)}">
     <span class="cost">${f.cost}g</span>
     <span class="emo" aria-hidden="true">${f.emoji}</span>
     <span class="nm">${esc(f.name)}</span>
-    <span class="food-desc">${esc(f.desc)}</span>
+    <span class="food-desc">${f.perk ? `${f.perk.emoji} ${esc(f.perk.name)} perk: ${esc(f.perk.desc)}` : esc(f.desc)}</span>
     ${f.frozen ? `<span class="ice">FROZEN</span>` : ""}
   </div>`;
+}
+
+// Full plain-language description of a pet or food, used everywhere
+function glossHTML(list) {
+  if (!list || !list.length) return "";
+  return `<dl class="gloss">${list.map((g) => `<dt>${esc(g.term)}</dt><dd>${esc(g.text)}</dd>`).join("")}</dl>`;
+}
+function perkHTML(perk, lead) {
+  return `<div class="perkbox">${lead} <b>${perk.emoji} ${esc(perk.name)}</b>: ${esc(perk.desc)}</div>`;
+}
+function infoHTML(x, where) {
+  if (x.kind === "food") {
+    const how = x.targeted ? "Buy it by tapping it, then tapping one of your pets." : "It affects your team automatically when you press Buy.";
+    return `<div class="info">
+      <div class="info-top"><span class="emo" aria-hidden="true">${x.emoji}</span>
+        <div><h3>${esc(x.name)}</h3><div class="sub">Food · ${Number.isInteger(x.tier) ? "tier " + x.tier : "bonus food"} · costs ${x.cost} gold${x.frozen ? " · frozen for next turn" : ""}</div></div></div>
+      <p class="what">${esc(x.desc)}</p>
+      ${x.perk ? perkHTML(x.perk, "The perk it gives,") + `<p class="help">A perk stays on the pet, shown as ${x.perk.emoji} on its card. A pet holds one perk at a time, so this replaces any perk it already has.</p>` : ""}
+      <p class="help">${how}</p>
+      ${glossHTML(x.glossary)}</div>`;
+  }
+  const need = x.level === 1 ? 2 - x.xp : x.level === 2 ? 3 - x.xp : 0;
+  const lvlText = x.level >= 3 ? "Level 3, the max level."
+    : `Level ${x.level}. ${need} more ${need === 1 ? "copy" : "copies"} to reach level ${x.level + 1}.`;
+  const sub = [Number.isInteger(x.tier) ? `Tier ${x.tier} pet` : "Summoned pet (only appears through abilities)", `${x.attack} attack`, `${x.health} health`];
+  if (where === "shop") sub.push(`costs ${x.cost} gold`);
+  if (where === "team") sub.push(`sells for ${x.sell} gold`);
+  if (x.frozen) sub.push("frozen for next turn");
+  const levels = (x.levels || []).map((d, i) =>
+    `<li class="${i + 1 === x.level ? "now" : ""}"><b>L${i + 1}</b><span>${esc(d || "No ability.")}</span></li>`).join("");
+  const bonus = x.kind === "levelup" ? `<p class="help">Bonus pet from a higher tier. It appeared because one of your pets leveled up.</p>` : "";
+  return `<div class="info">
+    <div class="info-top"><span class="emo" aria-hidden="true">${x.emoji}</span>
+      <div><h3>${esc(x.name)}</h3><div class="sub">${esc(sub.join(" · "))}</div></div></div>
+    <p class="what">${esc(x.desc || "This pet has no ability. It is just its stats.")}</p>
+    ${x.status ? perkHTML(x.status, "Holding the perk") : ""}
+    <p class="help">${esc(lvlText)} Ability by level:</p>
+    <ul class="levels">${levels}</ul>
+    ${bonus}
+    ${glossHTML(x.glossary)}</div>`;
+}
+
+// Cards outside the shop board open a details sheet when tapped
+const REG = [];
+function reg(x) { REG.push(x); return `data-k="${REG.length - 1}" tabindex="0" role="button"`; }
+function openSheet(x, where) {
+  $("sheetBody").innerHTML = infoHTML(x, where);
+  $("sheet").hidden = false;
 }
 
 function agentLabel(id) {
@@ -386,14 +505,14 @@ function renderScore() {
       <div class="who">${esc(s.label)}</div>
       <div class="kind">${s.kind === "human" ? "Human player" : esc(agentDesc(s.kind))}</div>
       <div class="meters">
-        <span class="meter m-lives">lives <b>${s.lives}</b></span>
-        <span class="meter m-wins">wins <b>${s.wins}/${st.maxWins}</b></span>
-        ${s.kind === "human" ? `<span class="meter m-gold">gold <b>${s.gold}</b></span>` : ""}
+        <span class="meter m-lives" title="Lose all lives and the game is over">lives <b>${s.lives}</b></span>
+        <span class="meter m-wins" title="Win ${st.maxWins} battles to win the game">wins <b>${s.wins}/${st.maxWins}</b></span>
+        ${s.kind === "human" ? `<span class="meter m-gold" title="Gold to spend this turn. You get 10 each turn.">gold <b>${s.gold}</b></span>` : ""}
       </div></div>`;
   const pips = st.history.map((h) => `<span class="pip ${h}" title="${h}"></span>`).join("");
   el.innerHTML = side(st.seats[0], false) +
     `<div class="mid"><span class="lbl">Turn</span><span class="turn">${st.turn}</span>
-      <span class="lbl">a loss costs ${st.nextDamage}</span><div class="pips">${pips}</div></div>` +
+      <span class="lbl" title="Lives lost if you lose this turn's battle">a loss costs ${st.nextDamage} ${st.nextDamage === 1 ? "life" : "lives"}</span><div class="pips">${pips}</div></div>` +
     side(st.seats[1], true);
 }
 
@@ -446,16 +565,17 @@ function renderPlay() {
   $("shopNote").textContent = `${s.gold} gold · pets and food cost 3`;
 
   // inspector + buttons
-  let info = "Tap a shop pet, then tap an empty slot to buy it.";
+  let info = s.team.length
+    ? "Tap any pet or food to see what it does. Tap a shop pet, then an empty slot, to buy it."
+    : "Start by buying pets: tap a shop pet, then tap an empty slot. Tap anything to see what it does.";
   let hint = "";
   if (selShop) {
-    info = `<b>${esc(selShop.name)}</b>${selShop.kind !== "food" ? ` ${selShop.attack}/${selShop.health}` : ""} · ${esc(selShop.desc || "No ability.")}`;
-    if (selShop.kind === "food") hint = selShop.targeted ? "Tap a pet to feed it." : "Press Buy to use it.";
+    info = infoHTML(selShop, "shop");
+    if (selShop.kind === "food") hint = selShop.targeted ? "Tap one of your pets to feed it." : "Press Buy to use it.";
     else hint = "Tap an empty slot to buy, or a matching pet to level it up.";
   } else if (selTeam) {
-    info = `<b>${esc(selTeam.name)}</b> ${selTeam.attack}/${selTeam.health} · level ${selTeam.level} · ${esc(selTeam.desc || "No ability.")}` +
-      (selTeam.status ? ` · ${selTeam.status.emoji} ${esc(selTeam.status.name)}: ${esc(selTeam.status.desc)}` : "");
-    hint = "Tap another pet to swap, or a copy to combine.";
+    info = infoHTML(selTeam, "team");
+    hint = "Tap another pet to swap places, or a copy to combine.";
   }
   $("inspect").innerHTML = info;
   $("hint").textContent = hint;
@@ -465,7 +585,7 @@ function renderPlay() {
   fz.textContent = selShop && selShop.frozen ? "Unfreeze" : "Freeze";
   $("sellBtn").disabled = !selTeam;
   const untargeted = selShop && selShop.kind === "food" && !selShop.targeted;
-  $("sellBtn").textContent = untargeted ? "Buy" : "Sell";
+  $("sellBtn").textContent = untargeted ? `Buy · ${selShop.cost} gold` : selTeam ? `Sell · +${selTeam.sell} gold` : "Sell";
   if (untargeted) $("sellBtn").disabled = !legal("buy_food_untargeted", [selShop.index]);
   $("endBtn").disabled = S.st.over;
 }
@@ -478,7 +598,7 @@ function renderWatch() {
   const b = S.battle;
   el.innerHTML = S.st.seats.map((s, i) => {
     const log = b ? b.shopLogs[i] : [];
-    const team = s.team.length ? `<div class="row">${[...s.team].reverse().map((p) => petCard(p)).join("")}</div>` : `<p class="help">No pets yet.</p>`;
+    const team = s.team.length ? `<div class="row">${[...s.team].reverse().map((p) => petCard(p, { attrs: reg(p) })).join("")}</div>` : `<p class="help">No pets yet.</p>`;
     return `<div class="panel"><div class="panel-head"><h2>${esc(s.label)}</h2><span class="note">${s.wins} ${s.wins === 1 ? "win" : "wins"} · ${s.lives} lives</span></div>
       ${b ? `<div><div class="front-note">Shopping on turn ${b.turn}</div><ol class="shoplog">${log.length ? log.map((x) => `<li>${esc(x)}</li>`).join("") : "<li>did nothing</li>"}</ol></div>` : `<p class="help">Press Next round or Auto play to start.</p>`}
       <div class="front-note">Team going into the next turn (front on the right)</div>${team}</div>`;
@@ -532,7 +652,7 @@ function showFrame(allLines) {
       const hurt = before && before.name === p.name && p.health < before.health;
       let cls = (left ? "left-face " : "") + (hurt ? "hit " : "");
       if (attack && idx === 0) cls += left ? "lunge-r" : "lunge-l";
-      return petCard(p, { cls });
+      return petCard(p, { cls, attrs: reg(p) });
     }).join("");
   };
   $("laneL").innerHTML = lane(f.teams[0], prev && prev.teams[0], true);
@@ -668,6 +788,17 @@ $("bPlay").onclick = () => {
 $("bPrev").onclick = () => { S.playing = false; tick(); if (S.frame > 0) { S.frame--; showFrame(false); } };
 $("bNext").onclick = () => { S.playing = false; tick(); if (S.frame < S.battle.frames.length - 1) { S.frame++; showFrame(false); } };
 $("bSkip").onclick = () => { S.frame = S.battle.frames.length - 1; showFrame(true); finishBattle(); };
+document.addEventListener("click", (e) => {
+  const c = e.target.closest("[data-k]");
+  if (c) openSheet(REG[Number(c.dataset.k)], "view");
+});
+document.addEventListener("keydown", (e) => {
+  const c = e.target.closest && e.target.closest("[data-k]");
+  if (c && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openSheet(REG[Number(c.dataset.k)], "view"); }
+  if (e.key === "Escape") $("sheet").hidden = true;
+});
+$("sheetClose").onclick = () => ($("sheet").hidden = true);
+$("how").addEventListener("toggle", () => { try { localStorage.setItem("howOpen", $("how").open ? "1" : "0"); } catch (e) {} });
 $("bClose").onclick = () => { clearTimeout(S.timer); $("battle").hidden = true; };
 $("modePlay").onclick = () => { stopAll(); S.mode = "play"; S.id = null; S.st = null; $("battle").hidden = true; newGame(); };
 $("modeWatch").onclick = () => { stopAll(); S.mode = "watch"; S.id = null; S.st = null; $("battle").hidden = true; newMatch(); };
@@ -706,6 +837,10 @@ document.addEventListener("keydown", (e) => {
   $("agB").innerHTML = opts(second);
   $("oppDesc").textContent = agentDesc(best);
   watchDesc();
+  let open = true;
+  try { open = localStorage.getItem("howOpen") !== "0"; } catch (e) {}
+  $("how").open = open;
+  $("perkList").innerHTML = (S.meta.perks || []).map((p) => `<span><b>${p.emoji} ${esc(p.name)}</b>: ${esc(p.desc)}</span>`).join("");
   const n = S.meta.agents.filter((a) => a.group === "model").length;
   $("sub").textContent = `${n} trained models · Turtle Pack`;
   newGame();
