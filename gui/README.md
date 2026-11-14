@@ -29,6 +29,27 @@ leveling up, battle hits, faints and results. They are synthesized in the
 browser with the Web Audio API, so there are no audio files. Use the speaker
 button and volume slider at the top; the setting is remembered.
 
+## Battle replays
+
+Battles replay one engine phase at a time: start of battle abilities, each
+attack, hurt and faint effects, knock-outs, summons. A pet that takes a fatal
+hit stays on the board, greyed out, until it faints. Pick a **Battle speed**
+under the replay; **Step** waits for you, and ← / → (or ◀ / ▶) move one action
+back or forward. The replay wraps the engine's own phase function rather than
+reimplementing battles, so it follows the real rules.
+
+### 3D view (prototype)
+
+Switch a battle to **3D** with the 2D / 3D toggle on the battle panel. Pets are
+cardboard standees on a small 3D meadow, and every replay step is animated
+from the step's events: front pets lunge and collide on attacks, an ability
+makes its pet glow and sends an orb to each target, damage flashes red with a
+number, buffs sparkle, fainted pets tip over and sink away, and summons pop
+up face down and flip over. The camera pushes in on each attack and ability and
+eases back to the wide shot, and the standees sway a little between actions. It follows the same step controls and battle speed as the 2D view. It uses
+Three.js r128, loaded from cdnjs the first time you open the 3D view, so it
+needs an internet connection then; everything else works offline.
+
 ## Talking to the model
 
 Press **Talk to the model** to ask the trained model about its play. The models
@@ -71,10 +92,24 @@ the page, or restarting the server, picks up where you left off.
 
 The **Game log** panel records every shop action, turn start, end of turn and
 battle: what changed (gold, team and shop stats, levels, perks), what the basic
-rules say should happen (gold costs, sell value, lives lost), and the abilities
-that can explain anything extra. Hard rule breaks such as more than 5 pets or
+rules say should happen (gold costs, sell value, lives lost), and every ability
+or perk that fired, with exactly whose stats it changed, for example
+`effect: Fish (L1): Level-up: Give two friends +1 attack and +1 health. → Ant
+2/2 → 3/3 (+1/+1); Otter 1/4 → 2/5 (+1/+1)`. Hard rule breaks such as more than 5 pets or
 negative gold are flagged in red. Use **Copy log** or **Download log** to share a
 game when reporting a bug.
+
+## Replays
+
+Every game you play or watch (not series) is kept in `gui/replays/`, one
+compressed file per game plus an index, updated after every round. The
+**Replays** tab lists them newest first, with search and filters (your games,
+watched matches, games you won, finished or unfinished). Open one to rename it,
+add a note, and step through any turn: both sides' shop moves, the models'
+confidence for each move, the battle step by step in 2D or 3D, and that turn's
+game log. **View replay** on the game-over banner opens the game you just
+finished. Games saved before replays existed are imported on startup from
+their game log, so their battles show as text.
 
 ## Updating the models
 

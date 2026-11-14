@@ -148,7 +148,7 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
 .card.sel { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .card.target { border-color: var(--accent); border-style: dashed; }
 .card.frozen { background: var(--freeze-soft); border-color: var(--freeze); }
-.card.off { opacity: .5; }
+.card.off { filter: grayscale(.45) saturate(.8); opacity: .72; }
 .card { border-top: 3px solid var(--te, var(--line)); }
 .tier-1 { --te: var(--t1e); --tb: var(--t1); } .tier-2 { --te: var(--t2e); --tb: var(--t2); }
 .tier-3 { --te: var(--t3e); --tb: var(--t3); } .tier-4 { --te: var(--t4e); --tb: var(--t4); }
@@ -168,12 +168,18 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
   background: repeating-linear-gradient(135deg, rgba(255,255,255,.32) 0 2px, transparent 2px 10px), linear-gradient(180deg, rgba(120,180,255,.22), transparent 70%); }
 @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.09) translateY(-3px); } 100% { transform: scale(1); } }
-@keyframes deal { 0% { transform: perspective(500px) rotateY(85deg) translateY(10px); opacity: 0; } 100% { transform: none; opacity: 1; } }
+/* Roll: cards turn in from a 50 degree tilt (never edge-on), ease out with no overshoot */
+@keyframes deal { 0% { transform: perspective(600px) rotateY(50deg) translateY(6px) scale(.94); } 100% { transform: none; } }
 @keyframes shake { 0%, 100% { transform: none; } 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
 @keyframes hop { 0%, 100% { transform: none; } 45% { transform: translateY(-9px); } }
 @keyframes glow { 0% { box-shadow: 0 0 0 0 var(--gold); } 100% { box-shadow: 0 0 0 14px transparent; } }
 .pop { animation: pop .34s ease; }
-.deal { animation: deal .42s cubic-bezier(.2,.8,.3,1.2) both; animation-delay: calc(var(--i, 0) * 70ms); }
+.card.dead { filter: grayscale(1); opacity: .5; }
+.card.dead::after { content: "💀"; position: absolute; top: 14px; left: 50%; transform: translateX(-50%); font-size: 26px; z-index: 3; }
+.field.inline { display: inline-flex; align-items: center; gap: 6px; }
+.field.inline label { white-space: nowrap; }
+.step-hint { flex-basis: 100%; }
+.deal { animation: deal .3s cubic-bezier(.22,1,.36,1) both; animation-delay: calc(var(--i, 0) * 40ms); }
 .shake { animation: shake .36s ease; }
 .hop { animation: hop .4s ease; }
 .glow { animation: glow .8s ease-out; }
@@ -195,6 +201,19 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
 .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .bar .grow { flex: 1 1 200px; min-width: 0; color: var(--muted); font-size: 13px; }
 .inspect { background: var(--sunk); border-radius: 10px; padding: 10px 12px; font-size: 13px; min-height: 40px; }
+/* The details box gets its own column so the board never moves when it changes */
+.board { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 16px; align-items: start; }
+.board-main { display: grid; gap: 12px; min-width: 0; grid-column: 1; grid-row: 1; }
+.board .inspect { grid-column: 2; grid-row: 1; position: sticky; top: calc(12px + env(safe-area-inset-top, 0px));
+  max-height: calc(100vh - 24px); overflow: auto; min-height: 220px; }
+.bar .grow { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#freezeBtn { min-width: 92px; } #sellBtn { min-width: 118px; }
+@media (max-width: 900px) {
+  .board { grid-template-columns: minmax(0, 1fr); }
+  .board .inspect { grid-column: 1; grid-row: 1; position: static; height: 150px; min-height: 0; max-height: none; }
+  .board-main { grid-row: 2; }
+  .bar .grow { flex-basis: 100%; order: 10; min-height: 1.45em; }
+}
 .inspect b { text-transform: capitalize; }
 
 /* ---------- battle ---------- */
@@ -205,6 +224,13 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
 .lane .card { width: clamp(52px, 9vw, 96px); min-height: 108px; cursor: default; padding: 8px 4px 6px; flex: 0 1 auto; }
 .lane .card .emo { font-size: clamp(24px, 4vw, 34px); }
 .lane .art { width: clamp(44px, 7vw, 60px); height: clamp(40px, 6.5vw, 54px); }
+.stage3d { position: relative; height: clamp(260px, 40vw, 430px); border-radius: 12px; overflow: hidden; background: var(--sunk); }
+.stage3d canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block; }
+.stage3d-labels { position: absolute; inset: 10px 10px auto; display: flex; justify-content: space-between; z-index: 2; pointer-events: none; font-size: 12px; }
+.stage3d-labels span { background: var(--surface); color: var(--muted); padding: 2px 8px; border-radius: 999px; opacity: .92; }
+.stage3d-loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
+.seg.small button { padding: 4px 12px; font-size: 12.5px; }
+.panel-head .seg.small { margin-left: auto; }
 .stage { position: relative; border-radius: 12px; overflow: hidden; padding: 10px 10px 18px; display: grid; gap: 6px; }
 .stage .scene { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
 .stage > :not(.scene) { position: relative; z-index: 1; }
@@ -292,6 +318,26 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
 .log-e li.warn { color: var(--loss); font-weight: 600; }
 .note.bad { color: var(--loss); font-weight: 600; }
 
+.pair-menu { position: absolute; z-index: 25; display: flex; gap: 6px; padding: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.22); }
+.grow-field { flex: 1 1 220px; }
+.grow-field input, #replaySearch { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--surface); color: var(--fg); font: inherit; }
+.replay-table-wrap { overflow-x: auto; }
+.replay-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.replay-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.replay-table td { padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.replay-table tr.rrow { cursor: pointer; }
+.replay-table tr.rrow:hover td, .replay-table tr.rrow:focus td { background: var(--sunk); }
+#replayShops .panel { align-content: start; }
+.replay-table .t { font-weight: 600; }
+.replay-table .sub { color: var(--muted); font-size: 12px; }
+.pill { display: inline-block; border-radius: 999px; padding: 2px 9px; font-size: 12px; font-weight: 600; background: var(--sunk); color: var(--muted); }
+.pill.win { background: var(--accent-soft); color: var(--win); } .pill.loss { background: var(--hp-soft); color: var(--loss); }
+.replay-head { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: end; }
+.turn-strip { display: flex; gap: 6px; flex-wrap: wrap; }
+.turn-strip button { min-width: 40px; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 6px 8px; font: 600 12px var(--f-mono); cursor: pointer; color: var(--fg); }
+.turn-strip button.win { border-bottom: 3px solid var(--win); } .turn-strip button.loss { border-bottom: 3px solid var(--loss); } .turn-strip button.draw { border-bottom: 3px solid var(--draw); }
+.turn-strip button[aria-selected="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.thoughts { margin: 4px 0 0; padding-left: 18px; font-size: 12px; color: var(--muted); display: grid; gap: 2px; }
 .chat-fab { position: fixed; right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 18;
   border: 0; border-radius: 999px; padding: 12px 18px; font-weight: 700; cursor: pointer; background: var(--accent); color: var(--accent-fg); box-shadow: 0 6px 20px rgba(0,0,0,.2); }
 .chat-fab:hover { transform: translateY(-1px); }
@@ -351,6 +397,7 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
     <div class="seg" role="group" aria-label="Mode">
       <button id="modePlay" aria-pressed="true">Play</button>
       <button id="modeWatch" aria-pressed="false">Watch models</button>
+      <button id="modeReplays" aria-pressed="false">Replays</button>
     </div>
   </header>
 
@@ -370,7 +417,7 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
       <button class="btn" id="stepBtn">Next round</button>
       <button class="btn" id="autoBtn" aria-pressed="false">Auto play</button>
       <div class="field"><label for="speed">Speed</label>
-        <select id="speed"><option value="1400">Slow</option><option value="800" selected>Normal</option><option value="350">Fast</option><option value="0">Results only</option></select></div>
+        <select id="speed"><option value="step">Step</option><option value="1400">Slow</option><option value="800" selected>Normal</option><option value="350">Fast</option><option value="0">Results only</option></select></div>
       <div class="field"><label for="seriesN">Series</label>
         <select id="seriesN"><option>10</option><option selected>25</option><option>50</option><option>100</option></select></div>
       <button class="btn" id="seriesBtn">Run series</button>
@@ -414,9 +461,43 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
   <section class="score" id="score" hidden></section>
   <section id="over" hidden></section>
 
+  <section class="panel" id="replayList" hidden>
+    <div class="panel-head"><h2>Replays</h2><span class="note" id="replayCount"></span></div>
+    <p class="help">Every game you play or watch is kept here with its full history: each turn's teams, shop moves, the models' reasoning, every battle step and the game log.</p>
+    <div class="setup">
+      <div class="field grow-field"><label for="replaySearch">Search</label><input id="replaySearch" type="search" placeholder="Title, player or note"></div>
+      <div class="field"><label for="replayFilter">Show</label>
+        <select id="replayFilter"><option value="all">All games</option><option value="play">Your games</option><option value="watch">Watched matches</option><option value="won">Games you won</option><option value="finished">Finished</option><option value="unfinished">Unfinished</option></select></div>
+    </div>
+    <div class="replay-table-wrap"><table class="replay-table"><thead><tr><th>Game</th><th>Result</th><th>Turns</th><th>Battles W / L / D</th><th>Played</th></tr></thead><tbody id="replayRows"></tbody></table></div>
+  </section>
+
+  <section class="panel" id="replayView" hidden>
+    <div class="bar">
+      <button class="btn" id="replayBack">← All replays</button>
+      <span class="grow"></span>
+      <button class="btn" id="replayDelete">Delete replay</button>
+    </div>
+    <div class="replay-head">
+      <div class="field grow-field"><label for="replayTitle">Title</label><input id="replayTitle" maxlength="120"></div>
+      <div class="field grow-field"><label for="replayNote">Note</label><input id="replayNote" maxlength="1000" placeholder="What happened in this game?"></div>
+      <button class="btn primary" id="replaySave">Save</button>
+    </div>
+    <p class="help" id="replayMeta"></p>
+    <div class="turn-strip" id="turnStrip" role="tablist" aria-label="Turns"></div>
+    <div class="bar"><button class="btn" id="turnPrev">◀ Previous turn</button><span class="grow frame-label" id="turnLabel"></span><button class="btn" id="turnNext">Next turn ▶</button></div>
+    <div class="duo" id="replayShops"></div>
+    <div class="log" id="replayLines" hidden></div>
+    <details class="panel how" id="replayLogBox"><summary>Game log for this turn</summary><div class="loglist" id="replayLog"></div></details>
+  </section>
+
   <section class="panel" id="battle" hidden>
     <div class="panel-head">
       <h2 id="battleTitle">Battle</h2>
+      <div class="seg small" role="group" aria-label="Battle view">
+        <button id="view2d" aria-pressed="true">2D</button>
+        <button id="view3d" aria-pressed="false">3D</button>
+      </div>
       <span class="frame-label" id="frameLabel"></span>
     </div>
     <div class="stage">
@@ -428,12 +509,19 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
         <div class="lane right" id="laneR"></div>
       </div>
     </div>
+    <div class="stage3d" id="stage3d" hidden>
+      <div class="stage3d-labels"><span id="lbl3L"></span><span id="lbl3R"></span></div>
+      <div class="stage3d-loading" id="stage3dLoading">Loading 3D…</div>
+    </div>
     <div class="log" id="blog" aria-live="polite"></div>
     <div class="bar">
       <button class="btn" id="bPrev" aria-label="Previous step">◀</button>
       <button class="btn" id="bPlay">Pause</button>
       <button class="btn" id="bNext" aria-label="Next step">▶</button>
       <button class="btn" id="bSkip">Skip to end</button>
+      <div class="field inline"><label for="bspeed">Battle speed</label>
+        <select id="bspeed"><option value="step">Step (one action at a time)</option><option value="1400">Slow</option><option value="800" selected>Normal</option><option value="350">Fast</option><option value="0">Instant</option></select></div>
+      <span class="help step-hint" id="stepHint" hidden>Press ▶ or → for the next action, ◀ or ← to go back.</span>
       <span class="grow"></span>
       <span class="result" id="bResult"></span>
       <button class="btn primary" id="bClose">Back to shop</button>
@@ -441,10 +529,11 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
   </section>
 
   <div id="playArea">
-    <section class="panel" id="teamPanel" hidden>
+    <section class="panel board" id="teamPanel" hidden>
+      <aside class="inspect" id="inspect" aria-live="polite">Tap a shop pet, then tap an empty slot to buy it.</aside>
+      <div class="board-main">
       <div class="panel-head"><h2>Your team</h2><span class="front-note">front of the line →</span></div>
       <div class="row" id="team"></div>
-      <div class="inspect" id="inspect">Tap a shop pet, then tap an empty slot to buy it.</div>
       <div class="panel-head"><h2>Shop</h2><span class="note" id="shopNote"></span></div>
       <div class="row shop" id="shop"></div>
       <div class="bar">
@@ -454,7 +543,8 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
         <span class="grow" id="hint"></span>
         <button class="btn primary big" id="endBtn">End turn</button>
       </div>
-      <p class="help">Orange number = attack (damage dealt), red number = health. L = level, dots = experience toward the next level, T = tier, ★ = summoned pet. Shop pet → empty slot to buy, or onto the same pet to level it up. Food → a pet to feed it. Pet → another pet to swap them, or onto a copy to combine. Keys: <kbd>R</kbd> roll, <kbd>F</kbd> freeze, <kbd>S</kbd> sell, <kbd>Enter</kbd> end turn, <kbd>Esc</kbd> deselect.</p>
+      <p class="help">Orange number = attack (damage dealt), red number = health. L = level, dots = experience toward the next level, T = tier, ★ = summoned pet. Shop pet → empty slot to buy, or onto the same pet to level it up. Food → a pet to feed it. Pet → another pet to swap them; onto a copy to choose combine or swap (Shift+click always swaps). Keys: <kbd>R</kbd> roll, <kbd>F</kbd> freeze, <kbd>B</kbd> buy, <kbd>S</kbd> sell, <kbd>Enter</kbd> end turn, <kbd>Esc</kbd> deselect.</p>
+      </div>
     </section>
   </div>
 
@@ -497,6 +587,7 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
 
 <script src="/static/fx.js"></script>
 <script src="/static/music.js"></script>
+<script src="/static/battle3d.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const S = { meta: null, mode: "play", id: null, st: null, sel: null, battle: null,
@@ -711,8 +802,8 @@ function actionFx(name, args, before, after, c) {
     document.querySelectorAll("#shop .card").forEach((el, i) => {
       if (el.classList.contains("frozen")) return;
       el.style.setProperty("--i", i);
-      FX.anim(el, "deal", 420 + i * 70);
-      setTimeout(() => SFX.play("tick", i), i * 70);
+      FX.anim(el, "deal", 320 + i * 40);
+      setTimeout(() => SFX.play("tick", i), i * 40);
     });
   }
   if (name === "swap") {
@@ -733,16 +824,17 @@ function actionFx(name, args, before, after, c) {
   });
 
   // stat changes from abilities: show +x/+y on any other pet or shop item that changed
-  if (!["swap", "sell", "combine"].includes(name)) {
-    after.team.forEach((p, k) => {
-      if (k === target) return;
-      const old = before.team[k];
-      if (old && old.name === p.name) {
-        const t = statText(old, p);
-        if (t) setTimeout(() => FX.text(teamCard(k), t, { color: css("--accent"), size: 15, dy: -48 }), 380);
-      }
-    });
-  }
+  // match pets by name in team order: positions shift when a pet is sold or merged
+  const used = new Set();
+  const skip = new Set(name === "sell" ? [args[0]] : name === "combine" ? args : []);
+  after.team.forEach((p, k) => {
+    const j = before.team.findIndex((q, i) => !used.has(i) && !skip.has(i) && q.name === p.name);
+    if (j < 0) return;
+    used.add(j);
+    if (k === target) return;
+    const t = statText(before.team[j], p);
+    if (t) setTimeout(() => FX.text(teamCard(k), t, { color: css("--accent"), size: 15, dy: -48 }), 380);
+  });
   if (name !== "roll") {
     after.shop.forEach((x) => {
       const old = before.shop.find((y) => y.index === x.index && y.name === x.name);
@@ -780,7 +872,7 @@ function petCard(p, opts = {}) {
     ${status}
     <span class="art"><span class="bob" style="--d:${bobDelay(p.name)}s"><span class="emo" aria-hidden="true">${p.emoji}</span></span></span>
     <span class="nm">${esc(p.name)}</span>
-    <span class="stats"><span class="stat a" aria-label="attack">${p.attack}</span><span class="stat h" aria-label="health">${p.health}</span></span>
+    <span class="stats"><span class="stat a" aria-label="attack">${p.attack}</span><span class="stat h" aria-label="health">${Math.max(0, p.health)}</span></span>
     <span class="lvl">${lv >= 3 ? "MAX" : "Lv" + lv} ${dots}</span>
     ${p.frozen ? `<span class="ice">FROZEN</span>` : ""}
   </div>`;
@@ -880,8 +972,9 @@ function renderOver() {
   const title = human ? (st.result === "seat0" ? "You won the game" : `${winner} won the game`) : `${winner} wins the match`;
   el.innerHTML = `<div class="banner"><div><h2>${esc(title)}</h2>
     <span class="help">${st.history.filter((h) => h === "win").length} wins, ${st.history.filter((h) => h === "loss").length} losses, ${st.history.filter((h) => h === "draw").length} draws over ${st.history.length} turns.</span></div>
-    <button class="btn primary" id="againBtn">Play again</button></div>`;
+    <div class="bar"><button class="btn" id="viewReplayBtn">View replay</button><button class="btn primary" id="againBtn">Play again</button></div></div>`;
   $("againBtn").onclick = () => (S.mode === "play" ? newGame() : newMatch());
+  $("viewReplayBtn").onclick = () => { const id = S.id; switchMode("replays").then(() => openReplay(id)); };
 }
 
 function renderPlay() {
@@ -902,7 +995,7 @@ function renderPlay() {
       continue;
     }
     let target = false;
-    if (selShop && selShop.kind === "food") target = legal("buy_food", [selShop.index, j]);
+    if (selShop && selShop.kind === "food") target = selShop.targeted ? legal("buy_food", [selShop.index, j]) : legal("buy_food_untargeted", [selShop.index]);
     else if (selShop) target = legal("buy_combine", [selShop.index, j]);
     else if (selTeam && sel.i !== j) target = true;
     const cls = (sel && sel.type === "team" && sel.i === j ? "sel " : "") + (target ? "target" : "");
@@ -926,11 +1019,11 @@ function renderPlay() {
   let hint = "";
   if (selShop) {
     info = infoHTML(selShop, "shop");
-    if (selShop.kind === "food") hint = selShop.targeted ? "Tap one of your pets to feed it." : "Press Buy to use it.";
+    if (selShop.kind === "food") hint = selShop.targeted ? "Tap one of your pets to feed it." : "Press Buy (or B), or tap your team, to use it.";
     else hint = "Tap an empty slot to buy, or a matching pet to level it up.";
   } else if (selTeam) {
     info = infoHTML(selTeam, "team");
-    hint = "Tap another pet to swap places, or a copy to combine.";
+    hint = "Tap another pet to swap places. Tap a copy to combine or swap (Shift+click swaps).";
   }
   $("inspect").innerHTML = info;
   $("hint").textContent = hint;
@@ -938,10 +1031,14 @@ function renderPlay() {
   const fz = $("freezeBtn");
   fz.disabled = !selShop;
   fz.textContent = selShop && selShop.frozen ? "Unfreeze" : "Freeze";
-  $("sellBtn").disabled = !selTeam;
-  const untargeted = selShop && selShop.kind === "food" && !selShop.targeted;
-  $("sellBtn").textContent = untargeted ? `Buy · ${selShop.cost} gold` : selTeam ? `Sell · +${selTeam.sell} gold` : "Sell";
-  if (untargeted) $("sellBtn").disabled = !legal("buy_food_untargeted", [selShop.index]);
+  // one button: Sell for a team pet, Buy for whatever is selected in the shop
+  const sb = $("sellBtn");
+  if (selTeam) { sb.textContent = `Sell · +${selTeam.sell} gold`; sb.disabled = false; }
+  else if (selShop) {
+    const buy = buyAction(selShop);
+    sb.textContent = selShop.kind === "food" && selShop.targeted ? "Pick a pet" : `Buy · ${selShop.cost} gold`;
+    sb.disabled = !buy || !legal(...buy);
+  } else { sb.textContent = "Sell"; sb.disabled = true; }
   $("endBtn").disabled = S.st.over;
   const left = s.gold;
   $("endBtn").classList.toggle("unspent", left > 0);
@@ -972,6 +1069,14 @@ function render() {
   $("stepBtn").disabled = !S.id || !S.st || S.st.over || S.busy;
   $("autoBtn").textContent = S.auto ? "Stop" : "Auto play";
   $("autoBtn").setAttribute("aria-pressed", S.auto);
+  $("modeReplays").setAttribute("aria-pressed", S.mode === "replays");
+  const rep = S.mode === "replays";
+  $("replayList").hidden = !rep || !!REP.doc;
+  $("replayView").hidden = !rep || !REP.doc;
+  $("logPanel").hidden = rep;
+  $("how").hidden = rep;
+  $("chatFab").hidden = rep || CHAT.open;
+  if (rep) { $("setupPlay").hidden = $("setupWatch").hidden = true; $("score").hidden = $("over").hidden = true; $("teamPanel").hidden = $("watchArea").hidden = true; return; }
   renderScore(); renderOver(); renderPlay(); renderWatch(); syncLog();
   if (CHAT.open && CHAT.loadedFor !== S.id) chatLoad();
   else if (CHAT.open) chatHeader();
@@ -998,22 +1103,34 @@ function battleFx(f, prev, prevRects) {
   }
 }
 function startBattle(b) {
-  S.battle = b; S.frame = 0; S.playing = true; S.soundFrame = -1;
+  S.battle = b; S.frame = 0; S.playing = true; S.soundFrame = -1; S.last3d = -1;
   $("battle").hidden = false;
+  if (S.view === "3d") {
+    $("lbl3L").textContent = battleLabels(b)[0]; $("lbl3R").textContent = battleLabels(b)[1];
+    Battle3D.reset($("stage3d")).then(() => { $("stage3dLoading").hidden = true; S.last3d = -1; for (let k = 0; k <= S.frame; k++) { const fr = S.battle.frames[k]; Battle3D.show(fr, k ? S.battle.frames[k - 1] : null, { animate: false }); } S.last3d = S.frame; })
+      .catch((e) => { toast(e.message); setView("2d"); });
+  }
   FX.attachScene($("scene"));
   if (speed() > 0) MUSIC.setMood("battle");
-  $("lblL").textContent = S.st.seats[0].label;
-  $("lblR").textContent = S.st.seats[1].label;
+  $("lblL").textContent = battleLabels(b)[0];
+  $("lblR").textContent = battleLabels(b)[1];
   $("battleTitle").textContent = `Turn ${b.turn} battle`;
   $("bClose").hidden = S.mode !== "play";
   $("bResult").textContent = "";
   $("blog").innerHTML = "";
   if (speed() === 0) { S.frame = b.frames.length - 1; showFrame(true); finishBattle(); return; }
+  if (speed() < 0) S.playing = false;
   showFrame(false);
   tick();
   $("battle").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "nearest" });
 }
-function speed() { return S.mode === "watch" ? Number($("speed").value) : 800; }
+function battleLabels(b) { return b.labels || (S.st ? [S.st.seats[0].label, S.st.seats[1].label] : ["Left", "Right"]); }
+function speed() { const v = $("bspeed").value; return v === "step" ? -1 : Number(v); }
+function setSpeed(v) {
+  $("bspeed").value = v; $("speed").value = v;
+  try { localStorage.setItem("sapaiBattleSpeed", v); } catch (e) {}
+  $("stepHint").hidden = v !== "step";
+}
 function tick() {
   clearTimeout(S.timer);
   $("bPlay").textContent = S.playing ? "Pause" : "Play";
@@ -1023,16 +1140,21 @@ function tick() {
 }
 function frameSound(f, prev) {
   const count = (fr) => fr.teams[0].length + fr.teams[1].length;
-  if (f.label.startsWith("Attack")) SFX.play("hit");
+  if (f.phase === "phase_attack") SFX.play("hit");
   else if (f.lines.length) SFX.play("ability");
   if (prev && count(f) < count(prev)) setTimeout(() => SFX.play("faint"), 140);
 }
 function showFrame(allLines) {
   const b = S.battle, f = b.frames[S.frame], prev = b.frames[S.frame - 1];
+  if (S.view === "3d" && Battle3D.mounted) {
+    const forward = !allLines && S.frame === (S.last3d ?? -1) + 1;
+    Battle3D.show(f, S.frame === 0 && forward ? null : prev, { animate: forward && S.frame > 0, ms: speed() > 0 ? speed() : 900 });
+    S.last3d = S.frame;
+  }
   if (!allLines && S.frame > (S.soundFrame ?? -1)) frameSound(f, prev);
   S.soundFrame = allLines ? b.frames.length : S.frame;
   $("frameLabel").textContent = `${f.label} · ${S.frame + 1}/${b.frames.length}`;
-  const attack = f.label.startsWith("Attack");
+  const attack = f.phase === "phase_attack";
   const lane = (team, prevTeam, left) => {
     if (!team.length) return `<span class="empty-lane">no pets left</span>`;
     const ordered = left ? [...team].reverse() : team;
@@ -1040,7 +1162,7 @@ function showFrame(allLines) {
       const idx = team.indexOf(p);
       const before = prevTeam && prevTeam[idx];
       const hurt = before && before.name === p.name && p.health < before.health;
-      let cls = (left ? "left-face " : "") + (hurt ? "hit " : "");
+      let cls = (left ? "left-face " : "") + (hurt ? "hit " : "") + (p.dead ? "dead " : "");
       if (attack && idx === 0) cls += left ? "lunge-r" : "lunge-l";
       return petCard(p, { cls, attrs: reg(p) + ` data-bi="${left ? 0 : 1}-${idx}"` });
     }).join("");
@@ -1049,7 +1171,7 @@ function showFrame(allLines) {
   if (!allLines) document.querySelectorAll("#battle [data-bi]").forEach((el) => (prevRects[el.dataset.bi] = el.getBoundingClientRect()));
   $("laneL").innerHTML = lane(f.teams[0], prev && prev.teams[0], true);
   $("laneR").innerHTML = lane(f.teams[1], prev && prev.teams[1], false);
-  if (!allLines && prev) battleFx(f, prev, prevRects);
+  if (!allLines && prev && S.view !== "3d") battleFx(f, prev, prevRects);
   const lines = allLines
     ? b.frames.flatMap((x) => (x.lines.length ? [`<p class="dim">${esc(x.label)}</p>`, ...x.lines.map((l) => `<p>${esc(l)}</p>`)] : []))
     : b.frames.slice(0, S.frame + 1).flatMap((x) => (x.lines.length ? [`<p class="dim">${esc(x.label)}</p>`, ...x.lines.map((l) => `<p>${esc(l)}</p>`)] : []));
@@ -1061,6 +1183,14 @@ function finishBattle() {
   S.playing = false;
   $("bPlay").textContent = "Replay";
   const b = S.battle, o = b.outcome;
+  if (S.mode === "replays" || !S.st) {
+    const [l, r] = battleLabels(b);
+    $("bResult").textContent = o === "draw" ? "Draw" : `${o === "win" ? l : r} won`;
+    $("bResult").className = "result " + o;
+    SFX.play(o === "draw" ? "draw" : "win");
+    setTimeout(() => MUSIC.setMood("shop"), 1500);
+    return;
+  }
   const human = S.st.seats[0].kind === "human";
   const txt = o === "draw" ? "Draw" : human ? (o === "win" ? "You won the battle" : `You lost · −${b.lives} lives`)
     : `${o === "win" ? S.st.seats[0].label : S.st.seats[1].label} won`;
@@ -1109,10 +1239,119 @@ async function resume(id) {
 }
 async function switchMode(mode) {
   stopAll();
-  S.mode = mode; S.id = null; S.st = null; $("battle").hidden = true;
+  if (CHAT.open) chatToggle(false);
+  S.mode = mode; S.id = null; S.st = null; S.battle = null; $("battle").hidden = true;
+  if (Battle3D.mounted) Battle3D.unmount();
+  REP.doc = null;
   render();
+  if (mode === "replays") { await loadReplays(); return; }
   if (!(await resume(recall()[mode]))) (mode === "play" ? newGame() : newMatch());
 }
+
+// ---------------------------------------------------------------- replays
+const REP = { list: [], doc: null, turn: 0, confirmDelete: false };
+function when(iso) {
+  const d = new Date(iso);
+  return isNaN(d) ? "" : d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+async function loadReplays() {
+  try { REP.list = (await api("/api/replays", {})).replays; } catch (e) { toast(e.message); REP.list = []; }
+  renderReplayList();
+}
+function replayMatches(m) {
+  const f = $("replayFilter").value, q = $("replaySearch").value.trim().toLowerCase();
+  if (f === "play" && m.mode !== "play") return false;
+  if (f === "watch" && m.mode !== "watch") return false;
+  if (f === "won" && !(m.mode === "play" && m.status === "finished" && m.result === "You won")) return false;
+  if (f === "finished" && m.status !== "finished") return false;
+  if (f === "unfinished" && m.status !== "unfinished") return false;
+  if (q && ![m.title, m.note, ...(m.players || [])].join(" ").toLowerCase().includes(q)) return false;
+  return true;
+}
+function renderReplayList() {
+  const rows = REP.list.filter(replayMatches);
+  $("replayCount").textContent = `${REP.list.length} ${REP.list.length === 1 ? "game" : "games"}`;
+  $("replayRows").innerHTML = rows.length ? rows.map((m) => {
+    const cls = m.status !== "finished" ? "" : m.mode === "play" ? (m.result === "You won" ? "win" : "loss") : "";
+    const b = m.battles || {};
+    const vs = (m.players || []).join(" vs "), sub = [m.title.replace(/^You vs /, "") === (m.players || [])[1] || m.title === vs ? "" : esc(vs), m.note ? esc(m.note) : "", m.steps === false ? "log only" : ""].filter(Boolean).join(" · ");
+    return `<tr class="rrow" tabindex="0" data-rid="${esc(m.id)}"><td><div class="t">${esc(m.title)}</div>${sub ? `<div class="sub">${sub}</div>` : ""}</td>
+      <td><span class="pill ${cls}">${esc(m.result)}</span></td><td>${m.turns}</td><td>${b.win ?? 0} / ${b.loss ?? 0} / ${b.draw ?? 0}</td><td class="sub">${esc(when(m.updated))}</td></tr>`;
+  }).join("") : `<tr><td colspan="5" class="sub">${REP.list.length ? "No games match." : "No games yet. Finish a turn in Play or Watch mode and it shows up here."}</td></tr>`;
+  render();
+}
+async function openReplay(id) {
+  try {
+    REP.doc = (await api("/api/replay", { id })).replay;
+  } catch (e) { toast(e.message); return; }
+  REP.confirmDelete = false;
+  $("replayDelete").textContent = "Delete replay";
+  const m = REP.doc.meta;
+  $("replayTitle").value = m.title; $("replayNote").value = m.note || "";
+  render();
+  renderReplayMeta();
+  selectTurn(Math.max(0, REP.doc.rounds.length - 1), false);
+  window.scrollTo({ top: 0 });
+}
+function renderReplayMeta() {
+  const m = REP.doc.meta, sc = m.score || [{}, {}];
+  $("replayMeta").textContent = `${(m.players || []).join(" vs ")} · ${m.result} · ${m.turns} turns · final score ${sc[0].wins ?? "?"} wins / ${sc[0].lives ?? "?"} lives against ${sc[1].wins ?? "?"} wins / ${sc[1].lives ?? "?"} lives · played ${when(m.created)}` +
+    (m.steps === false ? " · saved before replays existed, so battles show their log only" : "");
+  const r = REP.doc.rounds;
+  $("turnStrip").innerHTML = r.map((x, k) => `<button type="button" role="tab" class="${x.outcome}" data-turn="${k}" aria-selected="${k === REP.turn}" title="Turn ${x.turn}: ${x.outcome}">T${x.turn}</button>`).join("") || `<span class="help">No turns played yet.</span>`;
+}
+function selectTurn(k, play = true) {
+  const rounds = REP.doc.rounds;
+  if (!rounds.length) return;
+  REP.turn = Math.max(0, Math.min(rounds.length - 1, k));
+  const r = rounds[REP.turn], labels = REP.doc.meta.players || ["Left", "Right"];
+  $("turnStrip").querySelectorAll("button").forEach((b) => b.setAttribute("aria-selected", String(Number(b.dataset.turn) === REP.turn)));
+  const res = r.outcome === "draw" ? "draw" : `${r.outcome === "win" ? labels[0] : labels[1]} won the battle`;
+  const n = (v, one, many) => `${v} ${v === 1 ? one : many}`;
+  const after = r.after ? ` · after it: ${labels[0]} ${n(r.after[0].wins, "win", "wins")}, ${n(r.after[0].lives, "life", "lives")}; ${labels[1]} ${n(r.after[1].wins, "win", "wins")}, ${n(r.after[1].lives, "life", "lives")}` : "";
+  $("turnLabel").textContent = `Turn ${r.turn} of ${rounds.at(-1).turn} · ${res}${after}`;
+  $("turnPrev").disabled = REP.turn === 0; $("turnNext").disabled = REP.turn === rounds.length - 1;
+  // shop moves and the models' reasoning for each side
+  $("replayShops").innerHTML = [0, 1].map((i) => {
+    const log = (r.shopLogs || [[], []])[i] || [], th = (r.thoughts || [[], []])[i] || [];
+    const moves = log.length ? log.map((x) => `<li>${esc(x)}</li>`).join("") : "<li>did nothing</li>";
+    const why = th.length ? `<div class="front-note">Model confidence per move</div><ol class="thoughts">${th.map((t) => `<li>${esc(t.choice)} · ${Math.round((t.confidence || 0) * 100)}%${t.options && t.options[1] ? ` (next best: ${esc(t.options[1][0])}, ${Math.round(t.options[1][1] * 100)}%)` : ""}</li>`).join("")}</ol>` : "";
+    return `<div class="panel"><div class="panel-head"><h2>${esc(labels[i])}</h2><span class="note">shopping on turn ${r.turn}</span></div><ol class="shoplog">${moves}</ol>${why}</div>`;
+  }).join("");
+  // the battle: step-by-step frames, or the log lines for games saved before replays
+  const hasFrames = r.frames && r.frames.length > 1;
+  $("replayLines").hidden = hasFrames;
+  if (hasFrames) {
+    startBattle({ frames: r.frames, outcome: r.outcome, lives: r.lives, turn: r.turn, shopLogs: r.shopLogs, labels });
+    if (!play) { S.playing = false; tick(); }
+  } else {
+    clearTimeout(S.timer); $("battle").hidden = true;
+    $("replayLines").innerHTML = (r.lines || []).map((l) => `<p>${esc(l)}</p>`).join("") || `<p class="dim">No battle recorded.</p>`;
+  }
+  // this turn's game log
+  const ev = (REP.doc.events || []).filter((e) => e.turn === r.turn);
+  $("replayLog").innerHTML = ev.length ? ev.map((e) => `<div class="log-e ${e.kind} ${e.warn && e.warn.length ? "bad" : e.ok === false ? "odd" : ""}"><div class="log-h"><span class="who">${esc(e.who || "Battle")}</span> ${esc(e.title)}</div><ul>${e.lines.map((l) => `<li class="${/^(rule|check|ability|effect)/.test(l) ? "meta" : ""}">${esc(l)}</li>`).join("")}</ul></div>`).join("") : `<p class="help">No log entries for this turn.</p>`;
+}
+$("modeReplays").onclick = () => switchMode("replays");
+$("replaySearch").addEventListener("input", renderReplayList);
+$("replayFilter").onchange = renderReplayList;
+$("replayRows").addEventListener("click", (e) => { const tr = e.target.closest("[data-rid]"); if (tr) openReplay(tr.dataset.rid); });
+$("replayRows").addEventListener("keydown", (e) => { const tr = e.target.closest("[data-rid]"); if (tr && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openReplay(tr.dataset.rid); } });
+$("replayBack").onclick = () => { clearTimeout(S.timer); $("battle").hidden = true; if (Battle3D.mounted) Battle3D.unmount(); REP.doc = null; loadReplays(); };
+$("turnStrip").addEventListener("click", (e) => { const b = e.target.closest("[data-turn]"); if (b) selectTurn(Number(b.dataset.turn)); });
+$("turnPrev").onclick = () => selectTurn(REP.turn - 1);
+$("turnNext").onclick = () => selectTurn(REP.turn + 1);
+$("replaySave").onclick = async () => {
+  try {
+    const j = await api("/api/replay/rename", { id: REP.doc.meta.id, title: $("replayTitle").value, note: $("replayNote").value });
+    REP.doc.meta = j.meta; renderReplayMeta(); toast("Saved.");
+  } catch (e) { toast(e.message); }
+};
+$("replayDelete").onclick = async () => {
+  if (!REP.confirmDelete) { REP.confirmDelete = true; $("replayDelete").textContent = "Click again to delete for good"; return; }
+  try { await api("/api/replay/delete", { id: REP.doc.meta.id }); toast("Replay deleted."); } catch (e) { toast(e.message); }
+  REP.doc = null; $("battle").hidden = true; loadReplays();
+};
 
 // ------------------------------------------------------------- game log
 S.log = []; S.logId = null; S.logBusy = false;
@@ -1224,22 +1463,53 @@ async function runSeries() {
 }
 
 // ----------------------------------------------------------------- events
-function onTeam(j) {
+function onTeam(j, opts = {}) {
   const s = me(), sel = S.sel;
   if (sel && sel.type === "shop") {
     const x = s.shop.find((y) => y.index === sel.i);
-    if (x.kind === "food") return act("buy_food", [x.index, j]);
+    if (x.kind === "food") return x.targeted ? act("buy_food", [x.index, j]) : act("buy_food_untargeted", [x.index]);
     if (s.team[j] && s.team[j].name === x.name) return act("buy_combine", [x.index, j]);
   }
   if (sel && sel.type === "team" && sel.i !== j) {
     const a = s.team[sel.i], b = s.team[j];
-    if (a.name === b.name && legal("combine", [sel.i, j])) return act("combine", [sel.i, j]);
+    if (a.name === b.name && legal("combine", [sel.i, j]) && !opts.swap) return pairMenu(sel.i, j);
     return act("swap", [sel.i, j]);
   }
   S.sel = sel && sel.type === "team" && sel.i === j ? null : { type: "team", i: j };
   render();
   selectFeedback(S.sel ? document.querySelector(`[data-team="${j}"]`) : null, j + 2);
 }
+// Two copies of the same pet: ask whether to combine them or just swap places
+function pairMenu(a, b) {
+  closePairMenu();
+  const target = document.querySelector(`[data-team="${b}"]`);
+  const pet = me().team[a];
+  const m = document.createElement("div");
+  m.className = "pair-menu"; m.id = "pairMenu"; m.setAttribute("role", "menu");
+  m.innerHTML = `<button type="button" class="btn primary" data-do="combine" role="menuitem">Combine · level up</button>
+    <button type="button" class="btn" data-do="swap" role="menuitem">Swap places</button>`;
+  document.body.appendChild(m);
+  const r = target.getBoundingClientRect(), mr = m.getBoundingClientRect();
+  const left = Math.min(Math.max(8, r.left + r.width / 2 - mr.width / 2), innerWidth - mr.width - 8);
+  const top = r.bottom + 8 + mr.height > innerHeight ? r.top - mr.height - 8 : r.bottom + 8;
+  m.style.left = `${left + scrollX}px`; m.style.top = `${top + scrollY}px`;
+  m.addEventListener("click", (e) => {
+    const k = e.target.closest("[data-do]");
+    if (!k) return;
+    closePairMenu();
+    act(k.dataset.do, [a, b]);
+  });
+  m.querySelector("button").focus();
+  SFX.play("select", 5);
+  setTimeout(() => document.addEventListener("pointerdown", outsidePairMenu), 0);
+}
+function outsidePairMenu(e) { if (!e.target.closest("#pairMenu")) closePairMenu(); }
+function closePairMenu() {
+  const m = $("pairMenu");
+  if (m) m.remove();
+  document.removeEventListener("pointerdown", outsidePairMenu);
+}
+
 function onShop(i) {
   S.sel = S.sel && S.sel.type === "shop" && S.sel.i === i ? null : { type: "shop", i };
   render();
@@ -1251,18 +1521,31 @@ function selectFeedback(el, i) {
   FX.burst("sparkle", el, { n: 9, power: 0.8 });
   SFX.play("select", i);
 }
+// The buy action for a shop item that needs no target, or null
+function buyAction(x) {
+  if (!x) return null;
+  if (x.kind === "food") return x.targeted ? null : ["buy_food_untargeted", [x.index]];
+  return ["buy_pet", [x.index]];
+}
+function buySelected() {
+  const sel = S.sel;
+  if (!sel || sel.type !== "shop") return;
+  const x = me().shop.find((y) => y.index === sel.i);
+  if (x && x.kind === "food" && x.targeted) { SFX.play("error"); toast("Tap one of your pets to feed it this food."); return; }
+  const buy = buyAction(x);
+  if (buy) act(...buy);
+}
 function sellOrBuy() {
-  const s = me(), sel = S.sel;
+  const sel = S.sel;
   if (!sel) return;
   if (sel.type === "team") return act("sell", [sel.i]);
-  const x = s.shop.find((y) => y.index === sel.i);
-  if (x && x.kind === "food" && !x.targeted) return act("buy_food_untargeted", [x.index]);
+  buySelected();
 }
 
 $("team").addEventListener("click", (e) => {
   const c = e.target.closest("[data-team]"), em = e.target.closest("[data-empty]");
-  if (c) onTeam(Number(c.dataset.team));
-  else if (em && S.sel && S.sel.type === "shop") act("buy_pet", [S.sel.i]);
+  if (c) onTeam(Number(c.dataset.team), { swap: e.shiftKey });
+  else if (em && S.sel && S.sel.type === "shop") buySelected();
 });
 $("shop").addEventListener("click", (e) => { const c = e.target.closest("[data-shop]"); if (c) onShop(Number(c.dataset.shop)); });
 for (const [id, fn] of [["team", (el) => onTeam(Number(el.dataset.team))], ["shop", (el) => onShop(Number(el.dataset.shop))]]) {
@@ -1404,8 +1687,28 @@ $("bPlay").onclick = () => {
   if (!S.playing && S.frame >= S.battle.frames.length - 1) { S.frame = 0; S.soundFrame = -1; showFrame(false); }
   S.playing = !S.playing; tick();
 };
-$("bPrev").onclick = () => { S.playing = false; tick(); if (S.frame > 0) { S.frame--; showFrame(false); } };
-$("bNext").onclick = () => { S.playing = false; tick(); if (S.frame < S.battle.frames.length - 1) { S.frame++; showFrame(false); } };
+$("bPrev").onclick = stepPrev;
+function stepNext() {
+  if (!S.battle) return;
+  S.playing = false; tick();
+  if (S.frame < S.battle.frames.length - 1) { S.frame++; showFrame(false); }
+  if (S.frame >= S.battle.frames.length - 1) finishBattle();
+}
+function stepPrev() {
+  if (!S.battle) return;
+  S.playing = false; tick();
+  if (S.frame > 0) { S.frame--; S.soundFrame = S.frame; showFrame(false); }
+}
+$("bNext").onclick = stepNext;
+$("bspeed").onchange = () => { setSpeed($("bspeed").value); if (speed() < 0) { S.playing = false; tick(); } };
+$("speed").onchange = () => setSpeed($("speed").value);
+try { const v = localStorage.getItem("sapaiBattleSpeed"); if (v && [...$("bspeed").options].some((o) => o.value === v)) setSpeed(v); } catch (e) {}
+document.addEventListener("keydown", (e) => {
+  if ($("battle").hidden || !S.battle || e.target.closest("input, select, textarea")) return;
+  if (e.key === "ArrowRight") { e.preventDefault(); stepNext(); }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); stepPrev(); }
+  else if (e.key === " " && !e.target.closest("button")) { e.preventDefault(); $("bPlay").click(); }
+});
 $("bSkip").onclick = () => { S.frame = S.battle.frames.length - 1; showFrame(true); finishBattle(); };
 document.addEventListener("click", (e) => {
   const c = e.target.closest("[data-k]");
@@ -1418,7 +1721,35 @@ document.addEventListener("keydown", (e) => {
 });
 $("sheetClose").onclick = () => ($("sheet").hidden = true);
 $("how").addEventListener("toggle", () => { try { localStorage.setItem("howOpen", $("how").open ? "1" : "0"); } catch (e) {} });
-$("bClose").onclick = () => { clearTimeout(S.timer); $("battle").hidden = true; MUSIC.setMood("shop"); };
+$("bClose").onclick = () => { clearTimeout(S.timer); $("battle").hidden = true; MUSIC.setMood("shop"); if (Battle3D.mounted) Battle3D.unmount(); };
+
+// ------------------------------------------------------------- 2D / 3D view
+S.view = "2d";
+function setView(v) {
+  S.view = v;
+  try { localStorage.setItem("sapaiBattleView", v); } catch (e) {}
+  $("view2d").setAttribute("aria-pressed", String(v === "2d"));
+  $("view3d").setAttribute("aria-pressed", String(v === "3d"));
+  document.querySelector("#battle .stage").hidden = v === "3d";
+  $("stage3d").hidden = v !== "3d";
+  if (v === "3d") {
+    $("stage3dLoading").hidden = false;
+    if (S.st) { $("lbl3L").textContent = S.st.seats[0].label; $("lbl3R").textContent = S.st.seats[1].label; }
+    Battle3D.reset($("stage3d")).then(() => {
+      $("stage3dLoading").hidden = true;
+      if (!S.battle) return;
+      // rebuild the board as of the current step, without animation
+      for (let k = 0; k <= S.frame; k++) Battle3D.show(S.battle.frames[k], k ? S.battle.frames[k - 1] : null, { animate: false });
+      S.last3d = S.frame;
+    }).catch((e) => { toast(e.message); setView("2d"); });
+  } else if (Battle3D.mounted) {
+    Battle3D.unmount();
+    if (S.battle) showFrame(false);
+  }
+}
+$("view2d").onclick = () => setView("2d");
+$("view3d").onclick = () => setView("3d");
+try { if (localStorage.getItem("sapaiBattleView") === "3d") { S.view = "3d"; $("view3d").setAttribute("aria-pressed", "true"); $("view2d").setAttribute("aria-pressed", "false"); document.querySelector("#battle .stage").hidden = true; $("stage3d").hidden = false; } } catch (e) {}
 $("modePlay").onclick = () => switchMode("play");
 $("modeWatch").onclick = () => switchMode("watch");
 $("opp").onchange = () => { $("oppDesc").textContent = agentDesc($("opp").value); };
@@ -1428,10 +1759,11 @@ $("agA").onchange = watchDesc; $("agB").onchange = watchDesc;
 document.addEventListener("keydown", (e) => {
   if (S.mode !== "play" || !me() || e.target.tagName === "SELECT" || e.metaKey || e.ctrlKey) return;
   const k = e.key.toLowerCase();
-  if (k === "escape") { S.sel = null; render(); }
+  if (k === "escape") { closePairMenu(); S.sel = null; render(); }
   else if (k === "r") act("roll");
   else if (k === "f" && S.sel && S.sel.type === "shop") act("freeze", [S.sel.i]);
   else if (k === "s") sellOrBuy();
+  else if (k === "b") buySelected();
   else if (e.key === "Enter" && !e.target.closest("[data-team],[data-shop],button")) endTurn();
 });
 
