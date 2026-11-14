@@ -3,10 +3,9 @@ import itertools
 import numpy as np
 import sapai
 
-from sapai.data import data
+from sapai.data import data, RULES
 from sapai.tiers import pet_tier_lookup, pet_tier_lookup_std
 from sapai.foods import Food
-
 
 """
 This module implements all effects in the game. API description is as follows:
@@ -74,8 +73,8 @@ def get_pet(pet_idx, teams, fainted_pet=None, te=None):
         raise Exception("Cannot input more than 2 teams")
     if team_idx >= len(teams):
         raise Exception("Team idx greater than provided number of teams")
-    if team_pet_idx >= 5:
-        raise Exception("Team pet idx greater than 5")
+    if team_pet_idx >= RULES["max_team_size"]:
+        raise Exception("Team pet idx greater than the team size")
     if fainted_pet is None:
         pet = teams[team_idx][team_pet_idx].pet
     else:
@@ -703,8 +702,8 @@ def ModifyStats(apet, apet_idx, teams, te=None, te_idx=None, fixed_targets=None)
         else:
             target_pet._attack += attack_amount
             target_pet._health += health_amount
-        target_pet._attack = min([target_pet._attack, 50])
-        target_pet._health = min([target_pet._health, 50])
+        target_pet._attack = min([target_pet._attack, RULES["max_stat"]])
+        target_pet._health = min([target_pet._health, RULES["max_stat"]])
 
     ### "Current and future shop pets": the bonus for future pets is added
     ###   once, not once per current shop pet

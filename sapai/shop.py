@@ -3,7 +3,7 @@
 from functools import partial
 import numpy as np
 
-from sapai.data import data
+from sapai.data import data, RULES
 from sapai.lists import Slot, SAPList
 from sapai.foods import Food
 from sapai.pets import Pet
@@ -96,7 +96,7 @@ class Shop(SAPList):
         else:
             self.rs = MockRandomState()
 
-        self.max_slots = 7
+        self.max_slots = RULES["max_shop_slots"]
         self.turn = turn
         self.pack = pack
         self.shop_attack = shop_attack  ### Keep track of can/chicken stats
@@ -745,7 +745,7 @@ class ShopSlot(Slot):
         slot_type="none",
         frozen=False,
         turn=1,
-        cost=3,
+        cost=RULES["pet_cost"],
         pack="StandardPack",
         seed_state=None,
     ):

@@ -19,7 +19,7 @@ import shlex
 import numpy as np
 
 from sapai.battle import Battle
-from sapai.data import data
+from sapai.data import data, RULES
 from sapai.foods import Food
 from sapai.pets import Pet
 from sapai.player import Player
@@ -284,8 +284,8 @@ class Game:
     def __init__(
         self,
         seed=None,
-        lives=10,
-        wins_needed=10,
+        lives=RULES["starting_lives"],
+        wins_needed=RULES["wins_to_win"],
         input_fn=input,
         print_fn=print,
         opponent="greedy",
@@ -625,8 +625,12 @@ class Game:
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.strip().split("\n")[0])
     parser.add_argument("--seed", type=int, default=None, help="random seed")
-    parser.add_argument("--lives", type=int, default=10, help="starting lives")
-    parser.add_argument("--wins", type=int, default=10, help="wins needed to win")
+    parser.add_argument(
+        "--lives", type=int, default=RULES["starting_lives"], help="starting lives"
+    )
+    parser.add_argument(
+        "--wins", type=int, default=RULES["wins_to_win"], help="wins needed to win"
+    )
     parser.add_argument(
         "--opponent",
         default="greedy",

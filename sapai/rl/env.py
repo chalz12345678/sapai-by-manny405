@@ -34,7 +34,7 @@ import numpy as np
 from gymnasium import spaces
 
 from sapai.battle import Battle
-from sapai.data import data
+from sapai.data import data, RULES
 from sapai.player import Player
 from sapai.teams import Team
 
@@ -235,8 +235,8 @@ class SAPEnv(gym.Env):
     def __init__(
         self,
         opponent=None,
-        wins_needed=10,
-        lives=10,
+        wins_needed=RULES["wins_to_win"],
+        lives=RULES["starting_lives"],
         max_turns=25,
         max_actions_per_turn=30,
         game_win_bonus=5.0,

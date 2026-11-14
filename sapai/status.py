@@ -1,16 +1,29 @@
+"""
+How perks change damage. The amounts come from the statuses in
+data/turtle_pack.yaml, so a patch to a perk only needs the data file.
+"""
+
+from sapai.data import data
+
+
+def _modifier(status):
+    """damageModifier of a status's ModifyDamage effect"""
+    return data["statuses"][status]["ability"]["effect"]["damageModifier"]
+
+
 def apply_(value):
     return max([value, 0])
 
 
 def apply_garlic_armor(value):
     if value > 0:
-        return max([value - 2, 1])
+        return max([value + _modifier("status-garlic-armor"), 1])
     else:
         return 0
 
 
 def apply_melon_armor(value):
-    return max([value - 20, 0])
+    return max([value + _modifier("status-melon-armor"), 0])
 
 
 def apply_coconut_shield(value):
@@ -19,21 +32,21 @@ def apply_coconut_shield(value):
 
 def apply_bone_attack(value):
     if value > 0:
-        return value + 3
+        return value + _modifier("status-bone-attack")
     else:
         return 0
 
 
 def apply_steak_attack(value):
     if value > 0:
-        return value + 20
+        return value + _modifier("status-steak-attack")
     else:
         return 0
 
 
 def apply_weak(value):
     if value > 0:
-        return value + 3
+        return value + _modifier("status-weak")
     else:
         return 0
 

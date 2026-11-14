@@ -1,0 +1,1781 @@
+# Super Auto Pets - Turtle Pack: the single source of truth for game data.
+#
+# After editing, rebuild and test (see docs/PATCHING.md):
+#     python -m sapai.build_data
+#     python -m pytest      (or: python -m unittest discover -s tests)
+#
+# Pets: tier, base attack/health, trigger, and for each level the ability
+#   text shown to players plus the effect the engine runs. Keep text and
+#   effect in step: the build warns when a number in the text is not in the
+#   effect. Effect kinds, targets and triggers are listed in docs/PATCHING.md.
+# summoned_pets: never stocked; "?" stats are set by whatever summons them.
+# foods / pet_created_foods: cost, text and effect (all trigger on buy).
+# statuses: perks that foods and abilities give pets.
+#
+# Shop odds are built from the tiers: each shop slot is drawn uniformly from
+# every pet (or food) of the tiers available that turn.
+
+pack:
+  name: Turtle
+  internal_id: StandardPack
+  game_version: unknown - data checked against the game on 2026-11-11
+  sources:
+  - Super Auto Pets Wiki (superautopets.wiki.gg)
+  - the game app
+rules:
+  # General rules. Per-turn rules are in turns below; turn 11 covers every
+  # later turn too.
+  starting_gold: 10        # gold at the start of every turn
+  roll_cost: 1
+  pet_cost: 3
+  max_team_size: 5
+  max_shop_slots: 7        # shop slots including food
+  max_stat: 50             # attack and health cap
+  starting_lives: 10       # arena; see docs/RULES.md for open questions
+  wins_to_win: 10
+  # Sell value is the pet's level (plus any Cake bonus).
+  turns:
+  - {index: 1, foodShopSlots: 1, animalShopSlots: 3, livesLost: 1, tiersAvailable: 1, levelUpTier: 2}
+  - {index: 2, foodShopSlots: 1, animalShopSlots: 3, livesLost: 1, tiersAvailable: 1, levelUpTier: 2}
+  - {index: 3, foodShopSlots: 2, animalShopSlots: 3, livesLost: 2, tiersAvailable: 2, levelUpTier: 3}
+  - {index: 4, foodShopSlots: 2, animalShopSlots: 3, livesLost: 2, tiersAvailable: 2, levelUpTier: 3}
+  - {index: 5, foodShopSlots: 2, animalShopSlots: 4, livesLost: 3, tiersAvailable: 3, levelUpTier: 4}
+  - {index: 6, foodShopSlots: 2, animalShopSlots: 4, livesLost: 3, tiersAvailable: 3, levelUpTier: 4}
+  - {index: 7, foodShopSlots: 2, animalShopSlots: 4, livesLost: 3, tiersAvailable: 4, levelUpTier: 5}
+  - {index: 8, foodShopSlots: 2, animalShopSlots: 4, livesLost: 3, tiersAvailable: 4, levelUpTier: 5}
+  - {index: 9, foodShopSlots: 2, animalShopSlots: 5, livesLost: 4, tiersAvailable: 5, levelUpTier: 6}
+  - {index: 10, foodShopSlots: 2, animalShopSlots: 5, livesLost: 4, tiersAvailable: 5, levelUpTier: 6}
+  - name: Turn 11+
+    index: 11
+    foodShopSlots: 2
+    animalShopSlots: 5
+    livesLost: 5
+    tiersAvailable: 6
+    levelUpTier: 6
+pets:
+- id: pet-ant
+  name: Ant
+  tier: 1
+  attack: 2
+  health: 2
+  trigger: Faint
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Faint: Give one random friend +1 attack and +1 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: RandomFriend, n: 1}
+        attackAmount: 1
+        healthAmount: 1
+        untilEndOfBattle: false
+    2:
+      text: 'Faint: Give one random friend +2 attack and +2 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: RandomFriend, n: 1}
+        attackAmount: 2
+        healthAmount: 2
+        untilEndOfBattle: false
+    3:
+      text: 'Faint: Give one random friend +3 attack and +3 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: RandomFriend, n: 1}
+        attackAmount: 3
+        healthAmount: 3
+        untilEndOfBattle: false
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐜}
+- id: pet-beaver
+  name: Beaver
+  tier: 1
+  attack: 3
+  health: 2
+  trigger: Sell
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Sell: Give two random friends +1 attack.'
+      effect: {kind: ModifyStats, target: {kind: RandomFriend, n: 2}, attackAmount: 1, untilEndOfBattle: false}
+    2:
+      text: 'Sell: Give two random friends +2 attack.'
+      effect: {kind: ModifyStats, target: {kind: RandomFriend, n: 2}, attackAmount: 2, untilEndOfBattle: false}
+    3:
+      text: 'Sell: Give two random friends +3 attack.'
+      effect: {kind: ModifyStats, target: {kind: RandomFriend, n: 2}, attackAmount: 3, untilEndOfBattle: false}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦫}
+- id: pet-cricket
+  name: Cricket
+  tier: 1
+  attack: 1
+  health: 3
+  trigger: Faint
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Faint: Summon one 1/1 Cricket.'
+      effect: {kind: SummonPet, pet: pet-zombie-cricket, withAttack: 1, withHealth: 1, team: Friendly}
+    2:
+      text: 'Faint: Summon one 2/2 Cricket.'
+      effect: {kind: SummonPet, pet: pet-zombie-cricket, withAttack: 2, withHealth: 2, team: Friendly}
+    3:
+      text: 'Faint: Summon one 3/3 Cricket.'
+      effect: {kind: SummonPet, pet: pet-zombie-cricket, withAttack: 3, withHealth: 3, team: Friendly}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦗}
+- id: pet-duck
+  name: Duck
+  tier: 1
+  attack: 2
+  health: 2
+  trigger: Sell
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Sell: Give shop pets +1 health.'
+      effect: {kind: ModifyStats, target: {kind: EachShopAnimal}, healthAmount: 1, untilEndOfBattle: false}
+    2:
+      text: 'Sell: Give shop pets +2 health.'
+      effect: {kind: ModifyStats, target: {kind: EachShopAnimal}, healthAmount: 2, untilEndOfBattle: false}
+    3:
+      text: 'Sell: Give shop pets +3 health.'
+      effect: {kind: ModifyStats, target: {kind: EachShopAnimal}, healthAmount: 3, untilEndOfBattle: false}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦆}
+- id: pet-fish
+  name: Fish
+  tier: 1
+  attack: 2
+  health: 3
+  trigger: LevelUp
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Level-up: Give two friends +1 attack and +1 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: RandomFriend, n: 2}
+        attackAmount: 1
+        healthAmount: 1
+        untilEndOfBattle: false
+    2:
+      text: 'Level-up: Give two friends +2 attack and +2 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: RandomFriend, n: 2}
+        attackAmount: 2
+        healthAmount: 2
+        untilEndOfBattle: false
+    3:
+      text: 'Level-up: No ability (cannot level up further).'
+      effect: {kind: none}
+  image: {source: fxemoji, commit: 270af343bee346d8221f87806d2b1eee0438431a, name: fish, unicodeCodePoint: 🐟}
+- id: pet-horse
+  name: Horse
+  tier: 1
+  attack: 2
+  health: 1
+  trigger: Summoned
+  triggered_by: {kind: EachFriend}
+  levels:
+    1:
+      text: 'Friend summoned: Give it +1 attack until end of battle.'
+      effect: {kind: ModifyStats, target: {kind: TriggeringEntity}, attackAmount: 1, untilEndOfBattle: true}
+    2:
+      text: 'Friend summoned: Give it +2 attack until end of battle.'
+      effect: {kind: ModifyStats, target: {kind: TriggeringEntity}, attackAmount: 2, untilEndOfBattle: true}
+    3:
+      text: 'Friend summoned: Give it +3 attack until end of battle.'
+      effect: {kind: ModifyStats, target: {kind: TriggeringEntity}, attackAmount: 3, untilEndOfBattle: true}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐎}
+- id: pet-mosquito
+  name: Mosquito
+  tier: 1
+  attack: 2
+  health: 2
+  trigger: StartOfBattle
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Start of battle: Deal 1 damage to one random enemy.'
+      effect: {kind: DealDamage, target: {kind: RandomEnemy, n: 1}, amount: 1}
+    2:
+      text: 'Start of battle: Deal 1 damage to two random enemies.'
+      effect: {kind: DealDamage, target: {kind: RandomEnemy, n: 2}, amount: 1}
+    3:
+      text: 'Start of battle: Deal 1 damage to three random enemies.'
+      effect: {kind: DealDamage, target: {kind: RandomEnemy, n: 3}, amount: 1}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦟}
+- id: pet-otter
+  name: Otter
+  tier: 1
+  attack: 1
+  health: 4
+  trigger: Buy
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Buy: Give one random friend +1 health.'
+      effect: {kind: ModifyStats, target: {kind: RandomFriend, n: 1}, healthAmount: 1, untilEndOfBattle: false}
+    2:
+      text: 'Buy: Give two random friends +1 health.'
+      effect: {kind: ModifyStats, target: {kind: RandomFriend, n: 2}, healthAmount: 1, untilEndOfBattle: false}
+    3:
+      text: 'Buy: Give three random friends +1 health.'
+      effect: {kind: ModifyStats, target: {kind: RandomFriend, n: 3}, healthAmount: 1, untilEndOfBattle: false}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦦}
+- id: pet-pig
+  name: Pig
+  tier: 1
+  attack: 4
+  health: 1
+  trigger: Sell
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Sell: Gain +1 gold.'
+      effect: {kind: GainGold, amount: 1}
+    2:
+      text: 'Sell: Gain +2 gold.'
+      effect: {kind: GainGold, amount: 2}
+    3:
+      text: 'Sell: Gain +3 gold.'
+      effect: {kind: GainGold, amount: 3}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐖}
+- id: pet-pigeon
+  name: Pigeon
+  tier: 1
+  attack: 3
+  health: 2
+  trigger: Sell
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Sell: Stock one free Bread Crumbs.'
+      effect: {kind: StockFood, food: food-bread-crumbs, n: 1}
+    2:
+      text: 'Sell: Stock two free Bread Crumbs.'
+      effect: {kind: StockFood, food: food-bread-crumbs, n: 2}
+    3:
+      text: 'Sell: Stock three free Bread Crumbs.'
+      effect: {kind: StockFood, food: food-bread-crumbs, n: 3}
+- id: pet-crab
+  name: Crab
+  tier: 2
+  attack: 4
+  health: 1
+  trigger: StartOfBattle
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Start of battle: Copy 25% of health from the most healthy friend.'
+      effect:
+        kind: TransferStats
+        copyAttack: false
+        copyHealth: true
+        from: {kind: HighestHealthFriend}
+        to: {kind: Self}
+        percentage: 25
+    2:
+      text: 'Start of battle: Copy 50% of health from the most healthy friend.'
+      effect:
+        kind: TransferStats
+        copyAttack: false
+        copyHealth: true
+        from: {kind: HighestHealthFriend}
+        to: {kind: Self}
+        percentage: 50
+    3:
+      text: 'Start of battle: Copy 75% of health from the most healthy friend.'
+      effect:
+        kind: TransferStats
+        copyAttack: false
+        copyHealth: true
+        from: {kind: HighestHealthFriend}
+        to: {kind: Self}
+        percentage: 75
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦀}
+- id: pet-flamingo
+  name: Flamingo
+  tier: 2
+  attack: 3
+  health: 2
+  trigger: Faint
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Faint: Give the two nearest friends behind +1 attack and +1 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: FriendBehind, n: 2}
+        attackAmount: 1
+        healthAmount: 1
+        untilEndOfBattle: false
+    2:
+      text: 'Faint: Give the two nearest friends behind +2 attack and +2 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: FriendBehind, n: 2}
+        attackAmount: 2
+        healthAmount: 2
+        untilEndOfBattle: false
+    3:
+      text: 'Faint: Give the two nearest friends behind +3 attack and +3 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: FriendBehind, n: 2}
+        attackAmount: 3
+        healthAmount: 3
+        untilEndOfBattle: false
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦩}
+- id: pet-hedgehog
+  name: Hedgehog
+  tier: 2
+  attack: 4
+  health: 2
+  trigger: Faint
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Faint: Deal 2 damage to all pets (friends and enemies).'
+      effect: {kind: DealDamage, target: {kind: All}, amount: 2}
+    2:
+      text: 'Faint: Deal 4 damage to all pets (friends and enemies).'
+      effect: {kind: DealDamage, target: {kind: All}, amount: 4}
+    3:
+      text: 'Faint: Deal 6 damage to all pets (friends and enemies).'
+      effect: {kind: DealDamage, target: {kind: All}, amount: 6}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦔}
+- id: pet-kangaroo
+  name: Kangaroo
+  tier: 2
+  attack: 2
+  health: 2
+  trigger: AfterAttack
+  triggered_by: {kind: FriendAhead, n: 1}
+  levels:
+    1:
+      text: 'Friend ahead attacks: Gain +1 attack and +1 health.'
+      effect: {kind: ModifyStats, target: {kind: Self}, attackAmount: 1, healthAmount: 1,
+        untilEndOfBattle: false}
+    2:
+      text: 'Friend ahead attacks: Gain +2 attack and +2 health.'
+      effect: {kind: ModifyStats, target: {kind: Self}, attackAmount: 2, healthAmount: 2,
+        untilEndOfBattle: false}
+    3:
+      text: 'Friend ahead attacks: Gain +3 attack and +3 health.'
+      effect: {kind: ModifyStats, target: {kind: Self}, attackAmount: 3, healthAmount: 3,
+        untilEndOfBattle: false}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦘}
+- id: pet-peacock
+  name: Peacock
+  tier: 2
+  attack: 2
+  health: 5
+  trigger: Hurt
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Hurt: Gain +3 attack.'
+      effect: {kind: ModifyStats, target: {kind: Self}, attackAmount: 3, untilEndOfBattle: false}
+    2:
+      text: 'Hurt: Gain +6 attack.'
+      effect: {kind: ModifyStats, target: {kind: Self}, attackAmount: 6, untilEndOfBattle: false}
+    3:
+      text: 'Hurt: Gain +9 attack.'
+      effect: {kind: ModifyStats, target: {kind: Self}, attackAmount: 9, untilEndOfBattle: false}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦚}
+- id: pet-rat
+  name: Rat
+  tier: 2
+  attack: 3
+  health: 6
+  trigger: Faint
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Faint: Summon one 1/1 Dirty Rat at the front of the opponent''s team.'
+      effect: {kind: SummonPet, pet: pet-dirty-rat, team: Enemy, n: 1}
+    2:
+      text: 'Faint: Summon two 1/1 Dirty Rats at the front of the opponent''s team.'
+      effect: {kind: SummonPet, pet: pet-dirty-rat, team: Enemy, n: 2}
+    3:
+      text: 'Faint: Summon three 1/1 Dirty Rats at the front of the opponent''s team.'
+      effect: {kind: SummonPet, pet: pet-dirty-rat, team: Enemy, n: 3}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐀}
+- id: pet-snail
+  name: Snail
+  tier: 2
+  attack: 2
+  health: 3
+  trigger: EndOfTurnAfterLoss
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'End turn: If you lost the last battle, give the three nearest friends ahead +1
+        attack.'
+      effect: {kind: ModifyStats, target: {kind: FriendAhead, n: 3}, attackAmount: 1, untilEndOfBattle: false}
+    2:
+      text: 'End turn: If you lost the last battle, give the three nearest friends ahead +2
+        attack.'
+      effect: {kind: ModifyStats, target: {kind: FriendAhead, n: 3}, attackAmount: 2, untilEndOfBattle: false}
+    3:
+      text: 'End turn: If you lost the last battle, give the three nearest friends ahead +3
+        attack.'
+      effect: {kind: ModifyStats, target: {kind: FriendAhead, n: 3}, attackAmount: 3, untilEndOfBattle: false}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐌}
+- id: pet-spider
+  name: Spider
+  tier: 2
+  attack: 2
+  health: 2
+  trigger: Faint
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Faint: Summon one random level 1 tier 3 pet as a 2/2.'
+      effect: {kind: SummonRandomPet, tier: 3, baseAttack: 2, baseHealth: 2, level: 1}
+    2:
+      text: 'Faint: Summon one random level 2 tier 3 pet as a 4/4.'
+      effect: {kind: SummonRandomPet, tier: 3, baseAttack: 4, baseHealth: 4, level: 2}
+    3:
+      text: 'Faint: Summon one random level 3 tier 3 pet as a 6/6.'
+      effect: {kind: SummonRandomPet, tier: 3, baseAttack: 6, baseHealth: 6, level: 3}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🕷}
+- id: pet-swan
+  name: Swan
+  tier: 2
+  attack: 1
+  health: 2
+  trigger: StartOfTurn
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Start of turn: Gain +1 gold.'
+      effect: {kind: GainGold, amount: 1}
+    2:
+      text: 'Start of turn: Gain +2 gold.'
+      effect: {kind: GainGold, amount: 2}
+    3:
+      text: 'Start of turn: Gain +3 gold.'
+      effect: {kind: GainGold, amount: 3}
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🦢}
+- id: pet-worm
+  name: Worm
+  tier: 2
+  attack: 1
+  health: 4
+  trigger: StartOfTurn
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Start of turn: Stock one Apple that costs 2 gold. (Apple gives +1/+1)'
+      effect: {kind: StockFood, food: food-apple, n: 1, cost: 2}
+    2:
+      text: 'Start of turn: Stock one Better Apple that costs 2 gold. (Better Apple gives
+        +2/+2)'
+      effect: {kind: StockFood, food: food-better-apple, n: 1, cost: 2}
+    3:
+      text: 'Start of turn: Stock one Best Apple that costs 2 gold. (Best Apple gives +3/+3)'
+      effect: {kind: StockFood, food: food-best-apple, n: 1, cost: 2}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🪱}
+- id: pet-dodo
+  name: Dodo
+  tier: 3
+  attack: 4
+  health: 2
+  trigger: StartOfBattle
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Start of battle: Give 50% of this pet''s attack to the nearest friend ahead.'
+      effect:
+        kind: TransferStats
+        copyAttack: true
+        copyHealth: false
+        from: {kind: Self}
+        to: {kind: FriendAhead, n: 1}
+        percentage: 50
+    2:
+      text: 'Start of battle: Give 100% of this pet''s attack to the nearest friend ahead.'
+      effect:
+        kind: TransferStats
+        copyAttack: true
+        copyHealth: false
+        from: {kind: Self}
+        to: {kind: FriendAhead, n: 1}
+        percentage: 100
+    3:
+      text: 'Start of battle: Give 150% of this pet''s attack to the nearest friend ahead.'
+      effect:
+        kind: TransferStats
+        copyAttack: true
+        copyHealth: false
+        from: {kind: Self}
+        to: {kind: FriendAhead, n: 1}
+        percentage: 150
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦤}
+- id: pet-badger
+  name: Badger
+  tier: 3
+  attack: 6
+  health: 3
+  trigger: Faint
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Faint: Deal 50% of this pet''s attack as damage to adjacent pets.'
+      effect: {kind: DealDamage, target: {kind: AdjacentAnimals}, amount: {attackDamagePercent: 50}}
+    2:
+      text: 'Faint: Deal 100% of this pet''s attack as damage to adjacent pets.'
+      effect: {kind: DealDamage, target: {kind: AdjacentAnimals}, amount: {attackDamagePercent: 100}}
+    3:
+      text: 'Faint: Deal 150% of this pet''s attack as damage to adjacent pets.'
+      effect: {kind: DealDamage, target: {kind: AdjacentAnimals}, amount: {attackDamagePercent: 150}}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦡}
+- id: pet-dolphin
+  name: Dolphin
+  tier: 3
+  attack: 4
+  health: 3
+  trigger: StartOfBattle
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Start of battle: Deal 4 damage to the lowest health enemy. Triggers 1 time.'
+      effect: {kind: DealDamage, target: {kind: LowestHealthEnemy}, amount: 4}
+    2:
+      text: 'Start of battle: Deal 4 damage to the lowest health enemy. Triggers 2 times.'
+      effect:
+        kind: AllOf
+        effects:
+        - {kind: DealDamage, target: {kind: LowestHealthEnemy}, amount: 4}
+        - {kind: DealDamage, target: {kind: LowestHealthEnemy}, amount: 4}
+    3:
+      text: 'Start of battle: Deal 4 damage to the lowest health enemy. Triggers 3 times.'
+      effect:
+        kind: AllOf
+        effects:
+        - {kind: DealDamage, target: {kind: LowestHealthEnemy}, amount: 4}
+        - {kind: DealDamage, target: {kind: LowestHealthEnemy}, amount: 4}
+        - {kind: DealDamage, target: {kind: LowestHealthEnemy}, amount: 4}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐬}
+- id: pet-giraffe
+  name: Giraffe
+  tier: 3
+  attack: 1
+  health: 2
+  trigger: StartOfTurn
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Start of turn: Give the nearest friend ahead +1 attack and +1 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: FriendAhead, n: 1}
+        attackAmount: 1
+        healthAmount: 1
+        untilEndOfBattle: false
+    2:
+      text: 'Start of turn: Give the two nearest friends ahead +1 attack and +1 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: FriendAhead, n: 2}
+        attackAmount: 1
+        healthAmount: 1
+        untilEndOfBattle: false
+    3:
+      text: 'Start of turn: Give the three nearest friends ahead +1 attack and +1 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: FriendAhead, n: 3}
+        attackAmount: 1
+        healthAmount: 1
+        untilEndOfBattle: false
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🦒}
+- id: pet-elephant
+  name: Elephant
+  tier: 3
+  attack: 3
+  health: 7
+  trigger: AfterAttack
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'After attack: Deal 1 damage to the friend behind. Triggers 1 time.'
+      effect: {kind: DealDamage, target: {kind: FriendBehind, n: 1}, amount: 1}
+    2:
+      text: 'After attack: Deal 1 damage to the friend behind. Triggers 2 times.'
+      effect:
+        kind: AllOf
+        effects:
+        - {kind: DealDamage, target: {kind: FriendBehind, n: 1}, amount: 1}
+        - {kind: DealDamage, target: {kind: FriendBehind, n: 1}, amount: 1}
+    3:
+      text: 'After attack: Deal 1 damage to the friend behind. Triggers 3 times.'
+      effect:
+        kind: AllOf
+        effects:
+        - {kind: DealDamage, target: {kind: FriendBehind, n: 1}, amount: 1}
+        - {kind: DealDamage, target: {kind: FriendBehind, n: 1}, amount: 1}
+        - {kind: DealDamage, target: {kind: FriendBehind, n: 1}, amount: 1}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐘}
+- id: pet-camel
+  name: Camel
+  tier: 3
+  attack: 3
+  health: 3
+  trigger: Hurt
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Hurt: Give the nearest friend behind +1 attack and +2 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: FriendBehind, n: 1}
+        attackAmount: 1
+        healthAmount: 2
+        untilEndOfBattle: false
+    2:
+      text: 'Hurt: Give the nearest friend behind +2 attack and +4 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: FriendBehind, n: 1}
+        attackAmount: 2
+        healthAmount: 4
+        untilEndOfBattle: false
+    3:
+      text: 'Hurt: Give the nearest friend behind +3 attack and +6 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: FriendBehind, n: 1}
+        attackAmount: 3
+        healthAmount: 6
+        untilEndOfBattle: false
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐫}
+- id: pet-rabbit
+  name: Rabbit
+  tier: 3
+  attack: 1
+  health: 2
+  trigger: EatsShopFood
+  triggered_by: {kind: EachFriend}
+  levels:
+    1:
+      text: 'Friendly ate food: Give them +1 health. Works 3 times per turn.'
+      effect: {kind: ModifyStats, target: {kind: TriggeringEntity}, healthAmount: 1, untilEndOfBattle: false}
+      maxTriggers: 3
+    2:
+      text: 'Friendly ate food: Give them +2 health. Works 3 times per turn.'
+      effect: {kind: ModifyStats, target: {kind: TriggeringEntity}, healthAmount: 2, untilEndOfBattle: false}
+      maxTriggers: 3
+    3:
+      text: 'Friendly ate food: Give them +3 health. Works 3 times per turn.'
+      effect: {kind: ModifyStats, target: {kind: TriggeringEntity}, healthAmount: 3, untilEndOfBattle: false}
+      maxTriggers: 3
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐇}
+- id: pet-ox
+  name: Ox
+  tier: 3
+  attack: 1
+  health: 3
+  trigger: Faint
+  triggered_by: {kind: FriendAhead, n: 1}
+  levels:
+    1:
+      text: 'Friend ahead faints: Gain Melon and +1 attack. Works 1 time per turn.'
+      effect:
+        kind: AllOf
+        effects:
+        - {kind: ApplyStatus, status: status-melon-armor, to: {kind: Self}}
+        - {kind: ModifyStats, target: {kind: Self}, attackAmount: 1, untilEndOfBattle: false}
+      maxTriggers: 1
+    2:
+      text: 'Friend ahead faints: Gain Melon and +1 attack. Works 2 times per turn.'
+      effect:
+        kind: AllOf
+        effects:
+        - {kind: ApplyStatus, status: status-melon-armor, to: {kind: Self}}
+        - {kind: ModifyStats, target: {kind: Self}, attackAmount: 1, untilEndOfBattle: false}
+      maxTriggers: 2
+    3:
+      text: 'Friend ahead faints: Gain Melon and +1 attack. Works 3 times per turn.'
+      effect:
+        kind: AllOf
+        effects:
+        - {kind: ApplyStatus, status: status-melon-armor, to: {kind: Self}}
+        - {kind: ModifyStats, target: {kind: Self}, attackAmount: 1, untilEndOfBattle: false}
+      maxTriggers: 3
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐂}
+- id: pet-dog
+  name: Dog
+  tier: 3
+  attack: 3
+  health: 2
+  trigger: Summoned
+  triggered_by: {kind: EachFriend}
+  levels:
+    1:
+      text: 'Friend summoned: Gain +2 attack and +1 health until next turn.'
+      effect: {kind: ModifyStats, target: {kind: Self}, attackAmount: 2, healthAmount: 1,
+        untilEndOfBattle: true}
+    2:
+      text: 'Friend summoned: Gain +4 attack and +2 health until next turn.'
+      effect: {kind: ModifyStats, target: {kind: Self}, attackAmount: 4, healthAmount: 2,
+        untilEndOfBattle: true}
+    3:
+      text: 'Friend summoned: Gain +6 attack and +3 health until next turn.'
+      effect: {kind: ModifyStats, target: {kind: Self}, attackAmount: 6, healthAmount: 3,
+        untilEndOfBattle: true}
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🐕}
+- id: pet-sheep
+  name: Sheep
+  tier: 3
+  attack: 2
+  health: 2
+  trigger: Faint
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Faint: Summon two 2/2 Rams.'
+      effect: {kind: SummonPet, pet: pet-ram, withAttack: 2, withHealth: 2, team: Friendly,
+        n: 2}
+    2:
+      text: 'Faint: Summon two 4/4 Rams.'
+      effect: {kind: SummonPet, pet: pet-ram, withAttack: 4, withHealth: 4, team: Friendly,
+        n: 2}
+    3:
+      text: 'Faint: Summon two 6/6 Rams.'
+      effect: {kind: SummonPet, pet: pet-ram, withAttack: 6, withHealth: 6, team: Friendly,
+        n: 2}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐑}
+- id: pet-skunk
+  name: Skunk
+  tier: 4
+  attack: 3
+  health: 5
+  trigger: StartOfBattle
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Start of battle: Remove 33% of health from the highest health enemy.'
+      effect: {kind: ReduceHealth, target: {kind: HighestHealthEnemy}, percentage: 33}
+    2:
+      text: 'Start of battle: Remove 66% of health from the highest health enemy.'
+      effect: {kind: ReduceHealth, target: {kind: HighestHealthEnemy}, percentage: 66}
+    3:
+      text: 'Start of battle: Remove 99% of health from the highest health enemy.'
+      effect: {kind: ReduceHealth, target: {kind: HighestHealthEnemy}, percentage: 99}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦨}
+- id: pet-hippo
+  name: Hippo
+  tier: 4
+  attack: 4
+  health: 6
+  trigger: KnockOut
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Knock out: Gain +3 attack and +3 health.'
+      effect: {kind: ModifyStats, target: {kind: Self}, attackAmount: 3, healthAmount: 3,
+        untilEndOfBattle: false}
+    2:
+      text: 'Knock out: Gain +6 attack and +6 health.'
+      effect: {kind: ModifyStats, target: {kind: Self}, attackAmount: 6, healthAmount: 6,
+        untilEndOfBattle: false}
+    3:
+      text: 'Knock out: Gain +9 attack and +9 health.'
+      effect: {kind: ModifyStats, target: {kind: Self}, attackAmount: 9, healthAmount: 9,
+        untilEndOfBattle: false}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦛}
+- id: pet-bison
+  name: Bison
+  tier: 4
+  attack: 4
+  health: 4
+  trigger: EndOfTurnWithLvl3Friend
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'End turn: If there is at least one level 3 friend, gain +2 attack and +2 health.'
+      effect: {kind: ModifyStats, target: {kind: Self}, attackAmount: 2, healthAmount: 2,
+        untilEndOfBattle: false}
+    2:
+      text: 'End turn: If there is at least one level 3 friend, gain +4 attack and +4 health.'
+      effect: {kind: ModifyStats, target: {kind: Self}, attackAmount: 4, healthAmount: 4,
+        untilEndOfBattle: false}
+    3:
+      text: 'End turn: If there is at least one level 3 friend, gain +6 attack and +6 health.'
+      effect: {kind: ModifyStats, target: {kind: Self}, attackAmount: 6, healthAmount: 6,
+        untilEndOfBattle: false}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦬}
+- id: pet-blowfish
+  name: Blowfish
+  tier: 4
+  attack: 3
+  health: 6
+  trigger: Hurt
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Hurt: Deal 3 damage to one random enemy.'
+      effect: {kind: DealDamage, target: {kind: RandomEnemy, n: 1}, amount: 3}
+    2:
+      text: 'Hurt: Deal 6 damage to one random enemy.'
+      effect: {kind: DealDamage, target: {kind: RandomEnemy, n: 1}, amount: 6}
+    3:
+      text: 'Hurt: Deal 9 damage to one random enemy.'
+      effect: {kind: DealDamage, target: {kind: RandomEnemy, n: 1}, amount: 9}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐡}
+- id: pet-turtle
+  name: Turtle
+  tier: 4
+  attack: 2
+  health: 5
+  trigger: Faint
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Faint: Give the nearest friend behind Melon.'
+      effect: {kind: ApplyStatus, status: status-melon-armor, to: {kind: FriendBehind, n: 1}}
+    2:
+      text: 'Faint: Give the two nearest friends behind Melon.'
+      effect: {kind: ApplyStatus, status: status-melon-armor, to: {kind: FriendBehind, n: 2}}
+    3:
+      text: 'Faint: Give the three nearest friends behind Melon.'
+      effect: {kind: ApplyStatus, status: status-melon-armor, to: {kind: FriendBehind, n: 3}}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐢}
+- id: pet-squirrel
+  name: Squirrel
+  tier: 4
+  attack: 3
+  health: 5
+  trigger: StartOfTurn
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Start of turn: Discount shop food by 1 gold.'
+      effect: {kind: DiscountFood, amount: 1}
+    2:
+      text: 'Start of turn: Discount shop food by 2 gold.'
+      effect: {kind: DiscountFood, amount: 2}
+    3:
+      text: 'Start of turn: Discount shop food by 3 gold.'
+      effect: {kind: DiscountFood, amount: 3}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐿}
+- id: pet-penguin
+  name: Penguin
+  tier: 4
+  attack: 2
+  health: 3
+  trigger: StartOfTurn
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Start of turn: Give two level 2+ friends +1 attack and +1 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: RandomLevel2And3Friends, n: 2}
+        attackAmount: 1
+        healthAmount: 1
+        untilEndOfBattle: false
+    2:
+      text: 'Start of turn: Give two level 2+ friends +2 attack and +2 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: RandomLevel2And3Friends, n: 2}
+        attackAmount: 2
+        healthAmount: 2
+        untilEndOfBattle: false
+    3:
+      text: 'Start of turn: Give two level 2+ friends +3 attack and +3 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: RandomLevel2And3Friends, n: 2}
+        attackAmount: 3
+        healthAmount: 3
+        untilEndOfBattle: false
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐧}
+- id: pet-deer
+  name: Deer
+  tier: 4
+  attack: 2
+  health: 2
+  trigger: Faint
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Faint: Summon one 5/3 Bus with Chili.'
+      effect: {kind: SummonPet, pet: pet-bus, withAttack: 5, withHealth: 3, team: Friendly}
+    2:
+      text: 'Faint: Summon one 10/6 Bus with Chili.'
+      effect: {kind: SummonPet, pet: pet-bus, withAttack: 10, withHealth: 6, team: Friendly}
+    3:
+      text: 'Faint: Summon one 15/9 Bus with Chili.'
+      effect: {kind: SummonPet, pet: pet-bus, withAttack: 15, withHealth: 9, team: Friendly}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦌}
+- id: pet-whale
+  name: Whale
+  tier: 4
+  attack: 3
+  health: 7
+  trigger: StartOfBattle
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Start of battle: Swallow the nearest friend ahead. When this faints, release
+        it as a level 1 pet.'
+      effect: {kind: Swallow, target: {kind: FriendAhead, n: 1}}
+    2:
+      text: 'Start of battle: Swallow the nearest friend ahead. When this faints, release
+        it as a level 2 pet.'
+      effect: {kind: Swallow, target: {kind: FriendAhead, n: 1}}
+    3:
+      text: 'Start of battle: Swallow the nearest friend ahead. When this faints, release
+        it as a level 3 pet.'
+      effect: {kind: Swallow, target: {kind: FriendAhead, n: 1}}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐋}
+- id: pet-parrot
+  name: Parrot
+  tier: 4
+  attack: 4
+  health: 2
+  trigger: EndOfTurn
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'End turn: Copy the ability of the nearest friend ahead as level 1 until end of
+        battle.'
+      effect: {kind: TransferAbility, from: {kind: FriendAhead, n: 1}, to: {kind: Self}, level: 1}
+    2:
+      text: 'End turn: Copy the ability of the nearest friend ahead as level 2 until end of
+        battle.'
+      effect: {kind: TransferAbility, from: {kind: FriendAhead, n: 1}, to: {kind: Self}, level: 2}
+    3:
+      text: 'End turn: Copy the ability of the nearest friend ahead as level 3 until end of
+        battle.'
+      effect: {kind: TransferAbility, from: {kind: FriendAhead, n: 1}, to: {kind: Self}, level: 3}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦜}
+- id: pet-scorpion
+  name: Scorpion
+  tier: 5
+  attack: 1
+  health: 3
+  status: status-poison-attack
+  trigger: Summoned
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Summoned: Gain the Peanut perk (knocks out any pet it damages).'
+      effect: {kind: ApplyStatus, status: status-poison-attack, to: {kind: Self}}
+    2:
+      text: 'Summoned: Gain the Peanut perk (knocks out any pet it damages).'
+      effect: {kind: ApplyStatus, status: status-poison-attack, to: {kind: Self}}
+    3:
+      text: 'Summoned: Gain the Peanut perk (knocks out any pet it damages).'
+      effect: {kind: ApplyStatus, status: status-poison-attack, to: {kind: Self}}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦂}
+- id: pet-crocodile
+  name: Crocodile
+  tier: 5
+  attack: 8
+  health: 4
+  trigger: StartOfBattle
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Start of battle: Deal 8 damage to the last enemy. Triggers 1 time.'
+      effect: {kind: DealDamage, target: {kind: LastEnemy}, amount: 8}
+    2:
+      text: 'Start of battle: Deal 8 damage to the last enemy. Triggers 2 times.'
+      effect:
+        kind: AllOf
+        effects:
+        - {kind: DealDamage, target: {kind: LastEnemy}, amount: 8}
+        - {kind: DealDamage, target: {kind: LastEnemy}, amount: 8}
+    3:
+      text: 'Start of battle: Deal 8 damage to the last enemy. Triggers 3 times.'
+      effect:
+        kind: AllOf
+        effects:
+        - {kind: DealDamage, target: {kind: LastEnemy}, amount: 8}
+        - {kind: DealDamage, target: {kind: LastEnemy}, amount: 8}
+        - {kind: DealDamage, target: {kind: LastEnemy}, amount: 8}
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🐊}
+- id: pet-rhino
+  name: Rhino
+  tier: 5
+  attack: 6
+  health: 7
+  trigger: KnockOut
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Knock out: Deal 4 damage to the first enemy. Double damage against tier 1 pets.'
+      effect: {kind: DealDamage, target: {kind: FirstEnemy}, amount: 4, tier1Multiplier: 2}
+    2:
+      text: 'Knock out: Deal 8 damage to the first enemy. Double damage against tier 1 pets.'
+      effect: {kind: DealDamage, target: {kind: FirstEnemy}, amount: 8, tier1Multiplier: 2}
+    3:
+      text: 'Knock out: Deal 12 damage to the first enemy. Double damage against tier 1 pets.'
+      effect: {kind: DealDamage, target: {kind: FirstEnemy}, amount: 12, tier1Multiplier: 2}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦏}
+- id: pet-monkey
+  name: Monkey
+  tier: 5
+  attack: 1
+  health: 2
+  trigger: EndOfTurn
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'End turn: Give the front-most friend +2 attack and +2 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: RightMostFriend}
+        attackAmount: 2
+        healthAmount: 2
+        untilEndOfBattle: false
+    2:
+      text: 'End turn: Give the front-most friend +4 attack and +4 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: RightMostFriend}
+        attackAmount: 4
+        healthAmount: 4
+        untilEndOfBattle: false
+    3:
+      text: 'End turn: Give the front-most friend +6 attack and +6 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: RightMostFriend}
+        attackAmount: 6
+        healthAmount: 6
+        untilEndOfBattle: false
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐒}
+- id: pet-armadillo
+  name: Armadillo
+  tier: 5
+  attack: 4
+  health: 8
+  trigger: StartOfBattle
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Start of battle: Give all pets (friends and enemies) +8 health.'
+      effect: {kind: ModifyStats, target: {kind: All}, healthAmount: 8, untilEndOfBattle: true}
+    2:
+      text: 'Start of battle: Give all pets (friends and enemies) +16 health.'
+      effect: {kind: ModifyStats, target: {kind: All}, healthAmount: 16, untilEndOfBattle: true}
+    3:
+      text: 'Start of battle: Give all pets (friends and enemies) +24 health.'
+      effect: {kind: ModifyStats, target: {kind: All}, healthAmount: 24, untilEndOfBattle: true}
+- id: pet-cow
+  name: Cow
+  tier: 5
+  attack: 4
+  health: 6
+  trigger: Buy
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Buy: Replace shop food with two free Milk.'
+      effect: {kind: RefillShops, shop: Food, food: food-milk, n: 2}
+    2:
+      text: 'Buy: Replace shop food with two free Better Milk.'
+      effect: {kind: RefillShops, shop: Food, food: food-better-milk, n: 2}
+    3:
+      text: 'Buy: Replace shop food with two free Best Milk.'
+      effect: {kind: RefillShops, shop: Food, food: food-best-milk, n: 2}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐄}
+- id: pet-seal
+  name: Seal
+  tier: 5
+  attack: 3
+  health: 8
+  trigger: EatsShopFood
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Eats food: Give three random friends +1 attack.'
+      effect: {kind: ModifyStats, target: {kind: RandomFriend, n: 3}, attackAmount: 1, untilEndOfBattle: false}
+    2:
+      text: 'Eats food: Give three random friends +2 attack.'
+      effect: {kind: ModifyStats, target: {kind: RandomFriend, n: 3}, attackAmount: 2, untilEndOfBattle: false}
+    3:
+      text: 'Eats food: Give three random friends +3 attack.'
+      effect: {kind: ModifyStats, target: {kind: RandomFriend, n: 3}, attackAmount: 3, untilEndOfBattle: false}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦭}
+- id: pet-rooster
+  name: Rooster
+  tier: 5
+  attack: 6
+  health: 5
+  trigger: Faint
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Faint: Summon one Chick with 50% of this pet''s attack and 1 health.'
+      effect: {kind: SummonPet, pet: pet-chick, withAttackPercent: 50, withHealth: 1, team: Friendly,
+        n: 1}
+    2:
+      text: 'Faint: Summon two Chicks with 50% of this pet''s attack and 1 health.'
+      effect: {kind: SummonPet, pet: pet-chick, withAttackPercent: 50, withHealth: 1, team: Friendly,
+        n: 2}
+    3:
+      text: 'Faint: Summon three Chicks with 50% of this pet''s attack and 1 health.'
+      effect: {kind: SummonPet, pet: pet-chick, withAttackPercent: 50, withHealth: 1, team: Friendly,
+        n: 3}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐓}
+- id: pet-shark
+  name: Shark
+  tier: 5
+  attack: 2
+  health: 2
+  trigger: Faint
+  triggered_by: {kind: EachFriend}
+  levels:
+    1:
+      text: 'Friend faints: Gain +2 attack and +2 health.'
+      effect: {kind: ModifyStats, target: {kind: Self}, attackAmount: 2, healthAmount: 2,
+        untilEndOfBattle: false}
+    2:
+      text: 'Friend faints: Gain +4 attack and +4 health.'
+      effect: {kind: ModifyStats, target: {kind: Self}, attackAmount: 4, healthAmount: 4,
+        untilEndOfBattle: false}
+    3:
+      text: 'Friend faints: Gain +6 attack and +6 health.'
+      effect: {kind: ModifyStats, target: {kind: Self}, attackAmount: 6, healthAmount: 6,
+        untilEndOfBattle: false}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦈}
+- id: pet-turkey
+  name: Turkey
+  tier: 5
+  attack: 3
+  health: 4
+  trigger: Summoned
+  triggered_by: {kind: EachFriend}
+  levels:
+    1:
+      text: 'Friend summoned: Give it +3 attack and +1 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: TriggeringEntity}
+        attackAmount: 3
+        healthAmount: 1
+        untilEndOfBattle: false
+    2:
+      text: 'Friend summoned: Give it +6 attack and +2 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: TriggeringEntity}
+        attackAmount: 6
+        healthAmount: 2
+        untilEndOfBattle: false
+    3:
+      text: 'Friend summoned: Give it +9 attack and +3 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: TriggeringEntity}
+        attackAmount: 9
+        healthAmount: 3
+        untilEndOfBattle: false
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦃}
+- id: pet-leopard
+  name: Leopard
+  tier: 6
+  attack: 10
+  health: 4
+  trigger: StartOfBattle
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Start of battle: Deal 50% of this pet''s attack as damage to one random enemy.'
+      effect: {kind: DealDamage, target: {kind: RandomEnemy, n: 1}, amount: {attackDamagePercent: 50}}
+    2:
+      text: 'Start of battle: Deal 50% of this pet''s attack as damage to two random enemies.'
+      effect: {kind: DealDamage, target: {kind: RandomEnemy, n: 2}, amount: {attackDamagePercent: 50}}
+    3:
+      text: 'Start of battle: Deal 50% of this pet''s attack as damage to three random enemies.'
+      effect: {kind: DealDamage, target: {kind: RandomEnemy, n: 3}, amount: {attackDamagePercent: 50}}
+  image:
+    source: fxemoji
+    commit: 270af343bee346d8221f87806d2b1eee0438431a
+    name: leopardside
+    unicodeCodePoint: 🐆
+- id: pet-boar
+  name: Boar
+  tier: 6
+  attack: 10
+  health: 6
+  trigger: BeforeAttack
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Before attack: Gain +4 attack and +2 health.'
+      effect: {kind: ModifyStats, target: {kind: Self}, attackAmount: 4, healthAmount: 2,
+        untilEndOfBattle: false}
+    2:
+      text: 'Before attack: Gain +8 attack and +4 health.'
+      effect: {kind: ModifyStats, target: {kind: Self}, attackAmount: 8, healthAmount: 4,
+        untilEndOfBattle: false}
+    3:
+      text: 'Before attack: Gain +12 attack and +6 health.'
+      effect: {kind: ModifyStats, target: {kind: Self}, attackAmount: 12, healthAmount: 6,
+        untilEndOfBattle: false}
+  image: {source: noto-emoji, commit: f2a4f72bffe0212c72949a22698be235269bfab5, unicodeCodePoint: 🐗}
+- id: pet-tiger
+  name: Tiger
+  tier: 6
+  attack: 6
+  health: 4
+  trigger: CastsAbility
+  triggered_by: {kind: FriendAhead, n: 1}
+  levels:
+    1:
+      text: 'Passive: The friend ahead repeats its ability in battle as if it were level 1.'
+      effect: {kind: RepeatAbility, target: {kind: TriggeringEntity}, level: 1}
+    2:
+      text: 'Passive: The friend ahead repeats its ability in battle as if it were level 2.'
+      effect: {kind: RepeatAbility, target: {kind: TriggeringEntity}, level: 2}
+    3:
+      text: 'Passive: The friend ahead repeats its ability in battle as if it were level 3.'
+      effect: {kind: RepeatAbility, target: {kind: TriggeringEntity}, level: 3}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐅}
+- id: pet-wolverine
+  name: Wolverine
+  tier: 6
+  attack: 5
+  health: 7
+  trigger: FriendHurt
+  triggered_by: {kind: EachFriend}
+  levels:
+    1:
+      text: 'Friend hurt: Every 4 times, remove 3 health from all enemies.'
+      effect: {kind: RemoveHealth, target: {kind: EachEnemy}, amount: 3}
+      everyN: 4
+    2:
+      text: 'Friend hurt: Every 4 times, remove 6 health from all enemies.'
+      effect: {kind: RemoveHealth, target: {kind: EachEnemy}, amount: 6}
+      everyN: 4
+    3:
+      text: 'Friend hurt: Every 4 times, remove 9 health from all enemies.'
+      effect: {kind: RemoveHealth, target: {kind: EachEnemy}, amount: 9}
+      everyN: 4
+- id: pet-gorilla
+  name: Gorilla
+  tier: 6
+  attack: 7
+  health: 10
+  trigger: Hurt
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Hurt: Gain Coconut. Works 1 time per battle.'
+      effect: {kind: ApplyStatus, status: status-coconut-shield, to: {kind: Self}}
+      maxTriggers: 1
+    2:
+      text: 'Hurt: Gain Coconut. Works 2 times per battle.'
+      effect: {kind: ApplyStatus, status: status-coconut-shield, to: {kind: Self}}
+      maxTriggers: 2
+    3:
+      text: 'Hurt: Gain Coconut. Works 3 times per battle.'
+      effect: {kind: ApplyStatus, status: status-coconut-shield, to: {kind: Self}}
+      maxTriggers: 3
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦍}
+- id: pet-dragon
+  name: Dragon
+  tier: 6
+  attack: 3
+  health: 8
+  trigger: BuyTier1Animal
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Buy tier 1 pet: Give all friends +1 attack and +1 health. Works 4 times per turn.'
+      effect:
+        kind: ModifyStats
+        target: {kind: EachFriend}
+        attackAmount: 1
+        healthAmount: 1
+        untilEndOfBattle: false
+      maxTriggers: 4
+    2:
+      text: 'Buy tier 1 pet: Give all friends +2 attack and +2 health. Works 4 times per turn.'
+      effect:
+        kind: ModifyStats
+        target: {kind: EachFriend}
+        attackAmount: 2
+        healthAmount: 2
+        untilEndOfBattle: false
+      maxTriggers: 4
+    3:
+      text: 'Buy tier 1 pet: Give all friends +3 attack and +3 health. Works 4 times per turn.'
+      effect:
+        kind: ModifyStats
+        target: {kind: EachFriend}
+        attackAmount: 3
+        healthAmount: 3
+        untilEndOfBattle: false
+      maxTriggers: 4
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐉}
+- id: pet-mammoth
+  name: Mammoth
+  tier: 6
+  attack: 4
+  health: 12
+  trigger: Faint
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Faint: Give all friends +2 attack and +2 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: EachFriend}
+        attackAmount: 2
+        healthAmount: 2
+        untilEndOfBattle: false
+    2:
+      text: 'Faint: Give all friends +4 attack and +4 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: EachFriend}
+        attackAmount: 4
+        healthAmount: 4
+        untilEndOfBattle: false
+    3:
+      text: 'Faint: Give all friends +6 attack and +6 health.'
+      effect:
+        kind: ModifyStats
+        target: {kind: EachFriend}
+        attackAmount: 6
+        healthAmount: 6
+        untilEndOfBattle: false
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦣}
+- id: pet-cat
+  name: Cat
+  tier: 6
+  attack: 4
+  health: 5
+  trigger: PurchaseFood
+  triggered_by: {kind: Self}
+  levels:
+    1:
+      text: 'Passive: Food that gives attack or health is 2x as effective. Works 2 times per
+        turn.'
+      effect: {kind: FoodMultiplier, amount: 2}
+      maxTriggers: 2
+    2:
+      text: 'Passive: Food that gives attack or health is 3x as effective. Works 2 times per
+        turn.'
+      effect: {kind: FoodMultiplier, amount: 3}
+      maxTriggers: 2
+    3:
+      text: 'Passive: Food that gives attack or health is 4x as effective. Works 2 times per
+        turn.'
+      effect: {kind: FoodMultiplier, amount: 4}
+      maxTriggers: 2
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐈‍⬛}
+- id: pet-snake
+  name: Snake
+  tier: 6
+  attack: 8
+  health: 3
+  trigger: AfterAttack
+  triggered_by: {kind: FriendAhead, n: 1}
+  levels:
+    1:
+      text: 'Friend ahead attacks: Deal 5 damage to one random enemy.'
+      effect: {kind: DealDamage, target: {kind: RandomEnemy, n: 1}, amount: 5}
+    2:
+      text: 'Friend ahead attacks: Deal 10 damage to one random enemy.'
+      effect: {kind: DealDamage, target: {kind: RandomEnemy, n: 1}, amount: 10}
+    3:
+      text: 'Friend ahead attacks: Deal 15 damage to one random enemy.'
+      effect: {kind: DealDamage, target: {kind: RandomEnemy, n: 1}, amount: 15}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐍}
+- id: pet-fly
+  name: Fly
+  tier: 6
+  attack: 4
+  health: 4
+  trigger: Faint
+  triggered_by: {kind: EachFriend}
+  levels:
+    1:
+      text: 'Friend faints: Summon one 4/4 Zombie Fly in its place. Works 3 times per turn.'
+      effect: {kind: SummonPet, pet: pet-zombie-fly, withAttack: 4, withHealth: 4, team: Friendly}
+      maxTriggers: 3
+    2:
+      text: 'Friend faints: Summon one 8/8 Zombie Fly in its place. Works 3 times per turn.'
+      effect: {kind: SummonPet, pet: pet-zombie-fly, withAttack: 8, withHealth: 8, team: Friendly}
+      maxTriggers: 3
+    3:
+      text: 'Friend faints: Summon one 12/12 Zombie Fly in its place. Works 3 times per turn.'
+      effect: {kind: SummonPet, pet: pet-zombie-fly, withAttack: 12, withHealth: 12, team: Friendly}
+      maxTriggers: 3
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🪰}
+summoned_pets:
+- id: pet-zombie-cricket
+  name: Zombie Cricket
+  tier: Summoned
+  attack: '?'
+  health: '?'
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦗}
+- id: pet-bus
+  name: Bus
+  tier: Summoned
+  attack: '?'
+  health: '?'
+  status: status-splash-attack
+  image: {source: noto-emoji, commit: f2a4f72bffe0212c72949a22698be235269bfab5, unicodeCodePoint: 🚌}
+- id: pet-zombie-fly
+  name: Zombie Fly
+  tier: Summoned
+  attack: '?'
+  health: '?'
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🪰}
+- id: pet-dirty-rat
+  name: Dirty Rat
+  tier: Summoned
+  attack: 1
+  health: 1
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐀}
+- id: pet-chick
+  name: Chick
+  tier: Summoned
+  attack: '?'
+  health: 1
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐤}
+- id: pet-ram
+  name: Ram
+  tier: Summoned
+  attack: '?'
+  health: '?'
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐏}
+- id: pet-bee
+  name: Bee
+  tier: Summoned
+  attack: 1
+  health: 1
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🐝}
+foods:
+- id: food-apple
+  name: Apple
+  tier: 1
+  cost: 3
+  text: Give the pet +1 attack and +1 health.
+  effect:
+    kind: ModifyStats
+    target: {kind: PurchaseTarget}
+    attackAmount: 1
+    healthAmount: 1
+    untilEndOfBattle: false
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🍎}
+- id: food-honey
+  name: Honey
+  tier: 1
+  cost: 3
+  perk: 'Honey: Faint → Summon one 1/1 Bee.'
+  text: Give the pet the Honey perk.
+  effect: {kind: ApplyStatus, to: {kind: PurchaseTarget}, status: status-honey-bee}
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🍯}
+- id: food-cupcake
+  name: Cupcake
+  tier: 2
+  cost: 3
+  text: Give the pet +3 attack and +3 health until end of battle.
+  effect:
+    kind: ModifyStats
+    target: {kind: PurchaseTarget}
+    attackAmount: 3
+    healthAmount: 3
+    untilEndOfBattle: true
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🧁}
+- id: food-meat-bone
+  name: Meat Bone
+  tier: 2
+  cost: 3
+  perk: 'Meat Bone: Attacks deal +3 damage.'
+  text: Give the pet the Meat Bone perk.
+  effect: {kind: ApplyStatus, to: {kind: PurchaseTarget}, status: status-bone-attack}
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🍖}
+- id: food-sleeping-pill
+  name: Sleeping Pill
+  tier: 2
+  cost: 1
+  text: Make a friendly pet faint (triggers its Faint ability).
+  effect: {kind: Faint, target: {kind: PurchaseTarget}}
+  image: {source: fxemoji, commit: 270af343bee346d8221f87806d2b1eee0438431a, unicodeCodePoint: 💊,
+    name: pill}
+- id: food-cake
+  name: Cake
+  tier: 3
+  cost: 3
+  perk: 'Cake: End turn → Increase sell value by 1 gold'
+  text: Give the pet the Cake perk.
+  effect: {kind: ApplyStatus, to: {kind: PurchaseTarget}, status: status-cake}
+- id: food-salad-bowl
+  name: Salad Bowl
+  tier: 3
+  cost: 3
+  text: Give two random pets +1 attack and +1 health.
+  effect:
+    kind: ModifyStats
+    target: {kind: RandomFriend, n: 2}
+    attackAmount: 1
+    healthAmount: 1
+    untilEndOfBattle: false
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🥗}
+- id: food-garlic
+  name: Garlic
+  tier: 3
+  cost: 3
+  perk: 'Garlic: Take 2 less damage (minimum 1).'
+  text: Give the pet the Garlic perk.
+  effect: {kind: ApplyStatus, to: {kind: PurchaseTarget}, status: status-garlic-armor}
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🧄}
+- id: food-pear
+  name: Pear
+  tier: 4
+  cost: 3
+  text: Give the pet +2 attack and +2 health.
+  effect:
+    kind: ModifyStats
+    target: {kind: PurchaseTarget}
+    attackAmount: 2
+    healthAmount: 2
+    untilEndOfBattle: false
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🍐}
+- id: food-canned-food
+  name: Canned Food
+  tier: 4
+  cost: 3
+  text: Give current and future shop pets +1 attack and +1 health.
+  effect:
+    kind: ModifyStats
+    target: {kind: EachShopAnimal, includingFuture: true}
+    attackAmount: 1
+    healthAmount: 1
+    untilEndOfBattle: false
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🥫}
+- id: food-bread
+  name: Bread
+  tier: 4
+  cost: 3
+  perk: 'Bread: End turn → Gain +7 health until next turn'
+  text: Give one pet the Bread perk
+  effect: {kind: ApplyStatus, to: {kind: PurchaseTarget}, status: status-bread}
+- id: food-sushi
+  name: Sushi
+  tier: 5
+  cost: 3
+  text: Give three random pets +1 attack and +1 health.
+  effect:
+    kind: ModifyStats
+    target: {kind: RandomFriend, n: 3}
+    attackAmount: 1
+    healthAmount: 1
+    untilEndOfBattle: false
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🍣}
+- id: food-chocolate
+  name: Chocolate
+  tier: 5
+  cost: 3
+  text: Give the pet +1 experience.
+  effect: {kind: GainExperience, target: {kind: PurchaseTarget}, amount: 1}
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🍫}
+- id: food-chili
+  name: Chili
+  tier: 5
+  cost: 3
+  perk: 'Chili: Attacks also deal 5 damage to the enemy behind the target.'
+  text: Give the pet the Chili perk.
+  effect: {kind: ApplyStatus, to: {kind: PurchaseTarget}, status: status-splash-attack}
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🌶}
+- id: food-pizza
+  name: Pizza
+  tier: 6
+  cost: 3
+  text: Give two random pets +2 attack and +2 health.
+  effect:
+    kind: ModifyStats
+    target: {kind: RandomFriend, n: 2}
+    attackAmount: 2
+    healthAmount: 2
+    untilEndOfBattle: false
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🍕}
+- id: food-mushroom
+  name: Mushroom
+  tier: 6
+  cost: 3
+  perk: 'Mushroom: Faint → come back as a 1/1.'
+  text: Give the pet the Mushroom perk.
+  effect: {kind: ApplyStatus, to: {kind: PurchaseTarget}, status: status-extra-life}
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🍄}
+- id: food-melon
+  name: Melon
+  tier: 6
+  cost: 3
+  perk: 'Melon: Take 20 less damage, once.'
+  text: Give the pet the Melon perk.
+  effect: {kind: ApplyStatus, to: {kind: PurchaseTarget}, status: status-melon-armor}
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🍈}
+- id: food-steak
+  name: Steak
+  tier: 6
+  cost: 3
+  perk: 'Steak: Next attack deals +20 damage, once.'
+  text: Give the pet the Steak perk.
+  effect: {kind: ApplyStatus, to: {kind: PurchaseTarget}, status: status-steak-attack}
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🥩}
+pet_created_foods:
+- id: food-bread-crumbs
+  name: Bread Crumbs
+  tier: Summoned
+  cost: 0
+  notes: Created by Pigeon. Never stocked.
+  text: Give the pet +1 attack.
+  effect: {kind: ModifyStats, target: {kind: PurchaseTarget}, attackAmount: 1, untilEndOfBattle: false}
+- id: food-better-apple
+  name: Better Apple
+  tier: Summoned
+  cost: 2
+  notes: Created by Worm. Never stocked.
+  text: Give the pet +2 attack and +2 health.
+  effect:
+    kind: ModifyStats
+    target: {kind: PurchaseTarget}
+    attackAmount: 2
+    healthAmount: 2
+    untilEndOfBattle: false
+- id: food-best-apple
+  name: Best Apple
+  tier: Summoned
+  cost: 2
+  notes: Created by Worm. Never stocked.
+  text: Give the pet +3 attack and +3 health.
+  effect:
+    kind: ModifyStats
+    target: {kind: PurchaseTarget}
+    attackAmount: 3
+    healthAmount: 3
+    untilEndOfBattle: false
+- id: food-milk
+  name: Milk
+  tier: Summoned
+  cost: 0
+  notes: Created by Cow. Never stocked.
+  text: Give the pet +1 attack and +2 health.
+  effect:
+    kind: ModifyStats
+    target: {kind: PurchaseTarget}
+    attackAmount: 1
+    healthAmount: 2
+    untilEndOfBattle: false
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🥛}
+- id: food-better-milk
+  name: Better Milk
+  tier: Summoned
+  cost: 0
+  notes: Created by Cow. Never stocked.
+  text: Give the pet +2 attack and +4 health.
+  effect:
+    kind: ModifyStats
+    target: {kind: PurchaseTarget}
+    attackAmount: 2
+    healthAmount: 4
+    untilEndOfBattle: false
+- id: food-best-milk
+  name: Best Milk
+  tier: Summoned
+  cost: 0
+  notes: Created by Cow. Never stocked.
+  text: Give the pet +3 attack and +6 health.
+  effect:
+    kind: ModifyStats
+    target: {kind: PurchaseTarget}
+    attackAmount: 3
+    healthAmount: 6
+    untilEndOfBattle: false
+statuses:
+- id: status-weak
+  name: Weak
+  text: Take 3 extra damage.
+  trigger: WhenDamaged
+  triggered_by: {kind: Self}
+  effect: {kind: ModifyDamage, damageModifier: 3, appliesOnce: false}
+  image: {source: noto-emoji, commit: e022fd6573782431ac9a65b520376b57511c31cd, unicodeCodePoint: 🦠}
+- id: status-coconut-shield
+  name: Coconut
+  text: Ignore all damage from one hit, once.
+  trigger: WhenDamaged
+  triggered_by: {kind: Self}
+  effect: {kind: ModifyDamage, damageModifier: null, appliesOnce: true}
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🥥}
+- id: status-honey-bee
+  name: Honey
+  text: 'Faint: Summon one 1/1 Bee.'
+  trigger: Faint
+  triggered_by: {kind: Self}
+  effect: {kind: SummonPet, pet: pet-bee, team: Friendly}
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🍯}
+- id: status-bone-attack
+  name: Meat Bone
+  text: Attacks deal +3 damage.
+  trigger: WhenAttacking
+  triggered_by: {kind: Self}
+  effect: {kind: ModifyDamage, damageModifier: 3, appliesOnce: false}
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🍖}
+- id: status-garlic-armor
+  name: Garlic
+  text: Take 2 less damage (minimum 1).
+  trigger: WhenDamaged
+  triggered_by: {kind: Self}
+  effect: {kind: ModifyDamage, damageModifier: -2, appliesOnce: false}
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🧄}
+- id: status-splash-attack
+  name: Chili
+  text: Attacks also deal 5 damage to the enemy behind the target.
+  trigger: WhenAttacking
+  triggered_by: {kind: Self}
+  effect: {kind: SplashDamage, amount: 5}
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🌶}
+- id: status-melon-armor
+  name: Melon
+  text: Take 20 less damage, once.
+  trigger: WhenDamaged
+  triggered_by: {kind: Self}
+  effect: {kind: ModifyDamage, damageModifier: -20, appliesOnce: true}
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🍈}
+- id: status-extra-life
+  name: Mushroom
+  text: 'Faint: come back as a 1/1.'
+  trigger: Faint
+  triggered_by: {kind: Self}
+  effect: {kind: RespawnPet, baseAttack: 1, baseHealth: 1}
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🍄}
+- id: status-steak-attack
+  name: Steak
+  text: Next attack deals +20 damage, once.
+  trigger: WhenAttacking
+  triggered_by: {kind: Self}
+  effect: {kind: ModifyDamage, damageModifier: 20, appliesOnce: true}
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🥩}
+- id: status-poison-attack
+  name: Peanut
+  text: Knocks out any pet this pet damages.
+  trigger: WhenAttacking
+  triggered_by: {kind: Self}
+  effect: {kind: ModifyDamage, damageModifier: null, appliesOnce: false}
+  image: {source: twemoji, commit: 793a6a93f303c08877dd6eb589b2fabb3d1c45ee, unicodeCodePoint: 🥜}
+- id: status-cake
+  name: Cake
+  text: 'End turn: Increase sell value by 1 gold.'
+  trigger: EndOfTurn
+  triggered_by: {kind: Self}
+  effect: {kind: IncreaseSellValue, amount: 1}
+- id: status-bread
+  name: Bread
+  text: 'End turn: Gain +7 health until next turn.'
+  trigger: EndOfTurn
+  triggered_by: {kind: Self}
+  effect: {kind: ModifyStats, target: {kind: Self}, healthAmount: 7, untilEndOfBattle: true}

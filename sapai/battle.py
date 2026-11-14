@@ -816,7 +816,9 @@ def battle_phase_attack(battle_obj, phase, teams, pet_priority, phase_dict):
         original_attack = p0._attack
         original_tmp_attack = p0._until_end_of_battle_attack_buff
         original_status = p0.status
-        p0._attack = 5
+        p0._attack = data["statuses"]["status-splash-attack"]["ability"]["effect"][
+            "amount"
+        ]
         p0._until_end_of_battle_attack_buff = 0
         if len(nidx[1]) != 0:
             pn1 = teams[1][nidx[1][1]].pet
@@ -844,7 +846,9 @@ def battle_phase_attack(battle_obj, phase, teams, pet_priority, phase_dict):
         original_attack = p1._attack
         original_tmp_attack = p1._until_end_of_battle_attack_buff
         original_status = p1.status
-        p1._attack = 5
+        p1._attack = data["statuses"]["status-splash-attack"]["ability"]["effect"][
+            "amount"
+        ]
         p1._until_end_of_battle_attack_buff = 0
         if len(nidx[0]) != 0:
             pn0 = teams[0][nidx[0][1]].pet

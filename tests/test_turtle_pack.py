@@ -15,7 +15,7 @@ except ImportError:  # pragma: no cover
     yaml = None
 
 YAML_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "..", "data", "turtle_pack_pets.yaml"
+    os.path.dirname(os.path.abspath(__file__)), "..", "data", "turtle_pack.yaml"
 )
 
 
@@ -47,9 +47,10 @@ class TestTurtlePackData(unittest.TestCase):
             self.assertEqual(fd["baseAttack"], p["attack"], p["name"])
             self.assertEqual(fd["baseHealth"], p["health"], p["name"])
             self.assertEqual(fd["packs"], ["StandardPack"])
+            self.assertEqual(fd["id"], "pet-" + slug(p["name"]))
             for level in [1, 2, 3]:
-                self.assertIn(
-                    p["ability"][f"L{level}"],
+                self.assertEqual(
+                    p["levels"][level]["text"],
                     fd[f"level{level}Ability"]["description"],
                 )
 
@@ -89,6 +90,33 @@ class TestTurtlePackData(unittest.TestCase):
             ### Every pet and food available on a turn is equally likely
             self.assertTrue(np.allclose(pp, 1 / len(expected_pets)))
             self.assertTrue(np.allclose(fp, 1 / len(expected_foods)))
+
+    def test_six_tiers_of_ten(self):
+        tiers = [p["tier"] for p in self.y["pets"]]
+        self.assertEqual(sorted(set(tiers)), [1, 2, 3, 4, 5, 6])
+        for tier in range(1, 7):
+            self.assertEqual(tiers.count(tier), 10)
+
+    def test_game_data_is_built_from_the_pack_file(self):
+        from sapai.build_data import (
+            OUT_PATH,
+            build,
+            dumps,
+            text_mismatches,
+            unsupported,
+            validate,
+        )
+
+        built = build(self.y)
+        self.assertEqual(validate(built), [])
+        self.assertEqual(unsupported(built), [])
+        self.assertEqual(text_mismatches(built), {})
+        with open(OUT_PATH, encoding="utf-8") as f:
+            self.assertEqual(
+                f.read(),
+                dumps(built),
+                "sapai/game_data.json is out of date: run python -m sapai.build_data",
+            )
 
     def test_no_expansion_pack(self):
         with self.assertRaises(Exception):

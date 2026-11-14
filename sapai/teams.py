@@ -1,6 +1,7 @@
 # %%
 import numpy
 
+from sapai.data import RULES
 from sapai.pets import Pet
 from sapai.lists import Slot, SAPList
 from numpy import int32, int64
@@ -29,7 +30,7 @@ class Team(SAPList):
     ):
         slots = slots or []
 
-        super().__init__(slots, 5, slot_class=TeamSlot)
+        super().__init__(slots, RULES["max_team_size"], slot_class=TeamSlot)
         self._battle = battle
         self.seed_state = seed_state
         self.slots = [TeamSlot(seed_state=self.seed_state) for _ in range(self.nslots)]

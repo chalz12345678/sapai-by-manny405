@@ -11,5 +11,7 @@ setup(
     ],
     # find_packages(exclude=[]),
     install_requires=["numpy", "torch"],
+    ### Game data built from data/turtle_pack.yaml by sapai.build_data
+    package_data={"sapai": ["game_data.json"]},
     data_files=[],
 )

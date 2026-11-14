@@ -1,5 +1,6 @@
 import numpy as np
 from sapai import data
+from sapai.data import RULES
 from sapai.battle import Battle
 from sapai.effects import (
     RespawnPet,
@@ -54,9 +55,9 @@ class Player:
         self,
         shop=None,
         team=None,
-        lives=10,
-        default_gold=10,
-        gold=10,
+        lives=RULES["starting_lives"],
+        default_gold=RULES["starting_gold"],
+        gold=RULES["starting_gold"],
         turn=1,
         lf_winner=None,
         action_history=None,
@@ -427,10 +428,10 @@ class Player:
     @storeaction
     def roll(self):
         """Roll shop"""
-        if self.gold < 1:
+        if self.gold < RULES["roll_cost"]:
             raise Exception("Attempt to roll without gold")
         self.shop.roll()
-        self.gold -= 1
+        self.gold -= RULES["roll_cost"]
         return ()
 
     @staticmethod
@@ -571,10 +572,12 @@ class Player:
         for slot in self.team:
             pet = slot._pet
             if pet.status == "status-cake":
-                pet.sell_value_bonus += 1
+                effect = data["statuses"]["status-cake"]["ability"]["effect"]
+                pet.sell_value_bonus += effect["amount"]
             elif pet.status == "status-bread":
                 ### Lasts until the start of next turn
-                pet._until_end_of_battle_health_buff += 7
+                effect = data["statuses"]["status-bread"]["ability"]["effect"]
+                pet._until_end_of_battle_health_buff += effect["healthAmount"]
         return None
 
     @property

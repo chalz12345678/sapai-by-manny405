@@ -1,6 +1,6 @@
 # %%
 import numpy as np
-from sapai.data import data
+from sapai.data import data, RULES
 from sapai.effects import get_effect_function, RespawnPet, SummonPet, SummonRandomPet
 from sapai.tiers import pet_tier_lookup
 from sapai.rand import MockRandomState
@@ -89,14 +89,16 @@ class Pet:
             status.apply_attack_dict[self.status](
                 self._attack + self._until_end_of_battle_attack_buff
             ),
-            50,
+            RULES["max_stat"],
         )
 
     @property
     def health(self):
         if self._health == "none":
             return self._health
-        return min(self._health + self._until_end_of_battle_health_buff, 50)
+        return min(
+            self._health + self._until_end_of_battle_health_buff, RULES["max_stat"]
+        )
 
     @property
     def ability(self):
