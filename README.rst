@@ -95,8 +95,8 @@ Playing a Game in the Terminal
 A simple interactive game is included: a 1v1 match against one computer
 opponent that you meet every turn. Each turn you both shop at the same time,
 then your teams battle. Before you shop you can see the opponent's lives,
-wins and the team it fielded in the last battle. The first to 10 wins, or the
-last with lives left, wins the match.
+wins and the team it fielded in the last battle. You both start with 6 lives
+and lose 1 for each battle you lose; the last with lives left wins the match.
 
 The match rules are in ``sapai/match.py`` (``Match``), which can also be used
 directly to play two programs against each other.

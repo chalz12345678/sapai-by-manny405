@@ -429,7 +429,7 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
   <details class="panel how" id="how">
     <summary>How to play</summary>
     <div class="how-grid">
-      <div><h3>Goal</h3><p>Build a team of up to 5 pets. Each turn you shop, then your team fights the other side's team automatically. <b>Win 10 battles</b> to win the game. You start with <b>6 lives</b>, and losing a battle costs 1 life. A win or a draw costs nothing.</p></div>
+      <div><h3>Goal</h3><p>Build a team of up to 5 pets. Each turn you shop, then your team fights the other side's team automatically. You start with <b>6 lives</b>, and losing a battle costs 1 life; a win or a draw costs nothing. <b>Make the other side run out of lives</b> to win the game.</p></div>
       <div><h3>Shopping</h3><ul>
         <li>You get <b>10 gold</b> every turn. Unspent gold is lost.</li>
         <li>Pets and food cost <b>3 gold</b>. <b>Roll</b> costs 1 gold and refreshes the shop.</li>
@@ -953,7 +953,7 @@ function renderScore() {
       <div class="kind">${s.kind === "human" ? "Human player" : esc(agentDesc(s.kind))}</div>
       <div class="meters">
         <span class="meter m-lives" title="Lose all lives and the game is over">lives <b>${s.lives}</b></span>
-        <span class="meter m-wins" title="Win ${st.maxWins} battles to win the game">wins <b>${s.wins}/${st.maxWins}</b></span>
+        <span class="meter m-wins" title="Battles won">wins <b>${st.maxWins ? `${s.wins}/${st.maxWins}` : s.wins}</b></span>
         ${s.kind === "human" ? `<span class="meter m-gold" title="Gold to spend this turn. You get 10 each turn.">gold <b>${s.gold}</b></span>` : ""}
       </div></div>`;
   const pips = st.history.map((h) => `<span class="pip ${h}" title="${h}"></span>`).join("");

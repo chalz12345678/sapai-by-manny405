@@ -32,7 +32,7 @@ rules:
   max_shop_slots: 7        # shop slots including food
   max_stat: 50             # attack and health cap
   starting_lives: 6        # lose 1 per lost battle (livesLost below)
-  wins_to_win: 10
+  wins_to_win: null        # battle wins that end the match; null: only lives decide
   # Sell value is the pet's level (plus any Cake bonus).
   turns:
   - {index: 1, foodShopSlots: 1, animalShopSlots: 3, livesLost: 1, tiersAvailable: 1, levelUpTier: 2}

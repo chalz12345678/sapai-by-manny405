@@ -6,7 +6,7 @@ Play a game of Super Auto Pets (Turtle Pack) in the terminal.
 
 Each turn you shop: buy, sell, roll, freeze and rearrange pets. Then you end the
 turn and your team battles a computer opponent that shops with the same rules.
-Win 10 battles before running out of lives.
+Each lost battle costs a life; make your opponent run out of lives first.
 
 """
 
@@ -317,17 +317,21 @@ class Game:
     #### Display
     ############################################################################
 
+    def wins_text(self, wins):
+        """Wins, out of the wins needed if there is a win limit"""
+        return f"{wins}/{self.wins_needed}" if self.wins_needed else str(wins)
+
     def show(self):
         p = self.player
         self.print("")
         self.print(
             f"=== Turn {p.turn} | Gold {p.gold} | Lives {p.lives}/{self.max_lives}"
-            + f" | Wins {self.wins}/{self.wins_needed} ==="
+            + f" | Wins {self.wins_text(self.wins)} ==="
         )
         o = self.opponent.player
         self.print(
             f"Opponent: Lives {o.lives}/{self.max_lives}"
-            + f" | Wins {self.match.wins[1]}/{self.wins_needed}"
+            + f" | Wins {self.wins_text(self.match.wins[1])}"
         )
         last = self.match.opponent_last_team(0)
         if last is not None:
@@ -565,7 +569,7 @@ class Game:
         plural = "life" if lost == 1 else "lives"
         if result == 0:
             self.wins += 1
-            self.print(f"You won! ({self.wins}/{self.wins_needed} wins)")
+            self.print(f"You won! ({self.wins_text(self.wins)} wins)")
             self.print(f"Your opponent loses {lost} {plural}.")
         elif result == 1:
             self.losses += 1
@@ -593,12 +597,12 @@ class Game:
             return False
         turn = self.player.turn
         if m.winner == 0:
-            if self.wins >= self.wins_needed:
+            if self.wins_needed and self.wins >= self.wins_needed:
                 self.print(f"\nYou win the game with {self.wins} wins on turn {turn}!")
             else:
                 self.print(f"\nYou win! Your opponent ran out of lives on turn {turn}.")
         elif m.winner == 1:
-            if m.wins[1] >= self.wins_needed:
+            if self.wins_needed and m.wins[1] >= self.wins_needed:
                 self.print(
                     f"\nGame over. Your opponent reached {m.wins[1]} wins on turn {turn}."
                 )
@@ -644,7 +648,10 @@ def main(argv=None):
         "--lives", type=int, default=RULES["starting_lives"], help="starting lives"
     )
     parser.add_argument(
-        "--wins", type=int, default=RULES["wins_to_win"], help="wins needed to win"
+        "--wins",
+        type=int,
+        default=RULES["wins_to_win"],
+        help="battle wins that also end the game (default: none, only lives)",
     )
     parser.add_argument(
         "--opponent",

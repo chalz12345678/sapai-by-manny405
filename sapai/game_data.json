@@ -16,7 +16,7 @@
   "max_shop_slots": 7,
   "max_stat": 50,
   "starting_lives": 6,
-  "wins_to_win": 10
+  "wins_to_win": null
  },
  "pets": {
   "pet-ant": {

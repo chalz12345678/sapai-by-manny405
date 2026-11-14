@@ -5,8 +5,7 @@ Evaluate a trained model or a bot in 1v1 matches against the greedy bot.
     python -m sapai.rl.evaluate --bot greedy --games 500
     python -m sapai.rl.evaluate --bot random --games 500
 
-Each game is a 1v1 match with the normal rules (first to 10 wins, or the last
-with lives left). The greedy opponent shops every turn alongside the agent.
+Each game is a 1v1 match with the normal rules: the last with lives left wins. The greedy opponent shops every turn alongside the agent.
 """
 
 import argparse

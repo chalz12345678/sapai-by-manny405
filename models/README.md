@@ -48,7 +48,7 @@ MLP needed about three times as many steps to get to a similar level: its
 ratings stayed between 1407 and 1420 from 18.2M to 23.6M steps, so
 `mlp_19.3M` is its plateau best.
 
-In normal games against the greedy bot (10 wins to win a game) the token
+In games against the greedy bot under the old rules (10 wins to win a game) the token
 models win about 95-99% of games and `mlp_8.2M` about 87-90%; the greedy bot
 playing the same games wins 25%.
 

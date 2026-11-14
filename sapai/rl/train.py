@@ -196,7 +196,12 @@ def main(argv=None):
         help="share of matches against the greedy bot (all of them while the"
         + " pool is empty)",
     )
-    parser.add_argument("--wins-needed", type=int, default=10)
+    parser.add_argument(
+        "--wins-needed",
+        type=int,
+        default=None,
+        help="wins that end the match (default: none, only lives)",
+    )
     parser.add_argument("--n-steps", type=int, default=512)
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument(

@@ -58,7 +58,8 @@ from sapai.rl import env as E  # noqa: E402
 from sapai.rl.opponents import RandomBot  # noqa: E402, F401
 from gui import audit  # noqa: E402
 
-MAX_WINS = 10
+### Battle wins that end the game; None: only running out of lives does
+MAX_WINS = RULES["wins_to_win"]
 START_LIVES = RULES["starting_lives"]
 MAX_ACTIONS = 30
 
@@ -989,9 +990,9 @@ class Match:
             warn.append("the winner's opponent still has pets left")
         self._event("battle", None, f"turn {turn} battle: {res}", blines, warn)
         a, b = self.seats
-        if a.wins >= MAX_WINS or b.player.lives <= 0:
+        if (MAX_WINS and a.wins >= MAX_WINS) or b.player.lives <= 0:
             self.over, self.result = True, "seat0"
-        elif b.wins >= MAX_WINS or a.player.lives <= 0:
+        elif (MAX_WINS and b.wins >= MAX_WINS) or a.player.lives <= 0:
             self.over, self.result = True, "seat1"
         else:
             before = [audit.snapshot(s.player) for s in self.seats]

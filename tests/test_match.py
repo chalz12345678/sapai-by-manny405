@@ -73,6 +73,15 @@ class TestMatch(unittest.TestCase):
         self.assertEqual(v0["opponent_lives"], m.players[1].lives)
         self.assertEqual(v1["opponent_wins"], 1)
 
+    def test_wins_alone_do_not_end_a_match(self):
+        self.assertIsNone(RULES["wins_to_win"])
+        m = Match(lives=99)
+        put(m.players[0], "pig")
+        for _ in range(15):
+            m.battle()
+        self.assertEqual(m.wins, [15, 0])
+        self.assertFalse(m.over)
+
     def test_ends_at_the_wins_needed(self):
         m = Match(wins_to_win=2, lives=99)
         ### Battles use copies of the teams, so the Pig stays for both
@@ -118,10 +127,8 @@ class TestMatch(unittest.TestCase):
                     bot.shop(p)
                 m.battle()
                 self.assertLess(m.turn, 60)
-            self.assertTrue(
-                max(m.wins) >= RULES["wins_to_win"]
-                or min(p.lives for p in m.players) <= 0
-            )
+            ### Only running out of lives ends a match
+            self.assertLessEqual(min(p.lives for p in m.players), 0)
             self.assertEqual(len(m.history), m.turn)
 
 

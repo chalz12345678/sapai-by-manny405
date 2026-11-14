@@ -181,7 +181,8 @@ class SAPEnv(gym.Env):
     opponent: the other side of the match, an object with reset(rng) and
         shop(player, view) that shops for its own player each turn. See
         sapai.rl.opponents. Defaults to the greedy bot.
-    wins_needed: wins needed to win the match
+    wins_needed: wins that win the match, or None for no limit (the rules:
+        only running out of lives ends the match)
     lives: starting lives of both sides. Losses cost lives based on the turn.
     max_turns: matches are truncated after this many turns
     max_actions_per_turn: the turn is ended after this many shop actions

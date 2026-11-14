@@ -38,7 +38,7 @@ class Match:
     def __init__(
         self,
         lives=None,
-        wins_to_win=None,
+        wins_to_win=RULES["wins_to_win"],
         max_turns=None,
         seed=None,
         lives_lost=lives_lost,
@@ -47,7 +47,8 @@ class Match:
     ):
         """
         lives: starting lives of each player
-        wins_to_win: battle wins that win the match
+        wins_to_win: battle wins that win the match, or None (the rules'
+            default) for no limit: only running out of lives ends the match
         max_turns: optional turn limit; when it is reached the match ends,
             won by the player with more wins (or drawn)
         seed: seeds numpy's random numbers, for a reproducible match
@@ -62,7 +63,7 @@ class Match:
         if seed is not None:
             np.random.seed(seed)
         self.start_lives = RULES["starting_lives"] if lives is None else lives
-        self.wins_to_win = RULES["wins_to_win"] if wins_to_win is None else wins_to_win
+        self.wins_to_win = wins_to_win
         self.max_turns = max_turns
         self.lives_lost = lives_lost
         if players is None:
@@ -175,7 +176,7 @@ class Match:
                     self.winner = 0 if self.wins[0] > self.wins[1] else 1
             return
         for i in (0, 1):
-            if self.wins[i] >= self.wins_to_win:
+            if self.wins_to_win is not None and self.wins[i] >= self.wins_to_win:
                 self.over, self.winner = True, i
                 return
         out = [p.lives <= 0 for p in self.players]
