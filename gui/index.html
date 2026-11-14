@@ -476,7 +476,7 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
         <span class="grow" id="hint"></span>
         <button class="btn primary big" id="endBtn">End turn</button>
       </div>
-      <p class="help">Orange number = attack (damage dealt), red number = health. L = level, dots = experience toward the next level, T = tier, ★ = summoned pet. Shop pet → empty slot to buy, or onto the same pet to level it up. Food → a pet to feed it. Pet → another pet to swap them, or onto a copy to combine. Keys: <kbd>R</kbd> roll, <kbd>F</kbd> freeze, <kbd>S</kbd> sell, <kbd>Enter</kbd> end turn, <kbd>Esc</kbd> deselect.</p>
+      <p class="help">Orange number = attack (damage dealt), red number = health. L = level, dots = experience toward the next level, T = tier, ★ = summoned pet. Shop pet → empty slot to buy, or onto the same pet to level it up. Food → a pet to feed it. Pet → another pet to swap them, or onto a copy to combine. Keys: <kbd>R</kbd> roll, <kbd>F</kbd> freeze, <kbd>B</kbd> buy, <kbd>S</kbd> sell, <kbd>Enter</kbd> end turn, <kbd>Esc</kbd> deselect.</p>
       </div>
     </section>
   </div>
@@ -926,7 +926,7 @@ function renderPlay() {
       continue;
     }
     let target = false;
-    if (selShop && selShop.kind === "food") target = legal("buy_food", [selShop.index, j]);
+    if (selShop && selShop.kind === "food") target = selShop.targeted ? legal("buy_food", [selShop.index, j]) : legal("buy_food_untargeted", [selShop.index]);
     else if (selShop) target = legal("buy_combine", [selShop.index, j]);
     else if (selTeam && sel.i !== j) target = true;
     const cls = (sel && sel.type === "team" && sel.i === j ? "sel " : "") + (target ? "target" : "");
@@ -950,7 +950,7 @@ function renderPlay() {
   let hint = "";
   if (selShop) {
     info = infoHTML(selShop, "shop");
-    if (selShop.kind === "food") hint = selShop.targeted ? "Tap one of your pets to feed it." : "Press Buy to use it.";
+    if (selShop.kind === "food") hint = selShop.targeted ? "Tap one of your pets to feed it." : "Press Buy (or B), or tap your team, to use it.";
     else hint = "Tap an empty slot to buy, or a matching pet to level it up.";
   } else if (selTeam) {
     info = infoHTML(selTeam, "team");
@@ -962,10 +962,14 @@ function renderPlay() {
   const fz = $("freezeBtn");
   fz.disabled = !selShop;
   fz.textContent = selShop && selShop.frozen ? "Unfreeze" : "Freeze";
-  $("sellBtn").disabled = !selTeam;
-  const untargeted = selShop && selShop.kind === "food" && !selShop.targeted;
-  $("sellBtn").textContent = untargeted ? `Buy · ${selShop.cost} gold` : selTeam ? `Sell · +${selTeam.sell} gold` : "Sell";
-  if (untargeted) $("sellBtn").disabled = !legal("buy_food_untargeted", [selShop.index]);
+  // one button: Sell for a team pet, Buy for whatever is selected in the shop
+  const sb = $("sellBtn");
+  if (selTeam) { sb.textContent = `Sell · +${selTeam.sell} gold`; sb.disabled = false; }
+  else if (selShop) {
+    const buy = buyAction(selShop);
+    sb.textContent = selShop.kind === "food" && selShop.targeted ? "Pick a pet" : `Buy · ${selShop.cost} gold`;
+    sb.disabled = !buy || !legal(...buy);
+  } else { sb.textContent = "Sell"; sb.disabled = true; }
   $("endBtn").disabled = S.st.over;
   const left = s.gold;
   $("endBtn").classList.toggle("unspent", left > 0);
@@ -1258,7 +1262,7 @@ function onTeam(j) {
   const s = me(), sel = S.sel;
   if (sel && sel.type === "shop") {
     const x = s.shop.find((y) => y.index === sel.i);
-    if (x.kind === "food") return act("buy_food", [x.index, j]);
+    if (x.kind === "food") return x.targeted ? act("buy_food", [x.index, j]) : act("buy_food_untargeted", [x.index]);
     if (s.team[j] && s.team[j].name === x.name) return act("buy_combine", [x.index, j]);
   }
   if (sel && sel.type === "team" && sel.i !== j) {
@@ -1281,18 +1285,31 @@ function selectFeedback(el, i) {
   FX.burst("sparkle", el, { n: 9, power: 0.8 });
   SFX.play("select", i);
 }
+// The buy action for a shop item that needs no target, or null
+function buyAction(x) {
+  if (!x) return null;
+  if (x.kind === "food") return x.targeted ? null : ["buy_food_untargeted", [x.index]];
+  return ["buy_pet", [x.index]];
+}
+function buySelected() {
+  const sel = S.sel;
+  if (!sel || sel.type !== "shop") return;
+  const x = me().shop.find((y) => y.index === sel.i);
+  if (x && x.kind === "food" && x.targeted) { SFX.play("error"); toast("Tap one of your pets to feed it this food."); return; }
+  const buy = buyAction(x);
+  if (buy) act(...buy);
+}
 function sellOrBuy() {
-  const s = me(), sel = S.sel;
+  const sel = S.sel;
   if (!sel) return;
   if (sel.type === "team") return act("sell", [sel.i]);
-  const x = s.shop.find((y) => y.index === sel.i);
-  if (x && x.kind === "food" && !x.targeted) return act("buy_food_untargeted", [x.index]);
+  buySelected();
 }
 
 $("team").addEventListener("click", (e) => {
   const c = e.target.closest("[data-team]"), em = e.target.closest("[data-empty]");
   if (c) onTeam(Number(c.dataset.team));
-  else if (em && S.sel && S.sel.type === "shop") act("buy_pet", [S.sel.i]);
+  else if (em && S.sel && S.sel.type === "shop") buySelected();
 });
 $("shop").addEventListener("click", (e) => { const c = e.target.closest("[data-shop]"); if (c) onShop(Number(c.dataset.shop)); });
 for (const [id, fn] of [["team", (el) => onTeam(Number(el.dataset.team))], ["shop", (el) => onShop(Number(el.dataset.shop))]]) {
@@ -1482,6 +1499,7 @@ document.addEventListener("keydown", (e) => {
   else if (k === "r") act("roll");
   else if (k === "f" && S.sel && S.sel.type === "shop") act("freeze", [S.sel.i]);
   else if (k === "s") sellOrBuy();
+  else if (k === "b") buySelected();
   else if (e.key === "Enter" && !e.target.closest("[data-team],[data-shop],button")) endTurn();
 });
 

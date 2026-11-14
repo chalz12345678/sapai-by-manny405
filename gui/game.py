@@ -811,7 +811,9 @@ def _why_illegal(p, name):
     if name == "roll":
         return "Rolling costs 1 gold."
     if name == "buy_food":
-        return "Drop this food onto one of your pets."
+        return "This food doesn't go on one pet. Press Buy to use it." if any(
+            s.slot_type == "food" and not s.empty and not E.food_needs_target(s.obj)
+            for s in p.shop.slots) else "Drop this food onto one of your pets."
     if name == "buy_combine":
         return "You can only stack a pet onto the same pet below level 3."
     if name == "combine":
