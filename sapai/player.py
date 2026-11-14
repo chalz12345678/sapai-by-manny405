@@ -439,13 +439,18 @@ class Player:
 
     @staticmethod
     def combine_pet_stats(pet_to_keep, pet_to_be_merged):
-        """Pet 1 is the pet that is kept"""
-        c_attack = max(pet_to_keep._attack, pet_to_be_merged._attack) + 1
+        """
+        Pet 1 is the pet that is kept. The merged pet keeps the higher attack
+        and health of the two, plus 1/1 for every copy the merged-in pet is
+        worth (a level 2 pet is 3 copies, so merging one adds +3/+3)
+        """
+        bonus = pet_to_be_merged.copies
+        c_attack = max(pet_to_keep._attack, pet_to_be_merged._attack) + bonus
         c_until_end_of_battle_attack = max(
             pet_to_keep._until_end_of_battle_attack_buff,
             pet_to_be_merged._until_end_of_battle_attack_buff,
         )
-        c_health = max(pet_to_keep._health, pet_to_be_merged._health) + 1
+        c_health = max(pet_to_keep._health, pet_to_be_merged._health) + bonus
         c_until_end_of_battle_health = max(
             pet_to_keep._until_end_of_battle_health_buff,
             pet_to_be_merged._until_end_of_battle_health_buff,
@@ -453,8 +458,8 @@ class Player:
         cstatus = get_combined_status(pet_to_keep, pet_to_be_merged)
         level_before = pet_to_keep.level
 
-        pet_to_keep._attack = c_attack
-        pet_to_keep._health = c_health
+        pet_to_keep._attack = min(c_attack, RULES["max_stat"])
+        pet_to_keep._health = min(c_health, RULES["max_stat"])
         pet_to_keep._until_end_of_battle_attack_buff = c_until_end_of_battle_attack
         pet_to_keep._until_end_of_battle_health_buff = c_until_end_of_battle_health
         pet_to_keep.status = cstatus

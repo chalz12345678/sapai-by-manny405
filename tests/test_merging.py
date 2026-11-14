@@ -64,6 +64,25 @@ class TestMergingAddsExperience(unittest.TestCase):
         kept, _ = merge(a, b)
         self.assertEqual((kept._attack, kept._health), (6, 8))
 
+    def test_merging_adds_one_per_copy_merged_in(self):
+        ### Two level 2 pets: the merged-in pet is worth 3 copies, so +3/+3
+        a, b = pet("pig", 2), pet("pig", 2)
+        a._attack, a._health = 6, 4
+        b._attack, b._health = 5, 7
+        kept, _ = merge(a, b)
+        self.assertEqual((kept._attack, kept._health), (9, 10))
+        ### A pair (2 copies) onto a single pet: +2/+2
+        a, b = pet("pig"), pet("pig", 1, 1)
+        a._attack, a._health = 3, 3
+        b._attack, b._health = 4, 4
+        kept, _ = merge(a, b)
+        self.assertEqual((kept._attack, kept._health), (6, 6))
+        ### Never above 50
+        a, b = pet("pig", 2), pet("pig", 2)
+        a._attack, a._health = 49, 49
+        kept, _ = merge(a, b)
+        self.assertEqual((kept._attack, kept._health), (50, 50))
+
     def test_fish_levelup_ability_fires_when_merging_levels_it_up(self):
         fish, ant = pet("fish", 1, 1), pet("ant")
         player = Player(team=Team([fish, pet("fish"), ant]))

@@ -27,3 +27,26 @@
   # Round 1: Pig 4/3, Fish faints. Round 2: Pig 4/0 and Beaver faint.
   result: draw
   survivors: {team: [], enemy: []}
+
+- name: A pet knocked out at start of battle still uses its start of battle ability
+  source: confirmed by the user (Dolphin), 2026-11-14
+  verified: true
+  team: [Dolphin 4/1]
+  enemy: [Mosquito 5/2]
+  # Mosquito has more attack, so it goes first and knocks out Dolphin. Dolphin
+  # still deals its 4 damage to the lowest health enemy, Mosquito, and both faint.
+  result: draw
+  survivors: {team: [], enemy: []}
+
+- name: Start of battle abilities go in order of attack, highest first
+  source: confirmed by the user, 2026-11-14
+  verified: true
+  team: [Dolphin 4/3, Mosquito 2/3]
+  enemy: [Fish 1/1, Crab 3/4]
+  # Dolphin (4 attack) goes first: Fish has the lowest health and faints.
+  # Crab (3) then copies 25% of its healthiest friend's health, but Fish is
+  # already gone, so Crab keeps 4. Our Mosquito (2) hits Crab, the only
+  # enemy left: 3/3. Then Dolphin and Crab trade (Dolphin 4/0, Crab 3/-1)
+  # and Mosquito is left.
+  result: win
+  survivors: {team: [Mosquito 2/3], enemy: []}

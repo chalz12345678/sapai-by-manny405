@@ -55,8 +55,8 @@ Nothing is ✅ yet: confirming rules in the game is the next step (see
 |---|---|---|---|
 | 3.1 | A pet is worth copies: level 2 at 3 copies, level 3 at 6 | 🤔 assumed | `tests/test_merging.py::test_copies` |
 | 3.2 | Merging two pets of the same kind adds the copies of both (two half-stacked pets make a level 2 with 1 extra) | 🤔 assumed | `tests/test_merging.py` |
-| 3.3 | The merged pet keeps the higher attack and the higher health of the two, +1 each | 🤔 assumed | `test_merging_keeps_the_higher_stats_plus_one` |
-| 3.4 | When the merged-in pet is worth more than 1 copy, the stat bonus is still +1/+1 | ❓ open (Q5) | none yet |
+| 3.3 | The merged pet keeps the higher attack and the higher health of the two | 🤔 assumed | `test_merging_keeps_the_higher_stats_plus_one` |
+| 3.4 | Merging adds +1/+1 for every copy the merged-in pet is worth (two level 2 pets: +3/+3), capped at 50 | ✅ decided | `test_merging_adds_one_per_copy_merged_in` |
 | 3.5 | The merged pet keeps the higher-tier perk of the two (ties: the pet kept) | ❓ open (Q6) | none yet |
 | 3.6 | Each level gained adds a level-up reward pet (one tier above the shop) to the shop and fires level-up abilities | 🤔 assumed | `test_from_level_1_to_level_3_gives_two_rewards` |
 | 3.7 | Chocolate gives 1 experience | 📖 text | `test_turtle_pack.py` |
@@ -69,7 +69,9 @@ Nothing is ✅ yet: confirming rules in the game is the next step (see
 | 4.2 | Start-of-battle abilities happen once, before the first attack | 📖 text | `tests/scenarios/abilities.yaml` |
 | 4.3 | Each round the two front pets hit each other at the same time, each dealing its attack | 🤔 assumed | `tests/scenarios/basics.yaml` |
 | 4.4 | A pet at 0 health or less faints; its faint ability happens and the team moves up | 🤔 assumed | `tests/scenarios/basics.yaml` |
-| 4.5 | Abilities in the same phase go in order of attack, highest first; equal attack goes by health, then at random | ❓ open (Q7) | `test_battles.py` |
+| 4.5 | Abilities in the same phase go in order of attack, highest first | ✅ confirmed | `basics.yaml` (verified) |
+| 4.5a | Equal attack goes by health (higher first), then at random | 🤔 assumed (Q7) | `test_battles.py` |
+| 4.10 | A pet knocked out during start of battle (for example Dolphin) still uses its own start of battle ability | ✅ confirmed | `basics.yaml` (verified) |
 | 4.6 | The battle ends when a team has no pets; both empty is a draw | 🤔 assumed | `tests/scenarios/basics.yaml` |
 | 4.7 | A summon that finds the team full does nothing | 🤔 assumed | `test_battle_fixes.py` |
 | 4.8 | Summoned pets appear where the summoning pet was | 🤔 assumed | `test_battles.py` |
@@ -134,12 +136,12 @@ behaviour is in brackets.
   especially ability order and summons, to turn 🤔 and 📖 rules into ✅.
 - **Q4. Arena mode.** Answered: removed. Training, evaluation and the
   terminal game all play 1v1 matches.
-- **Q5. Merge stats.** Merging a pet worth several copies: +1/+1 or +1/+1 per
-  copy? (+1/+1)
+- **Q5. Merge stats.** Answered: +1/+1 per copy merged in.
 - **Q6. Merge perks.** Which perk does a merged pet keep? (the higher-tier
   perk; on a tie the perk of the pet being kept)
-- **Q7. Ability order ties.** With equal attack, is the order by health, or
-  random? (health, then random)
+- **Q7. Ability order ties.** Highest attack first is confirmed. With equal
+  attack, the engine goes by health, then at random; two player guides say
+  the same, but nothing official. (health, then random)
 - **Q8. Shop size.** Is the shop limited to 7 slots? From turn 9 the shop
   has 5 pets and 2 foods, so with that limit Worm's Apple and Pigeon's Bread
   Crumbs never appear. (7 slots; two tests mark this as an expected failure)
@@ -151,8 +153,7 @@ behaviour is in brackets.
 - **Q11. Hurt that knocks out.** Does a hit that makes a pet faint still set
   off its Hurt ability (Camel, Blowfish, Peacock)? Does Wolverine count it?
   (no)
-- **Q12. Start of battle knock-outs.** Does a pet knocked out by a faster
-  start-of-battle ability still use its own? (yes)
+- **Q12. Start of battle knock-outs.** Answered: yes, it still uses its own.
 - **Q13. Per-turn limits.** Are uses "per turn" (Fly, Ox, Dragon, Cat)
   shared between the shop and that turn's battle? (yes)
 - **Q14. Smaller cases.**
