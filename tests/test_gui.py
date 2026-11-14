@@ -50,5 +50,44 @@ class TestGui(unittest.TestCase):
         self.assertEqual(len(m.history), 1)
 
 
+    def test_save_and_load(self):
+        m = game.Match("human", "token_16.8M", seed=2)
+        pet = next(x for x in m.state()["seats"][0]["shop"] if x["kind"] == "pet")
+        m.do("buy_pet", pet["index"])
+        m.do("end_turn")
+        m2 = game.Match.from_save(json.loads(json.dumps(m.to_save(), default=str)))
+        self.assertEqual(m.state(), m2.state())
+        self.assertTrue(json.loads(m2.do("end_turn"))["ok"])
+
+    def test_log_records_duck_sell_behind_pig(self):
+        """The game log shows the Duck's sell buff (it used to be lost behind a Pig)."""
+        for seed in range(400):
+            m = game.Match("human", "greedy", seed=seed)
+            shop = m.state()["seats"][0]["shop"]
+            names = [x["name"] for x in shop]
+            if "duck" in names and any(x["kind"] == "pet" and x["name"] != "duck" for x in shop):
+                break
+        duck = names.index("duck")
+        other = next(x for x in shop if x["kind"] == "pet" and x["name"] != "duck")
+        m.do("buy_pet", shop[duck]["index"])
+        m.do("buy_pet", other["index"])
+        team = [p["name"] for p in m.state()["seats"][0]["team"]]
+        if team[0] == "duck":
+            m.do("swap", 0, 1)
+        m.do("sell", 1)
+        entry = m.events[-1]
+        self.assertEqual(entry["title"], "sold duck")
+        if any(x["kind"] == "pet" for x in m.state()["seats"][0]["shop"]):
+            self.assertTrue(any(l.startswith("shop:") and "→" in l for l in entry["lines"]))
+        self.assertEqual(entry["warn"], [])
+
+    def test_no_rule_problems_in_model_games(self):
+        for seed in range(5):
+            m = game.Match("token_16.8M", "greedy", seed=seed)
+            while not m.over and len(m.history) < 30:
+                m.play_round()
+            self.assertEqual([e for e in m.events if e["warn"]], [])
+
+
 if __name__ == "__main__":
     unittest.main()

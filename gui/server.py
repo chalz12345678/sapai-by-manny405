@@ -109,20 +109,75 @@ class Handler(BaseHTTPRequestHandler):
                 MATCHES.pop(next(iter(MATCHES)))
             mid = uuid.uuid4().hex
             MATCHES[mid] = game.Match(a, b, seed=req.get("seed"))
+            save(mid)
             return {"ok": True, "id": mid, "state": MATCHES[mid].state()}
         if path == "/api/series":
             for k in (req.get("a"), req.get("b")):
                 if k not in game.AGENTS:
                     raise Exception(f"Unknown agent {k}")
             return {"ok": True, "series": series(req["a"], req["b"], req.get("n", 20))}
-        m = MATCHES.get(req.get("id", ""))
+        mid = req.get("id", "")
+        m = find(mid)
         if m is None:
-            raise Exception("That game has expired. Start a new one.")
+            raise Exception("That game is no longer saved. Start a new one.")
+        if path == "/api/state":
+            return {"ok": True, "id": mid, "state": m.state()}
+        if path == "/api/log":
+            return {"ok": True, "events": m.events_since(req.get("since", 0))}
         if path == "/api/act":
-            return m.do(req["name"], *req.get("args", []))
-        if path == "/api/step":
-            return m.step_json()
-        raise Exception("Unknown request")
+            out = m.do(req["name"], *req.get("args", []))
+        elif path == "/api/step":
+            out = m.step_json()
+        else:
+            raise Exception("Unknown request")
+        save(mid)
+        return out
+
+
+SAVE_DIR = os.path.join(HERE, "saves")
+MAX_SAVES = 100
+
+
+def _save_path(mid):
+    if not (len(mid) == 32 and all(c in "0123456789abcdef" for c in mid)):
+        return None
+    return os.path.join(SAVE_DIR, mid + ".json")
+
+
+def save(mid):
+    """Write the match to gui/saves/<id>.json so it survives a refresh or restart."""
+    path = _save_path(mid)
+    if path is None or mid not in MATCHES:
+        return
+    try:
+        os.makedirs(SAVE_DIR, exist_ok=True)
+        tmp = path + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(MATCHES[mid].to_save(), f, default=str)
+        os.replace(tmp, path)
+        saves = sorted(glob.glob(os.path.join(SAVE_DIR, "*.json")), key=os.path.getmtime)
+        for old in saves[:-MAX_SAVES]:
+            os.remove(old)
+    except OSError as e:
+        print(f"Could not save game {mid}: {e}")
+
+
+def find(mid):
+    """The match with this id, loading it from gui/saves/ if needed."""
+    if mid in MATCHES:
+        return MATCHES[mid]
+    path = _save_path(mid)
+    if path is None or not os.path.exists(path):
+        return None
+    with open(path) as f:
+        m = game.Match.from_save(json.load(f))
+    for s in m.seats:
+        if s.kind != "human" and s.kind not in game.AGENTS:
+            raise Exception(f"This saved game uses agent {s.kind}, which is not loaded.")
+    if len(MATCHES) >= MAX_MATCHES:
+        MATCHES.pop(next(iter(MATCHES)))
+    MATCHES[mid] = m
+    return m
 
 
 def main(argv=None):

@@ -138,3 +138,6 @@ dmypy.json
 
 # Reinforcement learning runs
 runs/
+
+# GUI saved games
+gui/saves/

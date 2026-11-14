@@ -222,6 +222,21 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
 .sheet .close { position: absolute; top: 8px; right: 8px; }
 .lane .card, .duo .card { cursor: pointer; }
 
+.log-tools { display: grid; gap: 10px; margin-top: 10px; cursor: auto; }
+.loglist { max-height: 460px; overflow: auto; display: grid; gap: 6px; font-size: 12.5px; padding-right: 4px; }
+.log-turn { margin: 8px 0 0; font: 700 13px var(--f-display); position: sticky; top: 0; background: var(--surface); padding: 4px 0; }
+.log-e { border: 1px solid var(--line); border-left: 3px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+.log-e.battle { border-left-color: var(--accent); }
+.log-e.start, .log-e.end { border-left-color: var(--gold); }
+.log-e.odd { border-left-color: var(--atk); }
+.log-e.bad { border-left-color: var(--loss); background: var(--hp-soft); }
+.log-h { font-weight: 600; }
+.log-h .who { color: var(--muted); font-weight: 500; }
+.log-e ul { margin: 4px 0 0; padding-left: 16px; display: grid; gap: 1px; }
+.log-e li.meta { color: var(--muted); }
+.log-e li.warn { color: var(--loss); font-weight: 600; }
+.note.bad { color: var(--loss); font-weight: 600; }
+
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 13px; max-width: calc(100% - 32px); box-shadow: var(--shadow); z-index: 20; }
 .banner { border-radius: 14px; padding: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; background: var(--accent-soft); }
 .banner h2 { margin: 0; font: 800 22px var(--f-display); }
@@ -358,6 +373,21 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
   </div>
 
   <section class="duo" id="watchArea" hidden></section>
+
+  <details class="panel how" id="logPanel" open>
+    <summary>Game log</summary>
+    <div class="log-tools">
+      <p class="help">Every action with what it changed, what the rules say should happen, and the abilities that can explain anything extra. Problems are flagged in red.</p>
+      <div class="bar">
+        <div class="field"><label for="logFilter">Show</label>
+          <select id="logFilter"><option value="all">Everything</option><option value="left">Left side only</option><option value="right">Right side only</option><option value="battle">Battles only</option><option value="flags">Flagged only</option></select></div>
+        <button class="btn" id="logCopy">Copy log</button>
+        <button class="btn" id="logSave">Download log</button>
+        <span class="note" id="logSummary"></span>
+      </div>
+      <div class="loglist" id="logList"></div>
+    </div>
+  </details>
 </div>
 <div class="sheet" id="sheet" role="dialog" aria-label="Details" hidden>
   <button class="btn close" id="sheetClose" aria-label="Close details">✕</button>
@@ -613,7 +643,7 @@ function render() {
   $("stepBtn").disabled = !S.id || !S.st || S.st.over || S.busy;
   $("autoBtn").textContent = S.auto ? "Stop" : "Auto play";
   $("autoBtn").setAttribute("aria-pressed", S.auto);
-  renderScore(); renderOver(); renderPlay(); renderWatch();
+  renderScore(); renderOver(); renderPlay(); renderWatch(); syncLog();
 }
 
 // ---------------------------------------------------------------- battle
@@ -680,11 +710,99 @@ function finishBattle() {
 }
 
 // ------------------------------------------------------------------ flows
+// -------------------------------------------- saved games (survive refresh)
+function recall() { try { return JSON.parse(localStorage.getItem("sapaiArena") || "{}"); } catch (e) { return {}; } }
+function remember() {
+  const saved = recall();
+  saved[S.mode] = S.id; saved.mode = S.mode;
+  try { localStorage.setItem("sapaiArena", JSON.stringify(saved)); } catch (e) {}
+}
+async function resume(id) {
+  if (!id) return false;
+  try {
+    const j = await api("/api/state", { id });
+    S.id = j.id; S.st = j.state; S.sel = null; S.battle = null;
+    $("battle").hidden = true;
+    const k = j.state.seats.map((x) => x.kind);
+    if (S.mode === "play" && k[0] === "human") $("opp").value = k[1];
+    if (S.mode === "watch") { $("agA").value = k[0]; $("agB").value = k[1]; watchDesc(); }
+    $("oppDesc").textContent = agentDesc($("opp").value);
+    remember();
+    render();
+    toast(`Resumed your game on turn ${j.state.turn}.`);
+    return true;
+  } catch (e) { return false; }
+}
+async function switchMode(mode) {
+  stopAll();
+  S.mode = mode; S.id = null; S.st = null; $("battle").hidden = true;
+  render();
+  if (!(await resume(recall()[mode]))) (mode === "play" ? newGame() : newMatch());
+}
+
+// ------------------------------------------------------------- game log
+S.log = []; S.logId = null; S.logBusy = false;
+async function syncLog() {
+  if (!S.id || !S.st) return;
+  if (S.logId !== S.id) { S.logId = S.id; S.log = []; renderLog(); }
+  if (S.logBusy || S.st.logCount <= S.log.length) return;
+  S.logBusy = true;
+  const id = S.id;
+  try {
+    const j = await api("/api/log", { id, since: S.log.length });
+    if (id === S.id) { S.log.push(...j.events); renderLog(); }
+  } catch (e) { /* the next action retries */ }
+  finally { S.logBusy = false; }
+  if (S.st && S.st.logCount > S.log.length) syncLog();
+}
+function logFilter(e) {
+  const f = $("logFilter").value;
+  if (f === "all") return true;
+  if (f === "battle") return e.kind === "battle";
+  if (f === "flags") return e.warn.length > 0 || e.ok === false;
+  if (f === "left") return e.seat === 0;
+  if (f === "right") return e.seat === 1;
+  return true;
+}
+function renderLog() {
+  const el = $("logList");
+  const show = S.log.filter(logFilter);
+  const warns = S.log.filter((e) => e.warn.length).length;
+  const diffs = S.log.filter((e) => e.ok === false).length;
+  $("logSummary").textContent = `${S.log.length} entries · ${warns ? warns + " rule problems" : "no rule problems"}` +
+    (diffs ? ` · ${diffs} gold changes that differ from the basic rules (check the ability lines)` : "");
+  $("logSummary").className = "note " + (warns ? "bad" : "");
+  if (!show.length) { el.innerHTML = `<p class="help">Nothing here yet. Every shop action, turn start, end of turn and battle is recorded as it happens.</p>`; return; }
+  let html = "", turn = null;
+  for (const e of show) {
+    if (e.turn !== turn) { turn = e.turn; html += `<h3 class="log-turn">Turn ${turn}</h3>`; }
+    const cls = e.warn.length ? "bad" : e.ok === false ? "odd" : "";
+    html += `<div class="log-e ${e.kind} ${cls}"><div class="log-h"><span class="who">${esc(e.who || "Battle")}</span> ${esc(e.title)}</div>` +
+      `<ul>${e.lines.map((l) => `<li class="${/^(rule|check|ability)/.test(l) ? "meta" : ""}">${esc(l)}</li>`).join("")}` +
+      e.warn.map((w) => `<li class="warn">⚠ rule problem: ${esc(w)}</li>`).join("") + `</ul></div>`;
+  }
+  const stick = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+  el.innerHTML = html;
+  if (stick) el.scrollTop = el.scrollHeight;
+}
+function logText() {
+  const st = S.st;
+  const head = st ? `sapai arena game log\n${st.seats[0].label} vs ${st.seats[1].label}\n` : "";
+  let out = head, turn = null;
+  for (const e of S.log) {
+    if (e.turn !== turn) { turn = e.turn; out += `\n=== Turn ${turn} ===\n`; }
+    out += `\n[${e.who || "Battle"}] ${e.title}\n` + e.lines.map((l) => `    ${l}\n`).join("") +
+      e.warn.map((w) => `    !! rule problem: ${w}\n`).join("");
+  }
+  return out;
+}
+
 async function newGame() {
   stopAll();
   try {
     const j = await api("/api/new", { seat0: "human", seat1: $("opp").value });
     S.id = j.id; S.st = j.state; S.sel = null; S.battle = null;
+    remember();
     $("battle").hidden = true;
     render();
   } catch (e) { toast(e.message); }
@@ -694,6 +812,7 @@ async function newMatch() {
   try {
     const j = await api("/api/new", { seat0: $("agA").value, seat1: $("agB").value });
     S.id = j.id; S.st = j.state; S.battle = null;
+    remember();
     $("battle").hidden = true;
     render();
   } catch (e) { toast(e.message); }
@@ -781,6 +900,18 @@ $("autoBtn").onclick = () => {
   if (S.auto && S.st && !S.st.over && (!S.battle || !S.playing)) step();
 };
 $("seriesBtn").onclick = runSeries;
+$("logFilter").onchange = renderLog;
+$("logCopy").onclick = async () => {
+  try { await navigator.clipboard.writeText(logText()); toast("Log copied."); }
+  catch (e) { toast("Could not copy. Use Download instead."); }
+};
+$("logSave").onclick = () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([logText()], { type: "text/plain" }));
+  a.download = `sapai-game-log-turn-${S.st ? S.st.turn : 0}.txt`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
 $("bPlay").onclick = () => {
   if (!S.playing && S.frame >= S.battle.frames.length - 1) { S.frame = 0; showFrame(false); }
   S.playing = !S.playing; tick();
@@ -800,8 +931,8 @@ document.addEventListener("keydown", (e) => {
 $("sheetClose").onclick = () => ($("sheet").hidden = true);
 $("how").addEventListener("toggle", () => { try { localStorage.setItem("howOpen", $("how").open ? "1" : "0"); } catch (e) {} });
 $("bClose").onclick = () => { clearTimeout(S.timer); $("battle").hidden = true; };
-$("modePlay").onclick = () => { stopAll(); S.mode = "play"; S.id = null; S.st = null; $("battle").hidden = true; newGame(); };
-$("modeWatch").onclick = () => { stopAll(); S.mode = "watch"; S.id = null; S.st = null; $("battle").hidden = true; newMatch(); };
+$("modePlay").onclick = () => switchMode("play");
+$("modeWatch").onclick = () => switchMode("watch");
 $("opp").onchange = () => { $("oppDesc").textContent = agentDesc($("opp").value); };
 const watchDesc = () => { $("watchDesc").textContent = `Left: ${agentDesc($("agA").value)}  Right: ${agentDesc($("agB").value)}`; };
 $("agA").onchange = watchDesc; $("agB").onchange = watchDesc;
@@ -843,7 +974,9 @@ document.addEventListener("keydown", (e) => {
   $("perkList").innerHTML = (S.meta.perks || []).map((p) => `<span><b>${p.emoji} ${esc(p.name)}</b>: ${esc(p.desc)}</span>`).join("");
   const n = S.meta.agents.filter((a) => a.group === "model").length;
   $("sub").textContent = `${n} trained models · Turtle Pack`;
-  newGame();
+  const saved = recall();
+  S.mode = saved.mode === "watch" ? "watch" : "play";
+  if (!(await resume(saved[S.mode]))) (S.mode === "play" ? newGame() : newMatch());
 })();
 </script>
 </body>

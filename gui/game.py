@@ -55,7 +55,8 @@ from sapai.cli import Opponent as GreedyShopper, log_line  # noqa: E402
 from sapai.data import data  # noqa: E402
 from sapai.player import Player  # noqa: E402
 from sapai.rl import env as E  # noqa: E402
-from sapai.rl.opponents import RandomBot  # noqa: E402
+from sapai.rl.opponents import RandomBot  # noqa: E402, F401
+from gui import audit  # noqa: E402
 
 MAX_WINS = 10
 START_LIVES = 10
@@ -265,6 +266,7 @@ class Seat:
         self.last_result = None  # this seat's view: 0 won, 1 lost, 2 draw
         self.actions = 0
         self.log = []
+        self.recorder = None  # set by Match: recorder(seat, title, before, after, ...)
 
     def obs(self):
         return E.encode(self.player, self.actions, self.last_result, 25, self.wins)
@@ -275,9 +277,15 @@ class Seat:
     def act(self, a):
         """Apply env action a (not end_turn). Returns the log text."""
         text = describe_action(self.player, a)
-        E.apply_action(self.player, a)
-        self.actions += 1
-        self.log.append(text)
+        name, args = E.ACTIONS[a]
+        before = audit.snapshot(self.player)
+        try:
+            E.apply_action(self.player, a)
+        finally:
+            self.actions += 1
+            self.log.append(text)
+            if self.recorder:
+                self.recorder(self, text, before, audit.snapshot(self.player), name, args)
         return text
 
 
@@ -291,12 +299,41 @@ def register_agent(agent_id, label, desc, group, shop):
 
 
 def _greedy(seat, rng):
+    """The greedy bot from sapai.cli, one logged action at a time. Mirrors
+    Opponent.shop_turn exactly."""
+    p = seat.player
     bot = GreedyShopper(rng)
-    bot.player = seat.player
-    before = len(seat.player.action_history)
-    bot.shop_turn()
-    for entry in seat.player.action_history[before:]:
-        seat.log.append(_history_text(entry))
+    bot.player = p
+    for _ in range(40):
+        if p.gold <= 0:
+            break
+        before = audit.snapshot(p)
+        n = len(p.action_history)
+        if bot.take_action():
+            entry = p.action_history[n] if len(p.action_history) > n else ("acted", [])
+            text, name = _history_text(entry), str(entry[0])
+            args = _greedy_args(entry, before)
+        elif p.gold >= 1 and rng.random() < 0.5:
+            p.roll()
+            text, name, args = "rolled", "roll", ()
+        else:
+            break
+        seat.log.append(text)
+        if seat.recorder:
+            seat.recorder(seat, text, before, audit.snapshot(p), name, args)
+    p.team.move_forward()
+
+
+def _greedy_args(entry, before):
+    """Shop and team indices of a greedy action, for the log's rule checks."""
+    name, args = entry[0], entry[1]
+    names = [str(x.get("name")) for x in args if isinstance(x, dict)]
+    shop_i = next((x["i"] for x in before["shop"]
+                   if names and x["name"] == audit._short(names[0])), 0)
+    if name == "buy_combine" and len(names) > 1:
+        team_i = next((k for k, x in enumerate(before["team"]) if x["pet"] == names[1]), 0)
+        return (shop_i, team_i)
+    return (shop_i,)
 
 
 def _history_text(entry):
@@ -448,9 +485,53 @@ class Match:
         if seed is not None:
             np.random.seed(seed)
         self.seats = [Seat(seat0), Seat(seat1)]
+        self.events = []
+        for s in self.seats:
+            s.recorder = self._record_action
         self.over = False
         self.result = None
         self.history = []
+        for i, st in enumerate(self.seats):
+            snap = audit.snapshot(st.player)
+            self._event("start", i, "turn 1 starts", [
+                f"gold {snap['gold']}, lives {snap['lives']}",
+                "shop now: " + ", ".join(audit._item_str(x) for x in snap["shop"])])
+
+    # ------------------------------------------------------------- game log
+    def _event(self, kind, seat, title, lines=(), warn=(), ok=None):
+        self.events.append({"n": len(self.events), "turn": int(self.seats[0].player.turn),
+                            "kind": kind, "seat": seat,
+                            "who": self.label(seat) if seat is not None else "",
+                            "title": title, "lines": list(lines), "warn": list(warn),
+                            "ok": ok})
+
+    def _record_action(self, seat, text, before, after, name, args):
+        i = self.seats.index(seat)
+        lines = audit.diff(before, after, roll=(name == "roll"))
+        if not lines:
+            lines = ["nothing changed"]
+        exp, notes = audit.expectations(name, list(args), before)
+        check, ok = audit.gold_check(exp, before, after)
+        lines += notes + audit.ability_notes(name, before, after, args) + [check]
+        self._event("action", i, text, lines, audit.violations(after), ok)
+
+    def _record_phase(self, kind, title, before, phase):
+        for i, s in enumerate(self.seats):
+            after = audit.snapshot(s.player)
+            lines = audit.diff(before[i], after, roll=(kind == "start"))
+            if kind == "start":
+                lines = [l for l in lines if not l.startswith("gold ")]
+                lines.insert(0, f"gold reset to {after['gold']}")
+                if any(l.startswith("team:") for l in lines):
+                    lines.append("rule: bonuses that last 'until end of battle' wear off here; "
+                                 "start of turn abilities, if any, are listed below")
+            notes = audit.ability_notes(phase, before[i], after)
+            if kind == "end" and lines == []:
+                continue
+            self._event(kind, i, title, lines + notes, audit.violations(after))
+
+    def events_since(self, n):
+        return self.events[max(0, int(n)):]
 
     def label(self, i):
         k = self.seats[i].kind
@@ -476,7 +557,8 @@ class Match:
         return {"seats": [self._seat_state(0), self._seat_state(1)], "over": self.over,
                 "result": self.result, "history": self.history, "maxWins": MAX_WINS,
                 "turn": int(self.seats[0].player.turn),
-                "nextDamage": lives_lost(self.seats[0].player.turn)}
+                "nextDamage": lives_lost(self.seats[0].player.turn),
+                "logCount": len(self.events)}
 
     def state_json(self):
         return json.dumps(self.state())
@@ -521,9 +603,11 @@ class Match:
                     s.log.append(f"agent error: {e}")
         logs = [list(s.log) for s in self.seats]
         turn = int(self.seats[0].player.turn)
+        before = [audit.snapshot(s.player) for s in self.seats]
         for s in self.seats:
             s.player.end_turn()
             s.player.team.move_forward()
+        self._record_phase("end", "end of turn effects", before, "end_turn")
         try:
             frames, w = replay_battle(self.seats[0].player.team, self.seats[1].player.team,
                                       (self.label(0), self.label(1)))
@@ -538,18 +622,70 @@ class Match:
             elif r == 1:
                 s.player.lives -= lost
         self.history.append(["win", "loss", "draw"][w])
+        teams = [", ".join(f"{p['name']} {p['attack']}/{p['health']}" for p in t) or "no pets"
+                 for t in frames[0]["teams"]]
+        blines = [f"{self.label(0)} (front first): {teams[0]}",
+                  f"{self.label(1)} (front first): {teams[1]}"]
+        for f in frames[1:]:
+            for line in f["lines"]:
+                blines.append(f"{f['label']}: {line}")
+        surv = [", ".join(f"{p['name']} {p['attack']}/{p['health']}" for p in t) or "none"
+                for t in frames[-1]["teams"]]
+        blines.append(f"survivors: {self.label(0)}: {surv[0]} · {self.label(1)}: {surv[1]}")
+        res = {0: f"{self.label(0)} won", 1: f"{self.label(1)} won", 2: "draw"}[w]
+        if w != 2:
+            loser = 1 - w
+            blines.append(f"rule: losing on turn {turn} costs {lost} {'life' if lost == 1 else 'lives'}: "
+                          f"{self.label(loser)} {self.seats[loser].player.lives + lost} → "
+                          f"{self.seats[loser].player.lives}")
+        else:
+            blines.append("rule: a draw costs no lives")
+        warn = []
+        if (w == 0 and surv[1] != "none") or (w == 1 and surv[0] != "none"):
+            warn.append("the winner's opponent still has pets left")
+        self._event("battle", None, f"turn {turn} battle: {res}", blines, warn)
         a, b = self.seats
         if a.wins >= MAX_WINS or b.player.lives <= 0:
             self.over, self.result = True, "seat0"
         elif b.wins >= MAX_WINS or a.player.lives <= 0:
             self.over, self.result = True, "seat1"
         else:
+            before = [audit.snapshot(s.player) for s in self.seats]
             for s in self.seats:
                 s.player.start_turn(winner=(s.last_result != 1))
                 s.actions = 0
                 s.log = []
+            self._record_phase("start", f"turn {turn + 1} starts", before, "start_turn")
         return {"frames": frames, "outcome": ["win", "loss", "draw"][w], "lives": lost,
                 "turn": turn, "shopLogs": logs}
+
+    # ---------------------------------------------------------- save / load
+    def to_save(self):
+        """JSON-safe dict of the whole match, for saving to disk."""
+        return {"version": 1, "kinds": [x.kind for x in self.seats],
+                "seats": [{"player": x.player.state, "wins": x.wins,
+                           "last_result": x.last_result, "actions": x.actions, "log": x.log}
+                          for x in self.seats],
+                "events": self.events, "history": self.history, "over": self.over,
+                "result": self.result, "rng": list(self.rng.getstate()[1]),
+                "rng_version": self.rng.getstate()[0]}
+
+    @classmethod
+    def from_save(cls, d):
+        m = cls.__new__(cls)
+        m.rng = random.Random()
+        m.rng.setstate((d["rng_version"], tuple(d["rng"]), None))
+        m.seats = []
+        for kind, sd in zip(d["kinds"], d["seats"]):
+            seat = Seat(kind)
+            seat.player = Player.from_state(sd["player"])
+            seat.wins, seat.last_result = sd["wins"], sd["last_result"]
+            seat.actions, seat.log = sd["actions"], list(sd["log"])
+            seat.recorder = m._record_action
+            m.seats.append(seat)
+        m.events, m.history = list(d["events"]), list(d["history"])
+        m.over, m.result = d["over"], d["result"]
+        return m
 
     def step_json(self):
         if self.over:

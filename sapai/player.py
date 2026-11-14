@@ -355,9 +355,10 @@ class Player:
         if type(pet).__name__ != "Pet":
             raise Exception(f"Attempted to sell Object {pet}")
 
-        ### Activate sell trigger first
-        for slot in self.team:
-            slot._pet.sell_trigger(pet)
+        ### Activate sell triggers first. Take the pets up front because a
+        ###   trigger removes the sold pet from the team.
+        for team_pet in [slot._pet for slot in self.team if not slot.empty]:
+            team_pet.sell_trigger(pet)
 
         if self.team.check_friend(pet):
             self.team.remove(pet)

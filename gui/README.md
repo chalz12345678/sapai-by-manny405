@@ -22,6 +22,21 @@ sb3-contrib are not required to play.
 Agents: every model in `gui/models/` (the token transformer and MLP checkpoints
 with their benchmark ratings), the greedy bot and a random bot.
 
+## Saved games
+
+Every game is saved to `gui/saves/<id>.json` after each move (the 100 most
+recent are kept), and the page remembers which game it was showing. Refreshing
+the page, or restarting the server, picks up where you left off.
+
+## Game log
+
+The **Game log** panel records every shop action, turn start, end of turn and
+battle: what changed (gold, team and shop stats, levels, perks), what the basic
+rules say should happen (gold costs, sell value, lives lost), and the abilities
+that can explain anything extra. Hard rule breaks such as more than 5 pets or
+negative gold are flagged in red. Use **Copy log** or **Download log** to share a
+game when reporting a bug.
+
 ## Updating the models
 
 `gui/models/*.npz` are the actor weights exported from `models/*.zip`. After

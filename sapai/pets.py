@@ -255,13 +255,6 @@ class Pet:
         if type(trigger).__name__ != "Pet":
             raise Exception("Sell must be triggered by a Pet")
 
-        func = get_effect_function(self)
-        pet_idx = self.team.get_idx(self)
-        ### Remove the triggering pet before activating function because sell
-        ###   has been called on this pet
-        if self.team.check_friend(trigger):
-            self.team.remove(trigger)
-
         ### Check if self has been sold is important
         if self.ability["triggeredBy"]["kind"] == "Self":
             if trigger != self:
@@ -271,6 +264,16 @@ class Pet:
         if self.ability["triggeredBy"]["kind"] == "EachFriend":
             if trigger == self:
                 return activated, targets, possible
+
+        func = get_effect_function(self)
+        pet_idx = self.team.get_idx(self)
+        ### Remove the sold pet before activating the ability so it cannot
+        ###   target itself. This must come after the checks above: a Sell
+        ###   pet that does not trigger (for example a Pig in front of a sold
+        ###   Duck) used to remove the sold pet here, so the sold pet's own
+        ###   Sell ability never ran.
+        if self.team.check_friend(trigger):
+            self.team.remove(trigger)
 
         targets, possible = func(self, [0, pet_idx], [self.team], trigger)
 
