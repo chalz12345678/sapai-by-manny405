@@ -176,10 +176,19 @@ class Pet:
                 self.gain_experience(0)
                 level_up = True
         elif self.level == 3:
-            pass
+            ### Level 3 is the highest; extra experience is not kept
+            self.experience = 0
         else:
             raise Exception("Invalid level found")
         return level_up
+
+    @property
+    def copies(self):
+        """
+        How many copies of the pet this one is worth: 1 to 2 at level 1, 3 to
+        5 at level 2 and 6 at level 3 (experience counts extra copies)
+        """
+        return {1: 1, 2: 3, 3: 6}[self.level] + self.experience
 
     def sot_trigger(self, trigger=None):
         """
