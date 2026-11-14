@@ -28,9 +28,19 @@ reads `sapai/game_data.json`, which is built from it.
    Tests that check a pet's old numbers will fail. That is expected: update
    each one to the new numbers, which also confirms the engine does what the
    patch notes say.
-4. Add real-game scenarios for anything the patch changed (see
+4. Check that no pet stops another pet's ability from firing (the test
+   suite runs a smaller version; this one pairs every pet with every other
+   and takes a few minutes):
+
+   ```bash
+   python -m sapai.trigger_check
+   ```
+
+   Only Whale is expected to show up: it swallows the friend ahead before
+   that friend's start of battle ability.
+5. Add real-game scenarios for anything the patch changed (see
    `tests/scenarios/README.md`).
-5. Retrain or re-check the models in `models/`. They learned the old game.
+6. Retrain or re-check the models in `models/`. They learned the old game.
 
 `python -m sapai.build_data --check` fails if `game_data.json` was not
 rebuilt after the YAML changed. The test suite runs the same check.
