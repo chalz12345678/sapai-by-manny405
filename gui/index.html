@@ -527,7 +527,19 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
       <div class="field"><label for="labFile">Or load a screenshot</label><input id="labFile" type="file" accept="image/*"></div>
       <div class="field"><label for="labPickFor">Clicking a frame sets</label>
         <select id="labPickFor"><option value="start">Start of battle</option><option value="end">End of battle</option></select></div>
-      <button class="btn" id="labCalibrate">Set up screen layout</button>
+      <div class="field"><label for="labCalibPart">Set up layout</label>
+        <select id="labCalibPart">
+          <option value="all">Everything</option>
+          <option value="player">Your pet positions</option>
+          <option value="opponent">Opponent pet positions</option>
+          <option value="slot">Pet picture box</option>
+          <option value="attack">Attack number box</option>
+          <option value="health">Health number box</option>
+          <option value="perk">Perk box</option>
+          <option value="level">Level box</option>
+        </select></div>
+      <button class="btn" id="labCalibrate">Start</button>
+      <button class="btn" id="labCalibCancel" hidden>Cancel</button>
       <label class="help"><input type="checkbox" id="labMirror"> Opponent's stats are mirrored (health on the left)</label>
     </div>
     <div class="lab-strip" id="labStrip" aria-label="Recent frames"><span class="help">Recent frames appear here once you share the game window (one per second, last 30 seconds).</span></div>
@@ -539,6 +551,7 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
     <div class="setup">
       <button class="btn" id="labRead" disabled>Read both frames</button>
       <button class="btn" id="labTeach" disabled>Learn from my corrections</button>
+      <button class="btn" id="labUndo" disabled title="Forget what the last Learn taught, so you can fix the table and learn again">Undo last lesson</button>
       <button class="btn primary" id="labRun" disabled>Recreate battle</button>
     </div>
     <div class="lab-teams" id="labTeams"></div>
@@ -1339,6 +1352,7 @@ function labButtons() {
   const both = LAB.frames.start || LAB.frames.end;
   $("labRead").disabled = !both || !(LAB.meta && LAB.meta.layout);
   $("labTeach").disabled = !both || !(LAB.meta && LAB.meta.layout);
+  $("labUndo").disabled = !(LAB.meta && LAB.meta.can_undo);
   $("labRun").disabled = !LAB.frames.start && !labHasPets("start");
 }
 
@@ -1443,16 +1457,36 @@ const CALIB_STEPS = [
   { kind: "box", part: "perk", text: "Drag a box where a perk (held food) shows on your front pet." },
   { kind: "box", part: "level", text: "Drag a box around your front pet's level label." },
 ];
+// Which steps each choice in "Set up layout" redoes (indexes into CALIB_STEPS)
+const CALIB_PARTS = {
+  all: CALIB_STEPS.map((_, i) => i),
+  player: [0, 1, 2, 3, 4],
+  opponent: [5, 6, 7, 8, 9],
+  slot: [10], attack: [11], health: [12], perk: [13], level: [14],
+};
 function labCalibrate() {
-  if (!LAB.frames.start) { toast("Pick a start-of-battle frame with full teams first."); return; }
-  LAB.calib = { step: 0, layout: { player: [], opponent: [], mirror: $("labMirror").checked } };
+  if (!LAB.frames.start) { toast("Pick a start-of-battle frame first."); return; }
+  const part = $("labCalibPart").value, have = LAB.meta && LAB.meta.layout;
+  if (part !== "all" && !have) { toast("Set up everything once first; after that you can redo one part at a time."); return; }
+  if (["attack", "health", "perk", "level"].includes(part) && !(have && have.player && have.player[0])) { toast("Set your pet positions first."); return; }
+  // A copy of the saved layout, so only the chosen part changes (and
+  // cancelling changes nothing)
+  const layout = part === "all" ? { player: [], opponent: [] } : JSON.parse(JSON.stringify(have));
+  layout.mirror = $("labMirror").checked;
+  LAB.calib = { steps: CALIB_PARTS[part], pos: 0, layout };
   labCalibStep();
 }
 function labCalibStep() {
-  const st = CALIB_STEPS[LAB.calib.step];
+  const c = LAB.calib, st = CALIB_STEPS[c.steps[c.pos]];
   $("labSteps").hidden = false;
-  $("labSteps").textContent = `Layout step ${LAB.calib.step + 1} of ${CALIB_STEPS.length}: ${st.text} (on the start frame)`;
+  $("labCalibCancel").hidden = false;
+  const count = c.steps.length > 1 ? `Step ${c.pos + 1} of ${c.steps.length}: ` : "";
+  $("labSteps").textContent = `${count}${st.text} (on the start frame)`;
   labDraw("start");
+}
+function labCalibCancel() {
+  LAB.calib = null; $("labSteps").hidden = true; $("labCalibCancel").hidden = true;
+  labDrawAll(); toast("Layout set-up cancelled; nothing was changed.");
 }
 function labCanvasPoint(e) {
   const c = $("labStart"), r = c.getBoundingClientRect();
@@ -1463,7 +1497,7 @@ function labPointerDown(e) { if (LAB.calib) { labDown = labCanvasPoint(e); e.pre
 async function labPointerUp(e) {
   if (!LAB.calib || !labDown) return;
   const up = labCanvasPoint(e), down = labDown; labDown = null;
-  const st = CALIB_STEPS[LAB.calib.step], L = LAB.calib.layout;
+  const st = CALIB_STEPS[LAB.calib.steps[LAB.calib.pos]], L = LAB.calib.layout;
   if (st.kind === "point") L[st.side][st.i] = up;
   else {
     const w = Math.abs(up[0] - down[0]), h = Math.abs(up[1] - down[1]);
@@ -1472,13 +1506,13 @@ async function labPointerUp(e) {
     if (st.part === "slot") { L.slot = [w, h]; L.player[0] = [cx, cy]; }
     else L[st.part] = [cx - L.player[0][0], cy - L.player[0][1], w, h];
   }
-  LAB.calib.step++;
-  if (LAB.calib.step < CALIB_STEPS.length) { labCalibStep(); return; }
+  LAB.calib.pos++;
+  if (LAB.calib.pos < LAB.calib.steps.length) { labCalibStep(); return; }
   try {
     LAB.meta = await api("/api/lab/layout", { layout: L });
     toast("Screen layout saved.");
   } catch (err) { toast(err.message); }
-  LAB.calib = null; $("labSteps").hidden = true;
+  LAB.calib = null; $("labSteps").hidden = true; $("labCalibCancel").hidden = true;
   labLearned(); labDrawAll(); labButtons();
 }
 
@@ -1556,6 +1590,8 @@ function labHasPets(which) {
 async function labTeach() {
   let total = 0;
   try {
+    // Keep what was learned before this lesson, so it can be undone
+    await api("/api/lab/checkpoint", {});
     for (const which of ["start", "end"]) {
       if (!LAB.frames[which]) continue;
       const r = await api("/api/lab/teach", { frame: labFramePayload(LAB.frames[which]), labels: labLabels(which) });
@@ -1563,8 +1599,17 @@ async function labTeach() {
       LAB.meta.learned = r.learned;
     }
   } catch (e) { toast(e.message); return; }
-  labLearned();
-  toast(total ? `Learned ${total} new picture(s).` : "Nothing new to learn from these frames.");
+  LAB.meta.can_undo = true;
+  labLearned(); labButtons();
+  toast(total ? `Learned ${total} new picture(s). Typed something wrong? Press Undo last lesson.` : "Nothing new to learn from these frames.");
+}
+async function labUndo() {
+  try {
+    const r = await api("/api/lab/undo", {});
+    LAB.meta.learned = r.learned; LAB.meta.can_undo = false;
+  } catch (e) { toast(e.message); return; }
+  labLearned(); labButtons();
+  toast("Forgot the last lesson. Fix the table and press Learn from my corrections again.");
 }
 
 // Recreating, checking and saving -----------------------------------------
@@ -1617,6 +1662,8 @@ $("labShare").onclick = labShare;
 $("labGrab").onclick = () => { const f = labSnap(); if (f) labSetFrame($("labPickFor").value, f); };
 $("labFile").onchange = (e) => { const f = e.target.files[0]; if (f) labLoadFile(f); e.target.value = ""; };
 $("labCalibrate").onclick = labCalibrate;
+$("labCalibCancel").onclick = labCalibCancel;
+$("labUndo").onclick = labUndo;
 $("labRead").onclick = labRead;
 $("labTeach").onclick = labTeach;
 $("labRun").onclick = labRun;

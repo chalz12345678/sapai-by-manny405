@@ -206,6 +206,7 @@ def lab_meta():
         "ok": True,
         "layout": lab.load_layout(),
         "learned": lab.Memory.load().counts(),
+        "can_undo": lab.can_undo(),
         "pets": pets,
         "perks": perks,
     }
@@ -227,6 +228,11 @@ def lab_route(path, req):
         return lab_meta()
     if path == "/api/lab/read":
         return {"ok": True, "seen": lab.read_frame(lab_frame(req))}
+    if path == "/api/lab/checkpoint":
+        lab.checkpoint()
+        return {"ok": True}
+    if path == "/api/lab/undo":
+        return {"ok": True, "learned": lab.undo(), "can_undo": False}
     if path == "/api/lab/teach":
         added = lab.teach(lab_frame(req), req.get("labels") or {})
         return {"ok": True, "added": added, "learned": lab.Memory.load().counts()}

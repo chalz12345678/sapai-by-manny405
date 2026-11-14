@@ -274,5 +274,39 @@ class TestRecreatingTheBattle(LabCase):
         self.assertNotEqual(check(wrong[0]), [])
 
 
+class TestUndoLesson(LabCase):
+    def test_undo_forgets_only_the_last_lesson(self):
+        first = TestLearningToRead.FIRST
+        lab.checkpoint()
+        lab.teach(make_frame(first), labels(first))
+        self.assertIn("Ant", lab.Memory.load().items["pet"])
+        pigs_before = len(lab.Memory.load().items["pet"]["Pig"])
+
+        ### A lesson with a mistake: the Ant typed as a Pig
+        wrong = {"player": [pet("Pig", 2, 1)] + [None] * 4, "opponent": [None] * 5}
+        lab.checkpoint()
+        lab.teach(make_frame({"player": [pet("Ant", 2, 1)], "opponent": []}), wrong)
+        self.assertTrue(lab.can_undo())
+        lab.undo()
+        self.assertFalse(lab.can_undo())
+        ### The first lesson is kept, the mistaken one is gone
+        seen = lab.read_frame(
+            make_frame({"player": [pet("Ant", 2, 1)], "opponent": []})
+        )
+        self.assertEqual(seen["player"][0]["name"], "Ant")
+        self.assertEqual(len(lab.Memory.load().items["pet"]["Pig"]), pigs_before)
+
+    def test_undo_of_the_first_lesson_forgets_everything(self):
+        first = TestLearningToRead.FIRST
+        lab.checkpoint()
+        lab.teach(make_frame(first), labels(first))
+        lab.undo()
+        self.assertEqual(lab.Memory.load().counts(), {})
+
+    def test_nothing_to_undo(self):
+        with self.assertRaises(ValueError):
+            lab.undo()
+
+
 if __name__ == "__main__":
     unittest.main()

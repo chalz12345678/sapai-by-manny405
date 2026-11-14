@@ -28,6 +28,7 @@ Everything is kept in gui/lab_data/ (not in git): layout.json and memory.npz.
 import base64
 import json
 import os
+import shutil
 import struct
 import zlib
 
@@ -234,6 +235,36 @@ def layout_path():
 
 def memory_path():
     return os.path.join(DATA_DIR, "memory.npz")
+
+
+def undo_path():
+    return os.path.join(DATA_DIR, "memory_before_last_lesson.npz")
+
+
+def checkpoint():
+    """
+    Keep a copy of what has been learned so far, so the next lesson can be
+    undone. Call before a lesson (one click of "Learn from my corrections",
+    which may teach from both frames).
+    """
+    os.makedirs(DATA_DIR, exist_ok=True)
+    if os.path.exists(memory_path()):
+        shutil.copyfile(memory_path(), undo_path())
+    else:
+        ### Nothing learned yet: undoing goes back to nothing
+        Memory().save(undo_path())
+
+
+def can_undo():
+    return os.path.exists(undo_path())
+
+
+def undo():
+    """Forget the last lesson: go back to what was learned before it"""
+    if not can_undo():
+        raise ValueError("There is no lesson to undo")
+    os.replace(undo_path(), memory_path())
+    return Memory.load().counts()
 
 
 def load_layout():
