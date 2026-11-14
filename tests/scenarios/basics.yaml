@@ -1,0 +1,29 @@
+# Core battle rules. Teams are listed front first; stats are what the game
+# shows. Expected results were worked out by hand from the rules, not by
+# running the engine. Set verified: true once a case is confirmed in the
+# real game, and say how in source.
+
+- name: Equal pets trade hits until both faint
+  source: rules (pets in front hit each other at the same time)
+  verified: false
+  team: [Fish 2/3]
+  enemy: [Fish 2/3]
+  result: draw
+  survivors: {team: [], enemy: []}
+
+- name: The pet left standing wins and keeps its damage
+  source: rules
+  verified: false
+  team: [Beaver 3/3]
+  enemy: [Ant 2/1]
+  result: win
+  survivors: {team: [Beaver 3/1], enemy: []}
+
+- name: The next pet steps up after the front pet faints
+  source: rules
+  verified: false
+  team: [Pig 4/5]
+  enemy: [Fish 2/3, Beaver 3/2]
+  # Round 1: Pig 4/3, Fish faints. Round 2: Pig 4/0 and Beaver faint.
+  result: draw
+  survivors: {team: [], enemy: []}

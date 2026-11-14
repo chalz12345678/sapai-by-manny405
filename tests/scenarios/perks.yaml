@@ -1,0 +1,48 @@
+# Perks (food effects held by a pet). Front first; stats as the game shows.
+
+- name: Garlic takes 2 less damage but never less than 1
+  source: Garlic text "Take 2 less damage (minimum 1)"
+  verified: false
+  team: [Fish 2/3 Garlic]
+  enemy: [Mosquito 2/2]
+  # Mosquito's 1 damage at start of battle becomes 1 (minimum), Fish 2/2.
+  # Then Mosquito's 2 damage becomes 1: Fish 2/1. Fish's 2 damage faints it.
+  result: win
+  survivors: {team: [Fish 2/1 Garlic], enemy: []}
+
+- name: Melon blocks 20 damage once
+  source: Melon text "Take 20 less damage, once"
+  verified: false
+  team: [Fish 2/3 Melon]
+  enemy: [Pig 4/5]
+  # Round 1: the hit is blocked and Melon is used up; Pig 4/3.
+  # Round 2: Fish faints; Pig 4/1.
+  result: loss
+  survivors: {team: [], enemy: [Pig 4/1]}
+
+- name: Meat Bone adds 3 damage to attacks
+  source: Meat Bone text "Attacks deal +3 damage"
+  verified: false
+  team: [Fish 2/3 Meat Bone]
+  enemy: [Pig 4/5]
+  # Fish hits for 5 and Pig hits for 4: both faint in round 1.
+  result: draw
+  survivors: {team: [], enemy: []}
+
+- name: Mushroom brings the pet back as a 1/1
+  source: 'Mushroom text "Faint: come back as a 1/1"'
+  verified: false
+  team: [Fish 2/3 Mushroom]
+  enemy: [Pig 4/5]
+  # Round 1: Fish faints and returns 1/1; Pig 4/3. Round 2: Fish faints; Pig 4/2.
+  result: loss
+  survivors: {team: [], enemy: [Pig 4/2]}
+
+- name: Honey summons a 1/1 Bee
+  source: 'Honey text "Faint: Summon one 1/1 Bee"'
+  verified: false
+  team: [Fish 2/3 Honey]
+  enemy: [Pig 4/5]
+  # Round 1: Fish faints, Bee 1/1 appears; Pig 4/3. Round 2: Bee faints; Pig 4/2.
+  result: loss
+  survivors: {team: [], enemy: [Pig 4/2]}

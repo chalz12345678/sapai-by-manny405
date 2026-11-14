@@ -1,0 +1,42 @@
+# Pet abilities, from their text. Front first; stats as the game shows.
+
+- name: Hedgehog's faint damage hits both teams, then Ant buffs the survivor
+  source: Hedgehog and Ant text
+  verified: false
+  team: [Hedgehog 3/2]
+  enemy: [Ant 2/1, Fish 2/3]
+  # Round 1: Hedgehog and Ant faint. Hedgehog deals 2 to Fish (2/1) and Ant
+  # gives Fish +1/+1 (3/2); the order does not change the result.
+  result: loss
+  survivors: {team: [], enemy: [Fish 3/2]}
+
+- name: Dolphin hits the lowest health enemy at start of battle
+  source: Dolphin text "Deal 4 damage to the lowest health enemy"
+  verified: false
+  team: [Dolphin 4/3]
+  enemy: [Fish 2/3, Ant 2/1]
+  # Dolphin knocks out Ant, whose faint gives Fish +1/+1 (3/4).
+  # Round 1: Dolphin takes 3 and Fish takes 4: both faint.
+  result: draw
+  survivors: {team: [], enemy: []}
+
+- name: Flamingo buffs the two friends behind it when it faints
+  source: 'Flamingo text "Faint: Give the two friends behind +1 attack and +1 health"'
+  verified: false
+  team: [Flamingo 4/2, Fish 2/3, Ant 2/3]
+  enemy: [Pig 3/9]
+  # Round 1: Flamingo faints (Fish 3/4, Ant 3/4); Pig 3/5.
+  # Round 2: Fish 3/1, Pig 3/2. Round 3: Fish and Pig faint.
+  result: win
+  survivors: {team: [Ant 3/4], enemy: []}
+
+- name: Mosquito picks its target at random
+  source: 'Mosquito text "Start of battle: Deal 1 damage to one random enemy"'
+  verified: false
+  team: [Mosquito 2/3]
+  enemy: [Ant 2/1, Fish 2/1]
+  # Half the time it knocks out Ant, which gives Fish +1/+1 (3/2): Mosquito
+  # and Fish trade and both faint. Otherwise it knocks out Fish and Mosquito
+  # beats Ant with 1 health left.
+  odds: {win: 0.5, draw: 0.5}
+  runs: 400
