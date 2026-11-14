@@ -47,6 +47,7 @@ Nothing is ✅ yet: confirming rules in the game is the next step (see
 | 2.7 | Frozen slots stay through rolls and into the next turn | ✅ game | `test_shop*.py` |
 | 2.8 | A team holds at most 5 pets. The shop holds at most 9 slots in all: extra food (Worm, Pigeon, Cow) or level-up pets go into free slots; when it is full, the rightmost pet that is not frozen is removed, then (if every pet is frozen) the rightmost unfrozen food; if everything is frozen, the new item is lost | ✅ game | `tests/test_shop_rules.py::TestFullShop` |
 | 2.9 | Selling gives gold equal to the pet's level, plus 1 per Cake end of turn | ✅ game | `test_sell_triggers.py` |
+| 2.11 | Buying a Cow replaces all food in the shop, frozen or not, with two free Milks (Better or Best Milk at level 2 or 3); the Milks always show, replacing pets if the shop is full | ✅ game | `tests/test_shop_rules.py::TestCowMilk` |
 | 2.10 | Attack and health are capped at 50, but perk bonus damage goes on top (a 50 attack pet with Steak hits for 70, through Melon) | ✅ game | `tests/test_shop_rules.py::TestPerkDamageAboveTheCap` |
 
 ## 3. Levels and merging

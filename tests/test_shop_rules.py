@@ -144,3 +144,50 @@ class TestPerkDamageAboveTheCap(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCowMilk(unittest.TestCase):
+    def milk(self, shop):
+        return [s for s in shop if s.slot_type == "food"]
+
+    def test_two_free_milks_replace_all_food_even_frozen(self):
+        player = Player(
+            shop=Shop(["cow", "ant", "apple", "honey"]), team=Team([Pet("pig")])
+        )
+        player.freeze(2)
+        player.freeze(3)
+        player.buy_pet(0)
+        milk = self.milk(player.shop)
+        self.assertEqual([s.obj.name for s in milk], ["food-milk", "food-milk"])
+        self.assertEqual([s.cost for s in milk], [0, 0])
+
+    def test_milk_level_follows_the_cow(self):
+        for level, name in ((2, "food-better-milk"), (3, "food-best-milk")):
+            cow = Pet("cow")
+            cow.level = level
+            shop = Shop([cow, "apple"])
+            player = Player(shop=shop, team=Team([Pet("pig")]))
+            player.buy_pet(0)
+            self.assertEqual([s.obj.name for s in self.milk(player.shop)], [name, name])
+
+    def test_milks_show_on_a_full_shop_of_frozen_pets(self):
+        shop = Shop(
+            [
+                "cow",
+                "ant",
+                "fish",
+                "pig",
+                "duck",
+                "beaver",
+                "horse",
+                "otter",
+                "mosquito",
+            ]
+        )
+        player = Player(shop=shop, team=Team([Pet("pig")]))
+        for i in range(1, 9):
+            player.freeze(i)
+        player.buy_pet(0)
+        self.assertEqual(len(self.milk(player.shop)), 2)
+        self.assertEqual(len(player.shop), 9)
+        self.assertNotIn("none", [s.slot_type for s in player.shop])

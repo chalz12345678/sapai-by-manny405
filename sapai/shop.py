@@ -442,14 +442,19 @@ class Shop(SAPList):
         """
         raise Exception("Cannot set item in shop directly")
 
-    def append(self, obj):
+    def append(self, obj, force=False):
         """
         Add a slot to the shop (level-up rewards, food stocked by Worm, Pigeon
         or Cow). The shop holds at most max_shop_slots slots in all. When it
         is full, the rightmost pet that is not frozen is removed to make room;
         if every pet is frozen, the rightmost food that is not frozen; if
-        everything is frozen, the new slot is lost.
+        everything is frozen, the new slot is lost, unless force is set
+        (Cow's milk always shows): then the rightmost pet goes even if frozen.
         """
+        ### Empty placeholder slots don't take up room
+        filled = [s for s in self.slots if not s.empty]
+        self._nslots = len(filled)
+        self._slots = filled
         if isinstance(obj, ShopSlot):
             add_slot = obj
         else:
@@ -472,6 +477,12 @@ class Shop(SAPList):
                 return None
 
             victim = removable(("pet", "levelup"))
+            if victim is None and force:
+                ### Cow's milks replace pets, never each other: the rightmost
+                ###   pet goes even if it is frozen
+                kinds = ("pet", "levelup")
+                pets = [i for i, s in enumerate(self.slots) if s.slot_type in kinds]
+                victim = pets[-1] if pets else None
             if victim is None:
                 victim = removable(("food",))
             if victim is None:

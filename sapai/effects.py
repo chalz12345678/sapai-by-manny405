@@ -807,15 +807,15 @@ def RefillShops(apet, apet_idx, teams, te=None, te_idx=None, fixed_targets=None)
     food_name = effect["food"]
     n = effect.get("n", 1)
 
-    ### Remove all current food from the shop, then stock the new food
+    ### Remove all current food from the shop, frozen or not (confirmed in the
+    ###   game), then stock the new food, which always shows
     shop.slots = [x for x in shop.slots if x.slot_type != "food"]
     targets = []
     for _ in range(n):
-        ### A full shop makes room itself (see Shop.append)
         slot = sapai.shop.ShopSlot(
             Food(food_name, shop=shop), pack=shop.pack, turn=shop.turn
         )
-        shop.append(slot)
+        shop.append(slot, force=True)
         if slot in shop.slots:
             targets.append(slot)
     return targets, [targets]
