@@ -73,7 +73,8 @@ def due_for(pet_obj, attr, args, kwargs):
     if attr == "friend_summoned_trigger":
         return trigger is not pet_obj and alive
     if attr == "hurt_trigger":
-        return alive
+        ### Hurt abilities fire even when the hit knocks the pet out
+        return True
     if attr == "after_attack_trigger":
         team = pet_obj.team
         if not alive or not team.check_friend(pet_obj):

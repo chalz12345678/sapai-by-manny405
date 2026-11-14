@@ -71,6 +71,7 @@ Nothing is ✅ yet: confirming rules in the game is the next step (see
 | 4.4 | A pet at 0 health or less faints; its faint ability happens and the team moves up | 🤔 assumed | `tests/scenarios/basics.yaml` |
 | 4.5 | Abilities in the same phase go in order of attack, highest first | ✅ confirmed | `basics.yaml` (verified) |
 | 4.5a | Equal attack goes by health (higher first), then at random | 🤔 assumed (Q7) | `test_battles.py` |
+| 4.11 | A Hurt ability still fires when the hit knocks the pet out (Blowfish, Camel), before the pet faints | ✅ confirmed | `basics.yaml` (verified) |
 | 4.10 | A pet knocked out during start of battle (for example Dolphin) still uses its own start of battle ability | ✅ confirmed | `basics.yaml` (verified) |
 | 4.6 | The battle ends when a team has no pets; both empty is a draw | 🤔 assumed | `tests/scenarios/basics.yaml` |
 | 4.7 | A summon that finds the team full does nothing | 🤔 assumed | `test_battle_fixes.py` |
@@ -149,9 +150,9 @@ behaviour is in brackets.
 - **Q10. Same-moment faints.** When pets faint together, do Shark, Fly, Ant
   and Flamingo count or target the others that fainted at that moment?
   (handled in order of attack)
-- **Q11. Hurt that knocks out.** Does a hit that makes a pet faint still set
-  off its Hurt ability (Camel, Blowfish, Peacock)? Does Wolverine count it?
-  (no)
+- **Q11. Hurt that knocks out.** Answered: a Hurt ability (Camel, Blowfish,
+  Peacock, Gorilla) still fires when the hit knocks the pet out. Still open:
+  does Wolverine count a friend hurt by a hit that knocks it out? (no)
 - **Q12. Start of battle knock-outs.** Answered: yes, it still uses its own.
 - **Q13. Per-turn limits.** Are uses "per turn" (Fly, Ox, Dragon, Cat)
   shared between the shop and that turn's battle? (yes)

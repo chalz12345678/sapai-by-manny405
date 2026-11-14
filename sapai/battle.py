@@ -523,6 +523,19 @@ def battle_phase_hurt_and_faint(battle_obj, phase, teams, pet_priority, phase_di
         faint_targets_list = []
         for team_idx, pet_idx, fainted_pet in fainted_list:
             fteam, oteam = get_teams([team_idx, pet_idx], teams)
+            ### A pet hurt by the hit that knocked it out still uses its Hurt
+            ###   ability (Blowfish, Camel, Peacock), before it faints
+            while fainted_pet._hurt > 0:
+                activated, targets, possible = fainted_pet.hurt_trigger(oteam, pet_idx)
+                append_phase_list(
+                    phase_list,
+                    fainted_pet,
+                    team_idx,
+                    pet_idx,
+                    activated,
+                    targets,
+                    possible,
+                )
             ### Record every faint before the abilities it triggers
             phase_list.append(
                 ("Fainted", (team_idx, pet_idx), (fainted_pet.__repr__()), [""])

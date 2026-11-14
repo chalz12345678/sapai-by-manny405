@@ -778,11 +778,11 @@ class Pet:
         activated = True
         return activated, targets, possible
 
-    def hurt_trigger(self, trigger):
+    def hurt_trigger(self, trigger, pet_idx=None):
         """
-        Apply pet's ability after being hurt attacking. Input trigger is the
-        opponent's Team. Only activate hurt trigger if the pet has health above
-        0.
+        Apply pet's ability after being hurt. Input trigger is the opponent's
+        Team. The ability fires even when the hit knocks the pet out (confirmed
+        in the game); pet_idx is where the pet was, for a pet already removed.
 
         There is no way to test if hurt_trigger should be activated within this
         function. Therefore, only call hurt trigger where appropriate during
@@ -811,10 +811,6 @@ class Pet:
         else:
             raise Exception("Only Self trigger available for hurt_trigger")
 
-        ### Cannot call if health is less than zero because fainted
-        if self._health <= 0:
-            return activated, targets, possible
-
         if "maxTriggers" in self.ability:
             if self.ability_counter >= self.ability["maxTriggers"]:
                 return activated, targets, possible
@@ -822,7 +818,10 @@ class Pet:
                 self.ability_counter += 1
 
         func = get_effect_function(self)
-        pet_idx = self.team.get_idx(self)
+        if self.team.check_friend(self):
+            pet_idx = self.team.get_idx(self)
+        elif pet_idx is None:
+            return activated, targets, possible
         targets, possible = tiger_func(
             func, False, self, [0, pet_idx], [self.team, trigger], trigger
         )
