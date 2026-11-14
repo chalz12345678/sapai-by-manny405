@@ -49,7 +49,43 @@ Unit tests are located in the ``tests`` directory. Tests can be run with the fol
 
     python -m unittest discover -s tests
 
-    
+
+------------------------------
+Playing in Your Browser
+------------------------------
+
+``gui/`` is a browser game on top of the engine. You can play against the
+trained models in ``models/`` or the greedy bot, or watch two agents play each
+other. It needs only Python 3 and ``numpy``: the models run through a numpy
+version of their networks, so ``torch`` is not required.
+
+.. code-block:: bash
+
+    git clone https://github.com/ArchDome/sapai-by-manny405-but-better.git
+    cd sapai-by-manny405-but-better
+    python -m pip install numpy
+    python -m gui.server
+
+Then open http://127.0.0.1:8405. On Windows, run these one at a time in
+PowerShell or Command Prompt, and use ``py`` instead of ``python`` if
+``python`` isn't found.
+
+What's in it:
+
+- **Play**: a shop board where you tap to buy, feed, stack, swap, sell, freeze
+  and roll, with animated battle replays and a log of every attack and ability.
+- **Watch models**: pick two agents and step through their games or auto play.
+  **Run series** plays 10 to 100 games and reports the win rates.
+- **Talk to the model**: ask a trained model why it made a move. Answers come
+  from its real move probabilities and value estimates.
+- **Game log**: every action with what it changed and what the rules say should
+  happen, for checking the engine.
+- Sound effects and music (made in the browser, no audio files), a How to play
+  guide, and saved games that survive a refresh or server restart.
+
+See ``gui/README.md`` for adding your own agent, re-exporting models after
+training, and turning on free-form chat with an Anthropic API key.
+
 -------------------------------
 Playing a Game in the Terminal
 -------------------------------
@@ -75,7 +111,7 @@ the trained models in ``models/`` (this needs ``torch``, ``gymnasium`` and
 
     python -m sapai.cli --opponent token   # strongest: the most trained token model
     python -m sapai.cli --opponent mlp     # the most trained MLP model
-    python -m sapai.cli --opponent models/token_4.3M.zip
+    python -m sapai.cli --opponent models/token_16.8M.zip
 
 ---------------------------
 Introduction: Code Examples
