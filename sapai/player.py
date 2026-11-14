@@ -115,9 +115,13 @@ class Player:
         self.gold = self.default_gold
         self.lf_winner = winner
 
-        ### Roll shop
-        self.shop.turn += 1
-        self.shop.roll()
+        ### Advance shop to the next turn, applying that turn's shop rules
+        self.shop.next_turn()
+
+        ### Pets summoned during the last turn may not be connected yet
+        for slot in self.team:
+            slot._pet.shop = self.shop
+            slot._pet.player = self
 
         ### Activate start-of-turn triggers after rolling shop
         for slot in self.team:
@@ -217,6 +221,10 @@ class Player:
         ### Make all updates
         self.gold -= cost
         self.shop.buy(food)
+        if food.name == "food-canned-food":
+            ### Future shop pets get the bonus too: added once per purchase
+            self.shop.shop_attack += food.attack
+            self.shop.shop_health += food.health
         for pet in targets:
             levelup = pet.eat(food)
             ### Check for levelup triggers if appropriate
@@ -224,7 +232,11 @@ class Player:
                 pet.levelup_trigger(pet)
                 self.shop.levelup()
 
-            ### After feeding, check for eats_shop_food triggers
+            ### After feeding, check for eats_shop_food triggers. Only for team
+            ###   pets: canned food "feeds" shop pets, which are not friends,
+            ###   so a Rabbit must not buff them or spend its uses on them.
+            if not self.team.check_friend(pet):
+                continue
             for slot in self.team:
                 slot._pet.eats_shop_food_trigger(pet)
 
@@ -244,24 +256,27 @@ class Player:
                 if p.name == "pet-none":
                     continue
                 if p.health <= 0:
-                    fainted_list.append(pet_idx)
+                    fainted_list.append([pet_idx, p])
                     if p.status != "none":
                         status_list.append([p, pet_idx])
 
             ### check every fainted pet
             faint_targets_list = []
-            for pet_idx in fainted_list:
-                fainted_pet = self.team[pet_idx].pet
-                ### check for all pets that trigger off this fainted pet (including self)
-                for _, te_pet_idx in pp:
-                    other_pet = self.team[te_pet_idx].pet
+            for pet_idx, fainted_pet in fainted_list:
+                ### Pets that may trigger off this fainted pet (including
+                ###   itself). Taken before any trigger runs, because a trigger
+                ###   can remove the fainted pet before its own ability runs.
+                responders = [self.team[i].pet for _, i in pp]
+                for other_pet in responders:
+                    if other_pet.name == "pet-none":
+                        continue
                     te_idx = [0, pet_idx]
                     activated, targets, possible = other_pet.faint_trigger(
                         fainted_pet, te_idx
                     )
                     if activated:
                         faint_targets_list.append(
-                            [fainted_pet, pet_idx, activated, targets, possible]
+                            [other_pet, pet_idx, activated, targets, possible]
                         )
 
                 ### If no trigger was activated, then the pet was never removed.
@@ -269,16 +284,16 @@ class Player:
                 if self.team.check_friend(fainted_pet):
                     self.team.remove(fainted_pet)
 
-            ### If pet was summoned, then need to check for summon triggers
+            ### If a pet's faint ability summoned pets, check for summon triggers
             for (
-                fainted_pet,
+                activating_pet,
                 pet_idx,
                 activated,
                 targets,
                 possible,
             ) in faint_targets_list:
                 self.check_summon_triggers(
-                    fainted_pet, pet_idx, activated, targets, possible
+                    activating_pet, pet_idx, activated, targets, possible
                 )
 
             ### if pet was hurt, then need to check for hurt triggers
@@ -288,6 +303,10 @@ class Player:
                 while p._hurt > 0:
                     hurt_list.append(pet_idx)
                     activated, targets, possible = p.hurt_trigger(Team())
+                    for friend_slot in self.team:
+                        if friend_slot.empty:
+                            continue
+                        friend_slot.pet.friend_hurt_trigger(p, Team())
 
             pp = Battle.update_pet_priority(self.team, Team())
 
@@ -301,13 +320,23 @@ class Player:
 
         return (food, targets)
 
-    def check_summon_triggers(self, fainted_pet, pet_idx, activated, targets, possible):
+    def check_summon_triggers(
+        self, activating_pet, pet_idx, activated, targets, possible
+    ):
+        """Friend summoned triggers for the pets summoned by activating_pet"""
         if not activated:
             return
-        func = get_effect_function(fainted_pet)
+        func = get_effect_function(activating_pet)
         if func not in [RespawnPet, SummonPet, SummonRandomPet]:
             return
-        for temp_te in targets:
+        if activating_pet.ability["effect"].get("team") == "Enemy":
+            return
+        summoned = []
+        for entry in targets:
+            summoned += entry if isinstance(entry, list) else [entry]
+        for temp_te in summoned:
+            if type(temp_te).__name__ != "Pet":
+                continue
             for temp_slot in self.team:
                 temp_pet = temp_slot.pet
                 temp_pet.friend_summoned_trigger(temp_te)
@@ -334,15 +363,16 @@ class Player:
         if type(pet).__name__ != "Pet":
             raise Exception(f"Attempted to sell Object {pet}")
 
-        ### Activate sell trigger first
-        for slot in self.team:
-            slot._pet.sell_trigger(pet)
+        ### Activate sell triggers first. Take the pets up front because a
+        ###   trigger removes the sold pet from the team.
+        for team_pet in [slot._pet for slot in self.team if not slot.empty]:
+            team_pet.sell_trigger(pet)
 
         if self.team.check_friend(pet):
             self.team.remove(pet)
 
-        ### Add default gold
-        self.gold += 1
+        ### Sell value is the pet's level plus extra sell value (Cake)
+        self.gold += pet.sell_value
 
         return (pet,)
 
@@ -427,10 +457,8 @@ class Player:
 
         # Check for levelup triggers if appropriate
         if levelup:
-            # Activate the ability of the previous level
-            pet_to_keep.level -= 1
+            # levelup_trigger activates the ability of the previous level
             pet_to_keep.levelup_trigger(pet_to_keep)
-            pet_to_keep.level += 1
 
         return levelup
 
@@ -500,13 +528,16 @@ class Player:
         if pet1.name != pet2.name:
             raise Exception(f"Attempted combine for pets {pet1.name} and {pet2.name}")
 
+        ### Remove pet2 from the team first. combine_pet_stats fires pet1's
+        ###   Level-up ability, and that ability must not be able to target
+        ###   pet2: with pet2 still on the team, a Fish could spend one of its
+        ###   two "+1/+1 to random friends" on the copy being merged away.
+        idx = self.team.index(pet2)
+        self.team[idx] = TeamSlot()
+
         levelup = Player.combine_pet_stats(pet1, pet2)
         if levelup:
             self.shop.levelup()
-
-        ### Remove pet2 from team
-        idx = self.team.index(pet2)
-        self.team[idx] = TeamSlot()
 
         return pet1, pet2
 
@@ -520,7 +551,12 @@ class Player:
         if len(unique) != len(self.team):
             raise Exception(f"Cannot input duplicate indices to reorder: {idx}")
 
-        self.team = Team([self.team[x] for x in idx], seed_state=self.team.seed_state)
+        self.team = Team(
+            [self.team[x] for x in idx],
+            shop=self.shop,
+            player=self,
+            seed_state=self.team.seed_state,
+        )
 
         return idx
 
@@ -530,6 +566,15 @@ class Player:
         ### Activate eot trigger
         for slot in self.team:
             slot._pet.eot_trigger()
+
+        ### Activate end of turn perks
+        for slot in self.team:
+            pet = slot._pet
+            if pet.status == "status-cake":
+                pet.sell_value_bonus += 1
+            elif pet.status == "status-bread":
+                ### Lasts until the start of next turn
+                pet._until_end_of_battle_health_buff += 7
         return None
 
     @property
@@ -594,8 +639,8 @@ def get_combined_status(pet1, pet2):
         0: ["status-weak", "status-poison-attack", "none"],
         1: ["status-honey-bee"],
         2: ["status-bone-attack"],
-        3: ["status-garlic-armor"],
-        4: ["status-splash-attack"],
+        3: ["status-garlic-armor", "status-cake"],
+        4: ["status-splash-attack", "status-bread"],
         5: [
             "status-coconut-shield",
             "status-melon-armor",

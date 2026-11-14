@@ -1,0 +1,1803 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>sapai Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: a single tabletop column. Scoreboard, then the battle lane, then your
+   bench and the shop below it. Watch mode puts both benches side by side. */
+:root {
+  --bg: #eef1ec;
+  --surface: #fbfcfa;
+  --sunk: #e2e7e0;
+  --line: #cdd5cb;
+  --fg: #1b2420;
+  --muted: #5d6b63;
+  --accent: #1f6f5c;
+  --accent-fg: #ffffff;
+  --accent-soft: #d3e8e0;
+  --atk: #b86a0b;
+  --atk-soft: #f6e3c6;
+  --hp: #c0392f;
+  --hp-soft: #f6d7d3;
+  --gold: #a57a00;
+  --freeze: #2f6fb0;
+  --freeze-soft: #d9e7f6;
+  --win: #237a45;
+  --loss: #b3372c;
+  --draw: #7a7f86;
+  --shadow: 0 1px 0 rgba(20, 40, 30, .06), 0 2px 8px rgba(20, 40, 30, .06);
+  --f-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --art-hi: rgba(255,255,255,.55);
+  --sky-top: #9fd3f0; --sky-bottom: #e4f3f7; --sun: #ffd35c; --cloud: rgba(255,255,255,.9);
+  --hill-far: #a9d39a; --hill-near: #7fbf6e; --ground: #c9a46a;
+  --t1: #dcefd0; --t2: #d3ebf2; --t3: #e3dcf5; --t4: #f6e3c6; --t5: #f6d3dc; --t6: #f3e8a6;
+  --t1e: #6fae59; --t2e: #4b9bb5; --t3e: #8a73c9; --t4e: #c98a2c; --t5e: #c95574; --t6e: #b99a18;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121816; --surface: #1a2220; --sunk: #0e1312; --line: #2c3834;
+    --fg: #e6ece8; --muted: #93a39b; --accent: #4fb596; --accent-fg: #07140f;
+    --accent-soft: #1d3a31; --atk: #f0a640; --atk-soft: #3a2a12; --hp: #f06a5d;
+    --hp-soft: #3d1c19; --gold: #e5b93a; --freeze: #6fa8e6; --freeze-soft: #182a3e;
+    --win: #4cc27a; --loss: #f06a5d; --draw: #9aa1a8;
+    --shadow: 0 1px 0 rgba(0,0,0,.3), 0 2px 10px rgba(0,0,0,.25);
+    --art-hi: rgba(255,255,255,.07); --sky-top: #0d1630; --sky-bottom: #2a3354; --sun: #f3efd6; --cloud: rgba(170,180,210,.25);
+    --hill-far: #1f3a33; --hill-near: #1a2f29; --ground: #2b2418;
+    --t1: #1e3324; --t2: #18303a; --t3: #2a2340; --t4: #3a2c16; --t5: #3a1e28; --t6: #36310f;
+    --t1e: #6fbf5a; --t2e: #4fb1cf; --t3e: #a28be0; --t4e: #e0a347; --t5e: #e0708f; --t6e: #d9bd3a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121816; --surface: #1a2220; --sunk: #0e1312; --line: #2c3834;
+  --fg: #e6ece8; --muted: #93a39b; --accent: #4fb596; --accent-fg: #07140f;
+  --accent-soft: #1d3a31; --atk: #f0a640; --atk-soft: #3a2a12; --hp: #f06a5d;
+  --hp-soft: #3d1c19; --gold: #e5b93a; --freeze: #6fa8e6; --freeze-soft: #182a3e;
+  --win: #4cc27a; --loss: #f06a5d; --draw: #9aa1a8;
+  --shadow: 0 1px 0 rgba(0,0,0,.3), 0 2px 10px rgba(0,0,0,.25);
+  --art-hi: rgba(255,255,255,.07); --sky-top: #0d1630; --sky-bottom: #2a3354; --sun: #f3efd6; --cloud: rgba(170,180,210,.25);
+  --hill-far: #1f3a33; --hill-near: #1a2f29; --ground: #2b2418;
+  --t1: #1e3324; --t2: #18303a; --t3: #2a2340; --t4: #3a2c16; --t5: #3a1e28; --t6: #36310f;
+  --t1e: #6fbf5a; --t2e: #4fb1cf; --t3e: #a28be0; --t4e: #e0a347; --t5e: #e0708f; --t6e: #d9bd3a;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body);
+  padding-block: 20px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1080px; margin: 0 auto; display: grid; gap: 16px; }
+button, select { font: inherit; color: inherit; }
+button:focus-visible, select:focus-visible, .card:focus-visible, .slot:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+/* ---------- header ---------- */
+header { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; }
+.brand { display: flex; align-items: baseline; gap: 10px; }
+.brand h1 { font: 800 28px/1 var(--f-display); letter-spacing: -.02em; margin: 0; }
+.brand h1 span { color: var(--accent); }
+.brand small { color: var(--muted); font-size: 13px; }
+.sound { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+.sound .icon { padding: 6px 10px; font-size: 15px; line-height: 1; }
+.sound input { width: 80px; accent-color: var(--accent); }
+.sound .icon.off { opacity: .45; text-decoration: line-through; }
+.seg { display: inline-flex; background: var(--sunk); border-radius: 10px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: transparent; padding: 7px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--fg); box-shadow: var(--shadow); }
+
+/* ---------- setup ---------- */
+.setup { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: end; }
+.field { display: grid; gap: 4px; min-width: 0; }
+.field label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+select { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; max-width: 100%; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 8px 14px; cursor: pointer; font-weight: 600; white-space: nowrap; }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.btn.big { padding: 11px 22px; font-size: 15px; }
+.btn.primary.unspent { background: var(--sunk); color: var(--muted); border-color: var(--line); }
+.btn.primary.unspent:hover { border-color: var(--muted); }
+.agent-desc { color: var(--muted); font-size: 13px; flex-basis: 100%; margin: 0; }
+
+/* ---------- scoreboard ---------- */
+.score { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: stretch; }
+.side { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 6px; min-width: 0; }
+.side.right { text-align: right; }
+.side .who { font: 700 17px/1.2 var(--f-display); overflow-wrap: anywhere; }
+.side .kind { font-size: 12px; color: var(--muted); }
+.meters { display: flex; flex-wrap: wrap; gap: 6px 14px; font-family: var(--f-mono); font-size: 13px; font-variant-numeric: tabular-nums; }
+.side.right .meters { justify-content: flex-end; }
+.meter b { font-weight: 700; }
+.m-lives b { color: var(--hp); }
+.m-wins b { color: var(--win); }
+.m-gold b { color: var(--gold); }
+.mid { display: grid; place-items: center; text-align: center; gap: 4px; padding: 0 6px; }
+.mid .turn { font: 800 30px/1 var(--f-display); font-variant-numeric: tabular-nums; }
+.mid .lbl { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.pips { display: flex; gap: 3px; flex-wrap: wrap; justify-content: center; max-width: 180px; }
+.pip { width: 10px; height: 10px; border-radius: 3px; background: var(--sunk); }
+.pip.win { background: var(--win); } .pip.loss { background: var(--loss); } .pip.draw { background: var(--draw); }
+
+/* ---------- boards ---------- */
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: grid; gap: 12px; min-width: 0; }
+.panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.panel-head h2 { font: 700 15px/1 var(--f-display); margin: 0; letter-spacing: .01em; }
+.panel-head .note { color: var(--muted); font-size: 12px; }
+.row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.row.shop { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.front-note { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+
+.slot { border: 1.5px dashed var(--line); border-radius: 12px; min-height: 132px; display: grid; place-items: center; color: var(--muted); font-size: 12px; background: transparent; cursor: default; padding: 0; }
+.slot.target { border-color: var(--accent); background: var(--accent-soft); cursor: pointer; color: var(--accent); font-weight: 600; }
+
+.card { position: relative; border: 1.5px solid var(--line); background: var(--surface); border-radius: 12px; padding: 10px 6px 8px; display: grid; justify-items: center; gap: 4px; min-height: 132px; cursor: pointer; text-align: center; box-shadow: var(--shadow); transition: transform .12s, border-color .12s; min-width: 0; }
+.card:hover { transform: translateY(-2px); }
+.card.sel { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.card.target { border-color: var(--accent); border-style: dashed; }
+.card.frozen { background: var(--freeze-soft); border-color: var(--freeze); }
+.card.off { filter: grayscale(.45) saturate(.8); opacity: .72; }
+.card { border-top: 3px solid var(--te, var(--line)); }
+.tier-1 { --te: var(--t1e); --tb: var(--t1); } .tier-2 { --te: var(--t2e); --tb: var(--t2); }
+.tier-3 { --te: var(--t3e); --tb: var(--t3); } .tier-4 { --te: var(--t4e); --tb: var(--t4); }
+.tier-5 { --te: var(--t5e); --tb: var(--t5); } .tier-6 { --te: var(--t6e); --tb: var(--t6); }
+.tier-s { --te: var(--muted); --tb: var(--sunk); }
+.card.food-card { --te: var(--gold); }
+.art { position: relative; width: 64px; height: 58px; display: grid; place-items: center; border-radius: 50% 50% 44% 44%;
+  background: radial-gradient(circle at 50% 28%, var(--art-hi), transparent 62%), var(--tb, var(--sunk)); }
+.art::after { content: ""; position: absolute; bottom: 7px; left: 50%; width: 34px; height: 7px; margin-left: -17px; border-radius: 50%; background: rgba(0,0,0,.16); filter: blur(1px); }
+.art.plate { background: radial-gradient(circle at 50% 62%, var(--surface) 0 44%, var(--line) 45% 52%, transparent 53%), radial-gradient(circle at 50% 30%, var(--art-hi), transparent 60%), var(--sunk); }
+.art.plate::after { display: none; }
+.bob { position: relative; z-index: 1; display: inline-block; animation: bob 2.8s ease-in-out infinite; animation-delay: var(--d, 0s); }
+.card .emo { display: inline-block; font-size: 36px; line-height: 1.1; filter: drop-shadow(0 2px 1px rgba(0,0,0,.18)); }
+.card.lv2 .art { box-shadow: 0 0 0 2px var(--gold); }
+.card.lv3 .art { box-shadow: 0 0 0 3px var(--gold), 0 0 14px var(--gold); }
+.card.frozen::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 2;
+  background: repeating-linear-gradient(135deg, rgba(255,255,255,.32) 0 2px, transparent 2px 10px), linear-gradient(180deg, rgba(120,180,255,.22), transparent 70%); }
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.09) translateY(-3px); } 100% { transform: scale(1); } }
+/* Roll: cards turn in from a 50 degree tilt (never edge-on), ease out with no overshoot */
+@keyframes deal { 0% { transform: perspective(600px) rotateY(50deg) translateY(6px) scale(.94); } 100% { transform: none; } }
+@keyframes shake { 0%, 100% { transform: none; } 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
+@keyframes hop { 0%, 100% { transform: none; } 45% { transform: translateY(-9px); } }
+@keyframes glow { 0% { box-shadow: 0 0 0 0 var(--gold); } 100% { box-shadow: 0 0 0 14px transparent; } }
+.pop { animation: pop .34s ease; }
+.card.dead { filter: grayscale(1); opacity: .5; }
+.card.dead::after { content: "💀"; position: absolute; top: 14px; left: 50%; transform: translateX(-50%); font-size: 26px; z-index: 3; }
+.field.inline { display: inline-flex; align-items: center; gap: 6px; }
+.field.inline label { white-space: nowrap; }
+.step-hint { flex-basis: 100%; }
+.deal { animation: deal .3s cubic-bezier(.22,1,.36,1) both; animation-delay: calc(var(--i, 0) * 40ms); }
+.shake { animation: shake .36s ease; }
+.hop { animation: hop .4s ease; }
+.glow { animation: glow .8s ease-out; }
+.card .nm { font-weight: 600; font-size: 12.5px; text-transform: capitalize; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stats { display: flex; gap: 4px; font: 700 13px/1 var(--f-mono); font-variant-numeric: tabular-nums; }
+.stat { padding: 4px 7px; min-width: 30px; position: relative; }
+.stat.a { background: var(--atk); color: #fff; clip-path: polygon(14% 0, 86% 0, 100% 50%, 86% 100%, 14% 100%, 0 50%); }
+.stat.h { background: var(--hp); color: #fff; border-radius: 999px; }
+.stat.h::before { content: "\2665"; font-size: 9px; margin-right: 2px; opacity: .85; }
+.lvl { display: flex; align-items: center; gap: 3px; font: 600 10px/1 var(--f-mono); color: var(--muted); }
+.lvl i { width: 6px; height: 6px; border-radius: 50%; background: var(--sunk); border: 1px solid var(--line); }
+.lvl i.on { background: var(--accent); border-color: var(--accent); }
+.tier { position: absolute; top: 6px; left: 7px; font: 700 10px/1 var(--f-mono); color: var(--muted); }
+.cost { position: absolute; top: 5px; right: 6px; font: 700 11px/1 var(--f-mono); color: var(--gold); }
+.badge { position: absolute; top: 24px; right: 4px; font-size: 16px; }
+.ice { position: absolute; bottom: 6px; right: 7px; font: 700 10px/1 var(--f-mono); color: var(--freeze); }
+.food-desc { font-size: 11px; color: var(--muted); line-height: 1.3; }
+
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.bar .grow { flex: 1 1 200px; min-width: 0; color: var(--muted); font-size: 13px; }
+.inspect { background: var(--sunk); border-radius: 10px; padding: 10px 12px; font-size: 13px; min-height: 40px; }
+/* The details box gets its own column so the board never moves when it changes */
+.board { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 16px; align-items: start; }
+.board-main { display: grid; gap: 12px; min-width: 0; grid-column: 1; grid-row: 1; }
+.board .inspect { grid-column: 2; grid-row: 1; position: sticky; top: calc(12px + env(safe-area-inset-top, 0px));
+  max-height: calc(100vh - 24px); overflow: auto; min-height: 220px; }
+.bar .grow { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#freezeBtn { min-width: 92px; } #sellBtn { min-width: 118px; }
+@media (max-width: 900px) {
+  .board { grid-template-columns: minmax(0, 1fr); }
+  .board .inspect { grid-column: 1; grid-row: 1; position: static; height: 150px; min-height: 0; max-height: none; }
+  .board-main { grid-row: 2; }
+  .bar .grow { flex-basis: 100%; order: 10; min-height: 1.45em; }
+}
+.inspect b { text-transform: capitalize; }
+
+/* ---------- battle ---------- */
+.arena { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 10px; align-items: center; }
+.lane { display: flex; gap: 6px; min-height: 120px; align-items: center; min-width: 0; }
+.lane.left { justify-content: flex-end; }
+.lane.right { justify-content: flex-start; }
+.lane .card { width: clamp(52px, 9vw, 96px); min-height: 108px; cursor: default; padding: 8px 4px 6px; flex: 0 1 auto; }
+.lane .card .emo { font-size: clamp(24px, 4vw, 34px); }
+.lane .art { width: clamp(44px, 7vw, 60px); height: clamp(40px, 6.5vw, 54px); }
+.stage3d { position: relative; height: clamp(260px, 40vw, 430px); border-radius: 12px; overflow: hidden; background: var(--sunk); }
+.stage3d canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block; }
+.stage3d-labels { position: absolute; inset: 10px 10px auto; display: flex; justify-content: space-between; z-index: 2; pointer-events: none; font-size: 12px; }
+.stage3d-labels span { background: var(--surface); color: var(--muted); padding: 2px 8px; border-radius: 999px; opacity: .92; }
+.stage3d-loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
+.seg.small button { padding: 4px 12px; font-size: 12.5px; }
+.panel-head .seg.small { margin-left: auto; }
+.stage { position: relative; border-radius: 12px; overflow: hidden; padding: 10px 10px 18px; display: grid; gap: 6px; }
+.stage .scene { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
+.stage > :not(.scene) { position: relative; z-index: 1; }
+.stage .arena-labels span { background: var(--surface); padding: 2px 8px; border-radius: 999px; justify-self: start; opacity: .92; }
+.stage .arena-labels span:last-child { justify-self: end; }
+.stage .vs { background: var(--surface); border-radius: 999px; padding: 6px 8px; box-shadow: var(--shadow); }
+.stage .empty-lane { background: var(--surface); padding: 4px 10px; border-radius: 999px; }
+.lane .card:hover { transform: none; }
+.lane .left-face .emo { transform: scaleX(-1); }
+.vs { font: 800 18px/1 var(--f-display); color: var(--muted); }
+.lane-label { font: 700 13px var(--f-display); color: var(--muted); }
+.arena-labels { display: grid; grid-template-columns: 1fr 1fr; font-size: 12px; color: var(--muted); }
+.arena-labels span:last-child { text-align: right; }
+.empty-lane { color: var(--muted); font-size: 12px; font-style: italic; }
+.hit { animation: hit .45s ease; }
+.lunge-r { animation: lungeR .35s ease; }
+.lunge-l { animation: lungeL .35s ease; }
+@keyframes hit { 0%,100% { transform: none; } 30% { transform: translateX(-3px); background: var(--hp-soft); } 60% { transform: translateX(3px); } }
+@keyframes lungeR { 50% { transform: translateX(10px); } }
+@keyframes lungeL { 50% { transform: translateX(-10px); } }
+@media (prefers-reduced-motion: reduce) { .hit, .lunge-r, .lunge-l, .bob, .pop, .deal, .shake, .hop, .glow { animation: none; } .card { transition: none; } }
+.frame-label { font: 700 14px var(--f-display); }
+.log { background: var(--sunk); border-radius: 10px; padding: 10px 12px; font-size: 12.5px; max-height: 160px; overflow: auto; display: grid; gap: 3px; }
+.log p { margin: 0; }
+.log .dim { color: var(--muted); }
+.result { font: 800 22px/1.1 var(--f-display); }
+.result.win { color: var(--win); } .result.loss { color: var(--loss); } .result.draw { color: var(--draw); }
+
+/* ---------- watch ---------- */
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.shoplog { margin: 0; padding-left: 18px; font-size: 12.5px; color: var(--fg); display: grid; gap: 2px; }
+.shoplog li::marker { color: var(--muted); }
+.series { font-size: 13px; }
+.series b { font-family: var(--f-mono); }
+.bars { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--sunk); margin-top: 6px; }
+.bars span:first-child { background: var(--accent); }
+.bars span:last-child { background: var(--atk); }
+
+/* ---------- explanations ---------- */
+.info { display: grid; gap: 8px; }
+.info-top { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.info-top .emo { font-size: 30px; line-height: 1; }
+.info-top h3 { margin: 0; font: 700 17px/1.2 var(--f-display); text-transform: capitalize; }
+.info-top .sub { color: var(--muted); font-size: 12.5px; }
+.info p { margin: 0; }
+.info .what { font-size: 14px; }
+.levels { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; font-size: 12.5px; }
+.levels li { display: grid; grid-template-columns: 26px 1fr; gap: 6px; color: var(--muted); }
+.levels li b { font-family: var(--f-mono); font-size: 11px; }
+.levels li.now { color: var(--fg); }
+.levels li.now b { color: var(--accent); }
+.gloss { display: grid; gap: 4px; font-size: 12.5px; border-top: 1px solid var(--line); padding-top: 8px; }
+.gloss dt { font-weight: 600; }
+.gloss dd { margin: 0 0 4px; color: var(--muted); }
+.perkbox { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px; background: var(--surface); }
+.how { cursor: pointer; }
+.how summary { font: 700 15px var(--f-display); list-style: none; display: flex; justify-content: space-between; gap: 8px; }
+.how summary::-webkit-details-marker { display: none; }
+.how summary::after { content: "Show"; font: 600 12px var(--f-body); color: var(--accent); }
+.how[open] summary::after { content: "Hide"; }
+.how-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px 20px; margin-top: 12px; cursor: auto; }
+.how-grid h3 { margin: 0 0 4px; font: 700 13px var(--f-display); }
+.how-grid p, .how-grid ul { margin: 0; font-size: 13px; color: var(--muted); }
+.how-grid ul { padding-left: 18px; display: grid; gap: 2px; }
+.how-grid b { color: var(--fg); font-weight: 600; }
+.perk-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 4px 16px; font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+.perk-list b { color: var(--fg); }
+.perk-head { margin: 14px 0 0; font: 700 13px var(--f-display); }
+.sheet { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); width: min(560px, calc(100% - 24px)); max-height: 70vh; overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; box-shadow: 0 8px 30px rgba(0,0,0,.25); z-index: 15; }
+.sheet .close { position: absolute; top: 8px; right: 8px; }
+.lane .card, .duo .card { cursor: pointer; }
+
+.log-tools { display: grid; gap: 10px; margin-top: 10px; cursor: auto; }
+.loglist { max-height: 460px; overflow: auto; display: grid; gap: 6px; font-size: 12.5px; padding-right: 4px; }
+.log-turn { margin: 8px 0 0; font: 700 13px var(--f-display); position: sticky; top: 0; background: var(--surface); padding: 4px 0; }
+.log-e { border: 1px solid var(--line); border-left: 3px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+.log-e.battle { border-left-color: var(--accent); }
+.log-e.start, .log-e.end { border-left-color: var(--gold); }
+.log-e.odd { border-left-color: var(--atk); }
+.log-e.bad { border-left-color: var(--loss); background: var(--hp-soft); }
+.log-h { font-weight: 600; }
+.log-h .who { color: var(--muted); font-weight: 500; }
+.log-e ul { margin: 4px 0 0; padding-left: 16px; display: grid; gap: 1px; }
+.log-e li.meta { color: var(--muted); }
+.log-e li.warn { color: var(--loss); font-weight: 600; }
+.note.bad { color: var(--loss); font-weight: 600; }
+
+.pair-menu { position: absolute; z-index: 25; display: flex; gap: 6px; padding: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.22); }
+.grow-field { flex: 1 1 220px; }
+.grow-field input, #replaySearch { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--surface); color: var(--fg); font: inherit; }
+.replay-table-wrap { overflow-x: auto; }
+.replay-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.replay-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.replay-table td { padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.replay-table tr.rrow { cursor: pointer; }
+.replay-table tr.rrow:hover td, .replay-table tr.rrow:focus td { background: var(--sunk); }
+#replayShops .panel { align-content: start; }
+.replay-table .t { font-weight: 600; }
+.replay-table .sub { color: var(--muted); font-size: 12px; }
+.pill { display: inline-block; border-radius: 999px; padding: 2px 9px; font-size: 12px; font-weight: 600; background: var(--sunk); color: var(--muted); }
+.pill.win { background: var(--accent-soft); color: var(--win); } .pill.loss { background: var(--hp-soft); color: var(--loss); }
+.replay-head { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: end; }
+.turn-strip { display: flex; gap: 6px; flex-wrap: wrap; }
+.turn-strip button { min-width: 40px; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 6px 8px; font: 600 12px var(--f-mono); cursor: pointer; color: var(--fg); }
+.turn-strip button.win { border-bottom: 3px solid var(--win); } .turn-strip button.loss { border-bottom: 3px solid var(--loss); } .turn-strip button.draw { border-bottom: 3px solid var(--draw); }
+.turn-strip button[aria-selected="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.thoughts { margin: 4px 0 0; padding-left: 18px; font-size: 12px; color: var(--muted); display: grid; gap: 2px; }
+.chat-fab { position: fixed; right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 18;
+  border: 0; border-radius: 999px; padding: 12px 18px; font-weight: 700; cursor: pointer; background: var(--accent); color: var(--accent-fg); box-shadow: 0 6px 20px rgba(0,0,0,.2); }
+.chat-fab:hover { transform: translateY(-1px); }
+.chat { position: fixed; right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 19;
+  width: min(400px, calc(100% - 32px)); height: min(560px, calc(100% - 100px)); display: grid; grid-template-rows: auto 1fr auto auto;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 12px 40px rgba(0,0,0,.28); overflow: hidden; }
+.chat-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.chat-head > div { flex: 1; min-width: 0; }
+.chat-head b { font: 700 15px var(--f-display); }
+.chat-mode { font-size: 11.5px; color: var(--muted); }
+.chat-log { overflow: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.bubble { max-width: 88%; padding: 8px 11px; border-radius: 14px; font-size: 13.5px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.bubble.you { align-self: flex-end; background: var(--accent); color: var(--accent-fg); border-bottom-right-radius: 4px; }
+.bubble.bot { align-self: flex-start; background: var(--sunk); border-bottom-left-radius: 4px; }
+.bubble .tag { display: block; font-size: 10.5px; color: var(--muted); margin-bottom: 2px; }
+.bubble.typing { color: var(--muted); font-style: italic; }
+.chips { display: flex; gap: 6px; overflow-x: auto; padding: 6px 12px; }
+.chips button { flex: 0 0 auto; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 10px; font-size: 12px; cursor: pointer; }
+.chips button:hover { border-color: var(--accent); }
+.chat-form { display: flex; gap: 6px; padding: 10px 12px; border-top: 1px solid var(--line); }
+.chat-form input { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; background: var(--bg); color: var(--fg); font: inherit; }
+
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 13px; max-width: calc(100% - 32px); box-shadow: var(--shadow); z-index: 20; }
+.banner { border-radius: 14px; padding: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; background: var(--accent-soft); }
+.banner h2 { margin: 0; font: 800 22px var(--f-display); }
+.help { color: var(--muted); font-size: 12.5px; margin: 0; }
+.help kbd { font: 600 11px var(--f-mono); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; background: var(--surface); }
+
+@media (max-width: 720px) {
+  .row.shop { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .duo { grid-template-columns: 1fr; }
+  .score { grid-template-columns: 1fr 1fr; }
+  .mid { grid-column: 1 / -1; grid-row: 1; grid-auto-flow: column; gap: 10px; }
+}
+@media (max-width: 460px) {
+  .row { gap: 5px; }
+  .card { min-height: 112px; padding: 8px 2px 6px; }
+  .card .emo { font-size: 28px; }
+  .stat { padding: 3px 4px; min-width: 22px; font-size: 11px; }
+  .slot { min-height: 112px; }
+  .arena { grid-template-columns: 1fr; }
+  .vs { text-align: center; }
+  .lane.left, .lane.right { justify-content: center; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><h1>sapai <span>arena</span></h1><small id="sub">loading agents…</small></div>
+    <div class="sound" role="group" aria-label="Sound">
+      <button class="btn icon" id="muteBtn" aria-pressed="false" title="Sound on or off">🔊</button>
+      <input type="range" id="vol" min="0" max="100" value="60" aria-label="Sound effects volume">
+      <button class="btn icon" id="musicBtn" aria-pressed="true" title="Music on or off">♪</button>
+      <input type="range" id="mvol" min="0" max="100" value="35" aria-label="Music volume">
+    </div>
+    <div class="seg" role="group" aria-label="Mode">
+      <button id="modePlay" aria-pressed="true">Play</button>
+      <button id="modeWatch" aria-pressed="false">Watch models</button>
+      <button id="modeReplays" aria-pressed="false">Replays</button>
+    </div>
+  </header>
+
+  <section class="panel" id="setupPlay">
+    <div class="setup">
+      <div class="field"><label for="opp">Opponent</label><select id="opp"></select></div>
+      <button class="btn primary" id="newGame">New game</button>
+      <p class="agent-desc" id="oppDesc"></p>
+    </div>
+  </section>
+
+  <section class="panel" id="setupWatch" hidden>
+    <div class="setup">
+      <div class="field"><label for="agA">Left</label><select id="agA"></select></div>
+      <div class="field"><label for="agB">Right</label><select id="agB"></select></div>
+      <button class="btn primary" id="newMatch">New match</button>
+      <button class="btn" id="stepBtn">Next round</button>
+      <button class="btn" id="autoBtn" aria-pressed="false">Auto play</button>
+      <div class="field"><label for="speed">Speed</label>
+        <select id="speed"><option value="step">Step</option><option value="1400">Slow</option><option value="800" selected>Normal</option><option value="350">Fast</option><option value="0">Results only</option></select></div>
+      <div class="field"><label for="seriesN">Series</label>
+        <select id="seriesN"><option>10</option><option selected>25</option><option>50</option><option>100</option></select></div>
+      <button class="btn" id="seriesBtn">Run series</button>
+      <p class="agent-desc" id="watchDesc"></p>
+    </div>
+    <div class="series" id="seriesOut" hidden></div>
+  </section>
+
+  <details class="panel how" id="how">
+    <summary>How to play</summary>
+    <div class="how-grid">
+      <div><h3>Goal</h3><p>Build a team of up to 5 pets. Each turn you shop, then your team fights the other side's team automatically. <b>Win 10 battles</b> to win the game. You start with <b>10 lives</b>, and losing a battle costs lives: 1 on turns 1–2, 2 on turns 3–4, 3 on turns 5–8, 4 on turns 9–10 and 5 after that. A draw costs nothing.</p></div>
+      <div><h3>Shopping</h3><ul>
+        <li>You get <b>10 gold</b> every turn. Unspent gold is lost.</li>
+        <li>Pets and food cost <b>3 gold</b>. <b>Roll</b> costs 1 gold and refreshes the shop.</li>
+        <li><b>Freeze</b> keeps a shop item for next turn. It costs nothing.</li>
+        <li><b>Sell</b> a pet for gold equal to its level (plus any Cake bonus).</li>
+      </ul></div>
+      <div><h3>Battles</h3><ul>
+        <li>The pet at the <b>front</b> (right end of your row) fights the enemy's front pet.</li>
+        <li>Both deal damage equal to their <b>attack</b> (orange) to the other's <b>health</b> (red) at the same time.</li>
+        <li>A pet at 0 health <b>faints</b> and the next pet steps up. The team with pets left wins.</li>
+        <li>Shop stat boosts are permanent unless they say "until end of battle".</li>
+      </ul></div>
+      <div><h3>Leveling up</h3><ul>
+        <li>Buy a copy of a pet you own and drop it on that pet, or drop one of your pets onto its copy.</li>
+        <li>The combined pet keeps the higher attack and higher health of the two, plus 1 of each, and gains 1 experience. 2 experience reaches <b>level 2</b>, 3 more reach <b>level 3</b> (the max).</li>
+        <li>Higher levels make abilities stronger, and each level-up adds a bonus pet from a higher tier to the shop.</li>
+      </ul></div>
+      <div><h3>Abilities and perks</h3><ul>
+        <li>Most pets have an <b>ability</b> that fires on a trigger, written first: "Faint: …" fires when the pet faints.</li>
+        <li>Some foods give a <b>perk</b> 🍯 shown on the pet's card. A pet holds one perk, and a new one replaces it.</li>
+        <li>Tap any pet or food to read exactly what it does.</li>
+      </ul></div>
+      <div><h3>Tiers</h3><p>Pets come in <b>tiers 1 to 6</b> (the T number on each card). The shop offers higher tiers as turns go on: tier 2 from turn 3, tier 3 from turn 5, tier 4 from turn 7, tier 5 from turn 9 and tier 6 from turn 11. Higher tiers are usually stronger.</p></div>
+    </div>
+    <h3 class="perk-head">Every perk and what it does</h3>
+    <div class="perk-list" id="perkList"></div>
+  </details>
+
+  <section class="score" id="score" hidden></section>
+  <section id="over" hidden></section>
+
+  <section class="panel" id="replayList" hidden>
+    <div class="panel-head"><h2>Replays</h2><span class="note" id="replayCount"></span></div>
+    <p class="help">Every game you play or watch is kept here with its full history: each turn's teams, shop moves, the models' reasoning, every battle step and the game log.</p>
+    <div class="setup">
+      <div class="field grow-field"><label for="replaySearch">Search</label><input id="replaySearch" type="search" placeholder="Title, player or note"></div>
+      <div class="field"><label for="replayFilter">Show</label>
+        <select id="replayFilter"><option value="all">All games</option><option value="play">Your games</option><option value="watch">Watched matches</option><option value="won">Games you won</option><option value="finished">Finished</option><option value="unfinished">Unfinished</option></select></div>
+    </div>
+    <div class="replay-table-wrap"><table class="replay-table"><thead><tr><th>Game</th><th>Result</th><th>Turns</th><th>Battles W / L / D</th><th>Played</th></tr></thead><tbody id="replayRows"></tbody></table></div>
+  </section>
+
+  <section class="panel" id="replayView" hidden>
+    <div class="bar">
+      <button class="btn" id="replayBack">← All replays</button>
+      <span class="grow"></span>
+      <button class="btn" id="replayDelete">Delete replay</button>
+    </div>
+    <div class="replay-head">
+      <div class="field grow-field"><label for="replayTitle">Title</label><input id="replayTitle" maxlength="120"></div>
+      <div class="field grow-field"><label for="replayNote">Note</label><input id="replayNote" maxlength="1000" placeholder="What happened in this game?"></div>
+      <button class="btn primary" id="replaySave">Save</button>
+    </div>
+    <p class="help" id="replayMeta"></p>
+    <div class="turn-strip" id="turnStrip" role="tablist" aria-label="Turns"></div>
+    <div class="bar"><button class="btn" id="turnPrev">◀ Previous turn</button><span class="grow frame-label" id="turnLabel"></span><button class="btn" id="turnNext">Next turn ▶</button></div>
+    <div class="duo" id="replayShops"></div>
+    <div class="log" id="replayLines" hidden></div>
+    <details class="panel how" id="replayLogBox"><summary>Game log for this turn</summary><div class="loglist" id="replayLog"></div></details>
+  </section>
+
+  <section class="panel" id="battle" hidden>
+    <div class="panel-head">
+      <h2 id="battleTitle">Battle</h2>
+      <div class="seg small" role="group" aria-label="Battle view">
+        <button id="view2d" aria-pressed="true">2D</button>
+        <button id="view3d" aria-pressed="false">3D</button>
+      </div>
+      <span class="frame-label" id="frameLabel"></span>
+    </div>
+    <div class="stage">
+      <canvas class="scene" id="scene" aria-hidden="true"></canvas>
+      <div class="arena-labels"><span id="lblL"></span><span id="lblR"></span></div>
+      <div class="arena">
+        <div class="lane left" id="laneL"></div>
+        <div class="vs">vs</div>
+        <div class="lane right" id="laneR"></div>
+      </div>
+    </div>
+    <div class="stage3d" id="stage3d" hidden>
+      <div class="stage3d-labels"><span id="lbl3L"></span><span id="lbl3R"></span></div>
+      <div class="stage3d-loading" id="stage3dLoading">Loading 3D…</div>
+    </div>
+    <div class="log" id="blog" aria-live="polite"></div>
+    <div class="bar">
+      <button class="btn" id="bPrev" aria-label="Previous step">◀</button>
+      <button class="btn" id="bPlay">Pause</button>
+      <button class="btn" id="bNext" aria-label="Next step">▶</button>
+      <button class="btn" id="bSkip">Skip to end</button>
+      <div class="field inline"><label for="bspeed">Battle speed</label>
+        <select id="bspeed"><option value="step">Step (one action at a time)</option><option value="1400">Slow</option><option value="800" selected>Normal</option><option value="350">Fast</option><option value="0">Instant</option></select></div>
+      <span class="help step-hint" id="stepHint" hidden>Press ▶ or → for the next action, ◀ or ← to go back.</span>
+      <span class="grow"></span>
+      <span class="result" id="bResult"></span>
+      <button class="btn primary" id="bClose">Back to shop</button>
+    </div>
+  </section>
+
+  <div id="playArea">
+    <section class="panel board" id="teamPanel" hidden>
+      <aside class="inspect" id="inspect" aria-live="polite">Tap a shop pet, then tap an empty slot to buy it.</aside>
+      <div class="board-main">
+      <div class="panel-head"><h2>Your team</h2><span class="front-note">front of the line →</span></div>
+      <div class="row" id="team"></div>
+      <div class="panel-head"><h2>Shop</h2><span class="note" id="shopNote"></span></div>
+      <div class="row shop" id="shop"></div>
+      <div class="bar">
+        <button class="btn" id="rollBtn">Roll · 1 gold</button>
+        <button class="btn" id="freezeBtn" disabled>Freeze</button>
+        <button class="btn" id="sellBtn" disabled>Sell</button>
+        <span class="grow" id="hint"></span>
+        <button class="btn primary big" id="endBtn">End turn</button>
+      </div>
+      <p class="help">Orange number = attack (damage dealt), red number = health. L = level, dots = experience toward the next level, T = tier, ★ = summoned pet. Shop pet → empty slot to buy, or onto the same pet to level it up. Food → a pet to feed it. Pet → another pet to swap them; onto a copy to choose combine or swap (Shift+click always swaps). Keys: <kbd>R</kbd> roll, <kbd>F</kbd> freeze, <kbd>B</kbd> buy, <kbd>S</kbd> sell, <kbd>Enter</kbd> end turn, <kbd>Esc</kbd> deselect.</p>
+      </div>
+    </section>
+  </div>
+
+  <section class="duo" id="watchArea" hidden></section>
+
+  <details class="panel how" id="logPanel" open>
+    <summary>Game log</summary>
+    <div class="log-tools">
+      <p class="help">Every action with what it changed, what the rules say should happen, and the abilities that can explain anything extra. Problems are flagged in red.</p>
+      <div class="bar">
+        <div class="field"><label for="logFilter">Show</label>
+          <select id="logFilter"><option value="all">Everything</option><option value="left">Left side only</option><option value="right">Right side only</option><option value="battle">Battles only</option><option value="flags">Flagged only</option></select></div>
+        <button class="btn" id="logCopy">Copy log</button>
+        <button class="btn" id="logSave">Download log</button>
+        <span class="note" id="logSummary"></span>
+      </div>
+      <div class="loglist" id="logList"></div>
+    </div>
+  </details>
+</div>
+<div class="sheet" id="sheet" role="dialog" aria-label="Details" hidden>
+  <button class="btn close" id="sheetClose" aria-label="Close details">✕</button>
+  <div id="sheetBody"></div>
+</div>
+<button class="chat-fab" id="chatFab" aria-expanded="false" aria-controls="chat">💬 Talk to the model</button>
+<section class="chat" id="chat" role="dialog" aria-label="Chat with the model" hidden>
+  <div class="chat-head">
+    <div><b id="chatWho">Model</b><div class="chat-mode" id="chatMode"></div></div>
+    <select id="chatSeat" aria-label="Which side to talk to" hidden><option value="0">Left</option><option value="1">Right</option></select>
+    <button class="btn icon" id="chatClose" aria-label="Close chat">✕</button>
+  </div>
+  <div class="chat-log" id="chatLog" aria-live="polite"></div>
+  <div class="chips" id="chatChips"></div>
+  <form class="chat-form" id="chatForm">
+    <input id="chatInput" autocomplete="off" maxlength="500" placeholder="Ask why it made a move…">
+    <button class="btn primary" type="submit">Send</button>
+  </form>
+</section>
+<div class="toast" id="toast" hidden></div>
+
+<script src="/static/fx.js"></script>
+<script src="/static/music.js"></script>
+<script src="/static/battle3d.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const S = { meta: null, mode: "play", id: null, st: null, sel: null, battle: null,
+            frame: 0, timer: null, playing: true, auto: false, busy: false };
+
+// ------------------------------------------------------------------ server
+async function api(path, body) {
+  const opt = body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+  const r = await fetch(path, opt);
+  const j = await r.json();
+  if (!r.ok || j.ok === false) throw new Error(j.error || "Request failed");
+  return j;
+}
+// ----------------------------------------------------------------- sound
+// All sounds are synthesized with Web Audio, no audio files.
+const SFX = (() => {
+  let ctx = null, master = null;
+  let muted = false, volume = 0.6;
+  try {
+    const v = JSON.parse(localStorage.getItem("sapaiSound") || "{}");
+    if (typeof v.muted === "boolean") muted = v.muted;
+    if (typeof v.volume === "number") volume = v.volume;
+  } catch (e) {}
+  const persist = () => { try { localStorage.setItem("sapaiSound", JSON.stringify({ muted, volume })); } catch (e) {} };
+  function ac() {
+    if (!ctx) {
+      const C = window.AudioContext || window.webkitAudioContext;
+      if (!C) return null;
+      ctx = new C();
+      master = ctx.createGain();
+      master.connect(ctx.destination);
+    }
+    if (ctx.state === "suspended") ctx.resume();
+    master.gain.value = muted ? 0 : volume * 0.5;
+    return ctx;
+  }
+  // one note: frequency (or [from, to] slide), start offset, length, wave, loudness
+  function tone(freq, at = 0, len = 0.12, type = "sine", gain = 0.5) {
+    const c = ac(); if (!c || muted || volume === 0) return;
+    const t = c.currentTime + at, o = c.createOscillator(), g = c.createGain();
+    o.type = type;
+    if (Array.isArray(freq)) { o.frequency.setValueAtTime(freq[0], t); o.frequency.exponentialRampToValueAtTime(freq[1], t + len); }
+    else o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + len + 0.02);
+  }
+  function noise(at = 0, len = 0.15, from = 2000, to = 400, gain = 0.4, q = 1) {
+    const c = ac(); if (!c || muted || volume === 0) return;
+    const t = c.currentTime + at, n = Math.max(1, Math.floor(c.sampleRate * len));
+    const buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+    const src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    src.buffer = buf; f.type = "bandpass"; f.Q.value = q;
+    f.frequency.setValueAtTime(from, t); f.frequency.exponentialRampToValueAtTime(to, t + len);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    src.connect(f); f.connect(g); g.connect(master);
+    src.start(t); src.stop(t + len + 0.02);
+  }
+  const sounds = {
+    select:  (i = 0) => { const f = [660, 740, 830, 880, 990, 1110, 1245][i % 7]; tone(f, 0, 0.07, "triangle", 0.22); tone(f * 1.5, 0.035, 0.09, "sine", 0.12); },
+    deselect:() => { tone(520, 0, 0.06, "triangle", 0.14); },
+    tick:    (i = 0) => { tone(900 + i * 90, 0, 0.04, "square", 0.06); noise(0, 0.03, 4000, 2500, 0.12, 2); },
+    buy:     () => { tone(880, 0, 0.08, "square", 0.18); tone(1320, 0.06, 0.14, "square", 0.16); },
+    sell:    () => { tone(1320, 0, 0.07, "triangle", 0.3); tone(1760, 0.05, 0.07, "triangle", 0.3); tone(2350, 0.1, 0.16, "triangle", 0.28); },
+    roll:    () => { for (let i = 0; i < 5; i++) noise(i * 0.045, 0.05, 3000 - i * 300, 1500, 0.25, 3); },
+    freeze:  () => { tone(2100, 0, 0.25, "sine", 0.22); tone(3150, 0.03, 0.3, "sine", 0.12); },
+    unfreeze:() => { tone([2600, 1200], 0, 0.18, "sine", 0.2); },
+    feed:    () => { noise(0, 0.06, 900, 500, 0.4, 2); noise(0.09, 0.06, 900, 500, 0.35, 2); tone(660, 0.16, 0.1, "triangle", 0.2); },
+    swap:    () => { noise(0, 0.12, 600, 2400, 0.22, 1.5); },
+    stack:   () => { tone(523, 0, 0.08, "triangle", 0.3); tone(784, 0.06, 0.12, "triangle", 0.3); },
+    levelup: () => { [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.07, 0.18, "triangle", 0.32)); tone(1568, 0.3, 0.3, "sine", 0.18); },
+    error:   () => { tone(180, 0, 0.12, "sawtooth", 0.15); tone(140, 0.1, 0.16, "sawtooth", 0.15); },
+    endturn: () => { noise(0, 0.35, 300, 2500, 0.25, 0.8); tone([220, 440], 0.05, 0.3, "sine", 0.15); },
+    ability: () => { tone([700, 1400], 0, 0.12, "sine", 0.2); tone(1800, 0.08, 0.1, "sine", 0.12); },
+    hit:     () => { noise(0, 0.12, 1200, 200, 0.5, 0.8); tone([160, 60], 0, 0.14, "sine", 0.5); },
+    faint:   () => { tone([520, 130], 0, 0.4, "triangle", 0.28); },
+    win:     () => { [523, 659, 784].forEach((f, i) => tone(f, i * 0.1, 0.2, "square", 0.14)); tone(1047, 0.3, 0.45, "square", 0.16); },
+    loss:    () => { [392, 349, 311].forEach((f, i) => tone(f, i * 0.16, 0.24, "triangle", 0.28)); tone(262, 0.48, 0.5, "triangle", 0.26); },
+    draw:    () => { tone(440, 0, 0.18, "triangle", 0.25); tone(440, 0.22, 0.18, "triangle", 0.25); },
+    gamewin: () => { [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, i * 0.11, 0.22, "square", 0.14)); },
+    gameloss:() => { [392, 370, 349, 330, 262].forEach((f, i) => tone(f, i * 0.2, 0.3, "triangle", 0.26)); },
+  };
+  return {
+    play(name, arg) { try { sounds[name] && sounds[name](arg); } catch (e) {} },
+    get muted() { return muted; }, get volume() { return volume; },
+    setMuted(v) { muted = v; persist(); ac(); }, setVolume(v) { volume = v; if (v > 0) muted = false; persist(); ac(); },
+  };
+})();
+
+// Which sound a shop action makes, from what changed
+function actionSound(name, before, after) {
+  if (!before || !after) return;
+  const lv = (s) => s.team.reduce((n, p) => n + p.level, 0);
+  if (lv(after) > lv(before)) return SFX.play("levelup");
+  const map = { buy_pet: "buy", buy_combine: "stack", combine: "stack", buy_food: "feed",
+                buy_food_untargeted: "feed", sell: "sell", roll: "roll", swap: "swap" };
+  if (name === "freeze") {
+    const was = before.shop.filter((x) => x.frozen).length, now = after.shop.filter((x) => x.frozen).length;
+    return SFX.play(now > was ? "freeze" : "unfreeze");
+  }
+  if (map[name]) SFX.play(map[name]);
+}
+
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.hidden = false;
+  clearTimeout(toast._t); toast._t = setTimeout(() => (t.hidden = true), 2600);
+}
+
+// --------------------------------------------------------------- actions
+function actionIndex(name, args = []) {
+  const m = S.meta, start = m.actionStart[name];
+  if (name === "buy_combine" || name === "buy_food") return start + args[0] * m.maxTeam + args[1];
+  if (name === "swap" || name === "combine") {
+    const [a, b] = [...args].sort((x, y) => x - y);
+    return start + m.pairs.findIndex((p) => p[0] === a && p[1] === b);
+  }
+  return start + (args[0] || 0);
+}
+const me = () => S.st && S.st.seats[0];
+const legal = (name, args) => !!me() && me().legal.includes(actionIndex(name, args));
+
+async function act(name, args = []) {
+  if (S.busy) return;
+  S.busy = true;
+  try {
+    const before = me();
+    if (name !== "end_turn") S.confirmEnd = false;
+    const fx = captureFx(name, args);
+    const j = await api("/api/act", { id: S.id, name, args });
+    S.sel = null;
+    S.st = j.state;
+    if (j.battle) { SFX.play("endturn"); startBattle(j.battle); }
+    else actionSound(name, before, j.state.seats[0]);
+    render();
+    if (!j.battle) actionFx(name, args, before, j.state.seats[0], fx);
+  } catch (e) {
+    SFX.play("error"); toast(e.message);
+    const el = S.sel && document.querySelector(S.sel.type === "shop" ? `[data-shop="${S.sel.i}"]` : `[data-team="${S.sel.i}"]`);
+    FX.anim(el, "shake", 400);
+  }
+  finally { S.busy = false; }
+}
+
+// ------------------------------------------------------- action effects
+const rectOf = (sel) => { const el = typeof sel === "string" ? document.querySelector(sel) : sel; return el ? el.getBoundingClientRect() : null; };
+function captureFx(name, args) {
+  const shopEl = (i) => rectOf(`[data-shop="${i}"]`), teamEl = (j) => rectOf(`[data-team="${j}"]`);
+  const c = { gold: rectOf(".m-gold") };
+  if (name.startsWith("buy") || name === "freeze") c.src = shopEl(args[0]);
+  if (name === "sell") c.src = teamEl(args[0]);
+  if (name === "swap" || name === "combine") c.pair = args.map(teamEl);
+  return c;
+}
+function statText(a, b) {
+  const da = b.attack - a.attack, dh = b.health - a.health;
+  if (!da && !dh) return "";
+  const f = (v) => (v > 0 ? "+" : "") + v;
+  return `${f(da)}/${f(dh)}`;
+}
+function actionFx(name, args, before, after, c) {
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const teamCard = (j) => document.querySelector(`[data-team="${j}"]`);
+  const goldEl = document.querySelector(".m-gold");
+  const dGold = after.gold - before.gold;
+  if (dGold < 0) FX.text(goldEl, `${dGold}`, { color: css("--gold"), size: 16, dy: -14 });
+
+  // which team pet the action was about, after the action
+  let target = null;
+  if (name === "buy_pet") target = after.team.length - 1;
+  if (name === "buy_combine" || name === "buy_food") target = args[1];
+  if (name === "combine") {
+    target = after.team.findIndex((p, k) => !before.team[k] || p.level > before.team[k].level || p.xp !== before.team[k].xp);
+  }
+
+  if (name === "buy_pet" && target != null) {
+    const el = teamCard(target);
+    if (c.src && el) FX.fly(c.src, el, { n: 4, kind: "sparkle" });
+    setTimeout(() => { FX.anim(teamCard(target), "pop", 360); FX.burst("sparkle", teamCard(target), { n: 14 }); }, 280);
+  }
+  if ((name === "buy_combine" || name === "combine") && target != null && target >= 0) {
+    const el = teamCard(target);
+    FX.anim(el, "hop", 420);
+    FX.burst("sparkle", el, { n: 16 });
+  }
+  if (name === "buy_food" && target != null) {
+    const el = teamCard(target);
+    if (c.src && el) FX.fly(c.src, el, { n: 3, kind: "crumbs" });
+    setTimeout(() => {
+      FX.burst("crumbs", teamCard(target)); FX.burst("hearts", teamCard(target), { up: true });
+      FX.anim(teamCard(target), "hop", 420);
+      const p0 = before.team[target], p1 = after.team[target];
+      if (p0 && p1 && p1.status && (!p0.status || p0.status.name !== p1.status.name))
+        FX.text(teamCard(target), `${p1.status.emoji} ${p1.status.name}!`, { color: css("--accent"), size: 17, dy: -50 });
+    }, 300);
+  }
+  if (name === "buy_food_untargeted") {
+    if (c.src) FX.burst("crumbs", c.src, { n: 18 });
+    document.querySelectorAll("#team [data-team]").forEach((el) => FX.burst("sparkle", el, { n: 6 }));
+  }
+  if (name === "sell" && c.src) {
+    FX.burst("poof", c.src);
+    FX.burst("coins", c.src, { up: true, n: 8 });
+    if (goldEl) FX.fly(c.src, goldEl, { n: Math.max(3, dGold * 2), onArrive: () => FX.anim(document.querySelector(".m-gold"), "pop", 360) });
+    if (dGold > 0) FX.text(goldEl, `+${dGold}`, { color: css("--gold"), size: 18, dy: -14 });
+  }
+  if (name === "freeze" && c.src) FX.burst("frost", c.src, { n: 22 });
+  if (name === "roll") {
+    document.querySelectorAll("#shop .card").forEach((el, i) => {
+      if (el.classList.contains("frozen")) return;
+      el.style.setProperty("--i", i);
+      FX.anim(el, "deal", 320 + i * 40);
+      setTimeout(() => SFX.play("tick", i), i * 40);
+    });
+  }
+  if (name === "swap") {
+    FX.anim(teamCard(args[0]), "hop", 420); FX.anim(teamCard(args[1]), "hop", 420);
+  }
+
+  // level ups
+  after.team.forEach((p, k) => {
+    const old = before.team[k];
+    const leveled = old && ((old.name === p.name && p.level > old.level) || (k === target && p.level > old.level));
+    if (!leveled) return;
+    setTimeout(() => {
+      const el = teamCard(k);
+      FX.burst("stars", el, { power: 1.2 });
+      FX.anim(el, "glow", 800);
+      FX.text(el, p.level >= 3 ? "MAX LEVEL!" : `Level ${p.level}!`, { color: css("--gold"), size: 22, dy: -56, max: 75 });
+    }, 200);
+  });
+
+  // stat changes from abilities: show +x/+y on any other pet or shop item that changed
+  // match pets by name in team order: positions shift when a pet is sold or merged
+  const used = new Set();
+  const skip = new Set(name === "sell" ? [args[0]] : name === "combine" ? args : []);
+  after.team.forEach((p, k) => {
+    const j = before.team.findIndex((q, i) => !used.has(i) && !skip.has(i) && q.name === p.name);
+    if (j < 0) return;
+    used.add(j);
+    if (k === target) return;
+    const t = statText(before.team[j], p);
+    if (t) setTimeout(() => FX.text(teamCard(k), t, { color: css("--accent"), size: 15, dy: -48 }), 380);
+  });
+  if (name !== "roll") {
+    after.shop.forEach((x) => {
+      const old = before.shop.find((y) => y.index === x.index && y.name === x.name);
+      if (!old || x.kind === "food" || old.kind === "food") return;
+      const t = statText(old, x);
+      if (t) {
+        const el = document.querySelector(`[data-shop="${x.index}"]`);
+        setTimeout(() => { FX.text(el, t, { color: css("--accent"), size: 15, dy: -48 }); FX.burst("hearts", el, { n: 4, up: true }); }, 380);
+      }
+    });
+  }
+  if (name === "sell" && before.team[args[0]] && /Sell:/.test(before.team[args[0]].desc || ""))
+    setTimeout(() => SFX.play("ability"), 250);
+}
+
+// ---------------------------------------------------------------- render
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+function bobDelay(name) {
+  let h = 0;
+  for (const c of String(name)) h = (h * 31 + c.charCodeAt(0)) % 997;
+  return -((h % 28) / 10);
+}
+function petCard(p, opts = {}) {
+  const lv = p.level || 1, xp = p.xp || 0;
+  const need = lv === 1 ? 2 : lv === 2 ? 3 : 0;
+  const dots = need ? Array.from({ length: need }, (_, i) => `<i class="${i < xp ? "on" : ""}"></i>`).join("") : "";
+  const status = p.status ? `<span class="badge" title="${esc(p.status.name)}: ${esc(p.status.desc)}">${p.status.emoji}</span>` : "";
+  const tierCls = Number.isInteger(p.tier) ? "tier-" + p.tier : "tier-s";
+  const cls = ["card", tierCls, "lv" + lv, opts.cls || "", p.frozen ? "frozen" : ""].join(" ");
+  const tip = `${p.name} ${p.attack}/${p.health} · level ${lv}${p.desc ? " · " + p.desc : ""}`;
+  return `<div class="${cls}" ${opts.attrs || ""} title="${esc(tip)}">
+    <span class="tier">${Number.isInteger(p.tier) ? "T" + p.tier : "★"}</span>
+    ${opts.cost ? `<span class="cost">${opts.cost}g</span>` : ""}
+    ${status}
+    <span class="art"><span class="bob" style="--d:${bobDelay(p.name)}s"><span class="emo" aria-hidden="true">${p.emoji}</span></span></span>
+    <span class="nm">${esc(p.name)}</span>
+    <span class="stats"><span class="stat a" aria-label="attack">${p.attack}</span><span class="stat h" aria-label="health">${Math.max(0, p.health)}</span></span>
+    <span class="lvl">${lv >= 3 ? "MAX" : "Lv" + lv} ${dots}</span>
+    ${p.frozen ? `<span class="ice">FROZEN</span>` : ""}
+  </div>`;
+}
+function foodCard(f, opts = {}) {
+  const cls = ["card", "food-card", opts.cls || "", f.frozen ? "frozen" : ""].join(" ");
+  const ftip = f.name + ": " + f.desc + (f.perk ? ` (${f.perk.name}: ${f.perk.desc})` : "");
+  return `<div class="${cls}" ${opts.attrs || ""} title="${esc(ftip)}">
+    <span class="cost">${f.cost}g</span>
+    <span class="art plate"><span class="bob" style="--d:${bobDelay(f.name)}s"><span class="emo" aria-hidden="true">${f.emoji}</span></span></span>
+    <span class="nm">${esc(f.name)}</span>
+    <span class="food-desc">${f.perk ? `${f.perk.emoji} ${esc(f.perk.name)} perk: ${esc(f.perk.desc)}` : esc(f.desc)}</span>
+    ${f.frozen ? `<span class="ice">FROZEN</span>` : ""}
+  </div>`;
+}
+
+// Full plain-language description of a pet or food, used everywhere
+function glossHTML(list) {
+  if (!list || !list.length) return "";
+  return `<dl class="gloss">${list.map((g) => `<dt>${esc(g.term)}</dt><dd>${esc(g.text)}</dd>`).join("")}</dl>`;
+}
+function perkHTML(perk, lead) {
+  return `<div class="perkbox">${lead} <b>${perk.emoji} ${esc(perk.name)}</b>: ${esc(perk.desc)}</div>`;
+}
+function infoHTML(x, where) {
+  if (x.kind === "food") {
+    const how = x.targeted ? "Buy it by tapping it, then tapping one of your pets." : "It affects your team automatically when you press Buy.";
+    return `<div class="info">
+      <div class="info-top"><span class="emo" aria-hidden="true">${x.emoji}</span>
+        <div><h3>${esc(x.name)}</h3><div class="sub">Food · ${Number.isInteger(x.tier) ? "tier " + x.tier : "bonus food"} · costs ${x.cost} gold${x.frozen ? " · frozen for next turn" : ""}</div></div></div>
+      <p class="what">${esc(x.desc)}</p>
+      ${x.perk ? perkHTML(x.perk, "The perk it gives,") + `<p class="help">A perk stays on the pet, shown as ${x.perk.emoji} on its card. A pet holds one perk at a time, so this replaces any perk it already has.</p>` : ""}
+      <p class="help">${how}</p>
+      ${glossHTML(x.glossary)}</div>`;
+  }
+  const need = x.level === 1 ? 2 - x.xp : x.level === 2 ? 3 - x.xp : 0;
+  const lvlText = x.level >= 3 ? "Level 3, the max level."
+    : `Level ${x.level}. ${need} more ${need === 1 ? "copy" : "copies"} to reach level ${x.level + 1}.`;
+  const sub = [Number.isInteger(x.tier) ? `Tier ${x.tier} pet` : "Summoned pet (only appears through abilities)", `${x.attack} attack`, `${x.health} health`];
+  if (where === "shop") sub.push(`costs ${x.cost} gold`);
+  if (where === "team") sub.push(`sells for ${x.sell} gold`);
+  if (x.frozen) sub.push("frozen for next turn");
+  const levels = (x.levels || []).map((d, i) =>
+    `<li class="${i + 1 === x.level ? "now" : ""}"><b>L${i + 1}</b><span>${esc(d || "No ability.")}</span></li>`).join("");
+  const bonus = x.kind === "levelup" ? `<p class="help">Bonus pet from a higher tier. It appeared because one of your pets leveled up.</p>` : "";
+  return `<div class="info">
+    <div class="info-top"><span class="emo" aria-hidden="true">${x.emoji}</span>
+      <div><h3>${esc(x.name)}</h3><div class="sub">${esc(sub.join(" · "))}</div></div></div>
+    <p class="what">${esc(x.desc || "This pet has no ability. It is just its stats.")}</p>
+    ${x.status ? perkHTML(x.status, "Holding the perk") : ""}
+    <p class="help">${esc(lvlText)} Ability by level:</p>
+    <ul class="levels">${levels}</ul>
+    ${bonus}
+    ${glossHTML(x.glossary)}</div>`;
+}
+
+// Cards outside the shop board open a details sheet when tapped
+const REG = [];
+function reg(x) { REG.push(x); return `data-k="${REG.length - 1}" tabindex="0" role="button"`; }
+function openSheet(x, where) {
+  $("sheetBody").innerHTML = infoHTML(x, where);
+  $("sheet").hidden = false;
+}
+
+function agentLabel(id) {
+  if (id === "human") return "You";
+  const a = S.meta.agents.find((x) => x.id === id);
+  return a ? a.label : id;
+}
+function agentDesc(id) { const a = S.meta.agents.find((x) => x.id === id); return a ? a.desc : ""; }
+
+function renderScore() {
+  const st = S.st, el = $("score");
+  if (!st) { el.hidden = true; return; }
+  el.hidden = false;
+  const side = (s, right) => `<div class="side ${right ? "right" : ""}">
+      <div class="who">${esc(s.label)}</div>
+      <div class="kind">${s.kind === "human" ? "Human player" : esc(agentDesc(s.kind))}</div>
+      <div class="meters">
+        <span class="meter m-lives" title="Lose all lives and the game is over">lives <b>${s.lives}</b></span>
+        <span class="meter m-wins" title="Win ${st.maxWins} battles to win the game">wins <b>${s.wins}/${st.maxWins}</b></span>
+        ${s.kind === "human" ? `<span class="meter m-gold" title="Gold to spend this turn. You get 10 each turn.">gold <b>${s.gold}</b></span>` : ""}
+      </div></div>`;
+  const pips = st.history.map((h) => `<span class="pip ${h}" title="${h}"></span>`).join("");
+  el.innerHTML = side(st.seats[0], false) +
+    `<div class="mid"><span class="lbl">Turn</span><span class="turn">${st.turn}</span>
+      <span class="lbl" title="Lives lost if you lose this turn's battle">a loss costs ${st.nextDamage} ${st.nextDamage === 1 ? "life" : "lives"}</span><div class="pips">${pips}</div></div>` +
+    side(st.seats[1], true);
+}
+
+function renderOver() {
+  const st = S.st, el = $("over");
+  if (!st || !st.over) { el.hidden = true; return; }
+  el.hidden = false;
+  const winner = st.result === "seat0" ? st.seats[0].label : st.seats[1].label;
+  const human = st.seats[0].kind === "human";
+  const title = human ? (st.result === "seat0" ? "You won the game" : `${winner} won the game`) : `${winner} wins the match`;
+  el.innerHTML = `<div class="banner"><div><h2>${esc(title)}</h2>
+    <span class="help">${st.history.filter((h) => h === "win").length} wins, ${st.history.filter((h) => h === "loss").length} losses, ${st.history.filter((h) => h === "draw").length} draws over ${st.history.length} turns.</span></div>
+    <div class="bar"><button class="btn" id="viewReplayBtn">View replay</button><button class="btn primary" id="againBtn">Play again</button></div></div>`;
+  $("againBtn").onclick = () => (S.mode === "play" ? newGame() : newMatch());
+  $("viewReplayBtn").onclick = () => { const id = S.id; switchMode("replays").then(() => openReplay(id)); };
+}
+
+function renderPlay() {
+  const show = S.mode === "play" && S.st && S.st.seats[0].kind === "human";
+  $("teamPanel").hidden = !show;
+  if (!show) return;
+  const s = me(), sel = S.sel;
+  const selShop = sel && sel.type === "shop" ? s.shop.find((x) => x.index === sel.i) : null;
+  const selTeam = sel && sel.type === "team" ? s.team[sel.i] : null;
+
+  // team: index 0 is the front, shown on the right
+  let html = "";
+  for (let j = 4; j >= 0; j--) {
+    const p = s.team[j];
+    if (!p) {
+      const t = selShop && selShop.kind !== "food" && legal("buy_pet", [selShop.index]);
+      html += `<button class="slot ${t ? "target" : ""}" data-empty="${j}" ${t ? "" : "tabindex='-1'"}>${t ? "Buy here" : "empty"}</button>`;
+      continue;
+    }
+    let target = false;
+    if (selShop && selShop.kind === "food") target = selShop.targeted ? legal("buy_food", [selShop.index, j]) : legal("buy_food_untargeted", [selShop.index]);
+    else if (selShop) target = legal("buy_combine", [selShop.index, j]);
+    else if (selTeam && sel.i !== j) target = true;
+    const cls = (sel && sel.type === "team" && sel.i === j ? "sel " : "") + (target ? "target" : "");
+    html += petCard(p, { cls, attrs: `data-team="${j}" tabindex="0" role="button"` });
+  }
+  $("team").innerHTML = html;
+
+  $("shop").innerHTML = s.shop.map((x) => {
+    const selected = sel && sel.type === "shop" && sel.i === x.index;
+    const afford = x.cost <= s.gold;
+    const cls = (selected ? "sel " : "") + (afford ? "" : "off");
+    const attrs = `data-shop="${x.index}" tabindex="0" role="button"`;
+    return x.kind === "food" ? foodCard(x, { cls, attrs }) : petCard(x, { cls, attrs, cost: x.cost });
+  }).join("");
+  $("shopNote").textContent = `${s.gold} gold · pets and food cost 3`;
+
+  // inspector + buttons
+  let info = s.team.length
+    ? "Tap any pet or food to see what it does. Tap a shop pet, then an empty slot, to buy it."
+    : "Start by buying pets: tap a shop pet, then tap an empty slot. Tap anything to see what it does.";
+  let hint = "";
+  if (selShop) {
+    info = infoHTML(selShop, "shop");
+    if (selShop.kind === "food") hint = selShop.targeted ? "Tap one of your pets to feed it." : "Press Buy (or B), or tap your team, to use it.";
+    else hint = "Tap an empty slot to buy, or a matching pet to level it up.";
+  } else if (selTeam) {
+    info = infoHTML(selTeam, "team");
+    hint = "Tap another pet to swap places. Tap a copy to combine or swap (Shift+click swaps).";
+  }
+  $("inspect").innerHTML = info;
+  $("hint").textContent = hint;
+  $("rollBtn").disabled = !legal("roll");
+  const fz = $("freezeBtn");
+  fz.disabled = !selShop;
+  fz.textContent = selShop && selShop.frozen ? "Unfreeze" : "Freeze";
+  // one button: Sell for a team pet, Buy for whatever is selected in the shop
+  const sb = $("sellBtn");
+  if (selTeam) { sb.textContent = `Sell · +${selTeam.sell} gold`; sb.disabled = false; }
+  else if (selShop) {
+    const buy = buyAction(selShop);
+    sb.textContent = selShop.kind === "food" && selShop.targeted ? "Pick a pet" : `Buy · ${selShop.cost} gold`;
+    sb.disabled = !buy || !legal(...buy);
+  } else { sb.textContent = "Sell"; sb.disabled = true; }
+  $("endBtn").disabled = S.st.over;
+  const left = s.gold;
+  $("endBtn").classList.toggle("unspent", left > 0);
+  $("endBtn").textContent = left <= 0 ? "End turn" : S.confirmEnd ? "End turn anyway" : `End turn · ${left} gold left`;
+  $("endBtn").title = left > 0 ? "You still have gold. Unspent gold is lost when the turn ends." : "";
+}
+
+function renderWatch() {
+  const el = $("watchArea");
+  const show = S.mode === "watch" && S.st;
+  el.hidden = !show;
+  if (!show) return;
+  const b = S.battle;
+  el.innerHTML = S.st.seats.map((s, i) => {
+    const log = b ? b.shopLogs[i] : [];
+    const team = s.team.length ? `<div class="row">${[...s.team].reverse().map((p) => petCard(p, { attrs: reg(p) })).join("")}</div>` : `<p class="help">No pets yet.</p>`;
+    return `<div class="panel"><div class="panel-head"><h2>${esc(s.label)}</h2><span class="note">${s.wins} ${s.wins === 1 ? "win" : "wins"} · ${s.lives} lives</span></div>
+      ${b ? `<div><div class="front-note">Shopping on turn ${b.turn}</div><ol class="shoplog">${log.length ? log.map((x) => `<li>${esc(x)}</li>`).join("") : "<li>did nothing</li>"}</ol></div>` : `<p class="help">Press Next round or Auto play to start.</p>`}
+      <div class="front-note">Team going into the next turn (front on the right)</div>${team}</div>`;
+  }).join("");
+}
+
+function render() {
+  $("modePlay").setAttribute("aria-pressed", S.mode === "play");
+  $("modeWatch").setAttribute("aria-pressed", S.mode === "watch");
+  $("setupPlay").hidden = S.mode !== "play";
+  $("setupWatch").hidden = S.mode !== "watch";
+  $("stepBtn").disabled = !S.id || !S.st || S.st.over || S.busy;
+  $("autoBtn").textContent = S.auto ? "Stop" : "Auto play";
+  $("autoBtn").setAttribute("aria-pressed", S.auto);
+  $("modeReplays").setAttribute("aria-pressed", S.mode === "replays");
+  const rep = S.mode === "replays";
+  $("replayList").hidden = !rep || !!REP.doc;
+  $("replayView").hidden = !rep || !REP.doc;
+  $("logPanel").hidden = rep;
+  $("how").hidden = rep;
+  $("chatFab").hidden = rep || CHAT.open;
+  if (rep) { $("setupPlay").hidden = $("setupWatch").hidden = true; $("score").hidden = $("over").hidden = true; $("teamPanel").hidden = $("watchArea").hidden = true; return; }
+  renderScore(); renderOver(); renderPlay(); renderWatch(); syncLog();
+  if (CHAT.open && CHAT.loadedFor !== S.id) chatLoad();
+  else if (CHAT.open) chatHeader();
+}
+
+// ---------------------------------------------------------------- battle
+function battleFx(f, prev, prevRects) {
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  for (const side of [0, 1]) {
+    const now = f.teams[side], was = prev.teams[side];
+    now.forEach((p, idx) => {
+      const old = was[idx];
+      if (!old || old.name !== p.name) return;
+      const el = document.querySelector(`#battle [data-bi="${side}-${idx}"]`);
+      const dh = p.health - old.health, da = p.attack - old.attack;
+      if (dh < 0) { FX.text(el, `${dh}`, { color: css("--hp"), size: 22, dy: -40 }); FX.burst("hit", el); }
+      else if (dh > 0 || da > 0) { FX.text(el, statText(old, p), { color: css("--accent"), size: 16, dy: -40 }); FX.burst("sparkle", el, { n: 6 }); }
+    });
+    const lost = was.length - now.length;
+    for (let k = 0; k < lost; k++) {
+      const r = prevRects[`${side}-${k}`];
+      if (r) setTimeout(() => FX.burst("poof", r, { n: 18 }), 120);
+    }
+  }
+}
+function startBattle(b) {
+  S.battle = b; S.frame = 0; S.playing = true; S.soundFrame = -1; S.last3d = -1;
+  $("battle").hidden = false;
+  if (S.view === "3d") {
+    $("lbl3L").textContent = battleLabels(b)[0]; $("lbl3R").textContent = battleLabels(b)[1];
+    Battle3D.reset($("stage3d")).then(() => { $("stage3dLoading").hidden = true; S.last3d = -1; for (let k = 0; k <= S.frame; k++) { const fr = S.battle.frames[k]; Battle3D.show(fr, k ? S.battle.frames[k - 1] : null, { animate: false }); } S.last3d = S.frame; })
+      .catch((e) => { toast(e.message); setView("2d"); });
+  }
+  FX.attachScene($("scene"));
+  if (speed() > 0) MUSIC.setMood("battle");
+  $("lblL").textContent = battleLabels(b)[0];
+  $("lblR").textContent = battleLabels(b)[1];
+  $("battleTitle").textContent = `Turn ${b.turn} battle`;
+  $("bClose").hidden = S.mode !== "play";
+  $("bResult").textContent = "";
+  $("blog").innerHTML = "";
+  if (speed() === 0) { S.frame = b.frames.length - 1; showFrame(true); finishBattle(); return; }
+  if (speed() < 0) S.playing = false;
+  showFrame(false);
+  tick();
+  $("battle").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "nearest" });
+}
+function battleLabels(b) { return b.labels || (S.st ? [S.st.seats[0].label, S.st.seats[1].label] : ["Left", "Right"]); }
+function speed() { const v = $("bspeed").value; return v === "step" ? -1 : Number(v); }
+function setSpeed(v) {
+  $("bspeed").value = v; $("speed").value = v;
+  try { localStorage.setItem("sapaiBattleSpeed", v); } catch (e) {}
+  $("stepHint").hidden = v !== "step";
+}
+function tick() {
+  clearTimeout(S.timer);
+  $("bPlay").textContent = S.playing ? "Pause" : "Play";
+  if (!S.playing) return;
+  if (S.frame >= S.battle.frames.length - 1) { finishBattle(); return; }
+  S.timer = setTimeout(() => { S.frame++; showFrame(false); tick(); }, Math.max(speed(), 250));
+}
+function frameSound(f, prev) {
+  const count = (fr) => fr.teams[0].length + fr.teams[1].length;
+  if (f.phase === "phase_attack") SFX.play("hit");
+  else if (f.lines.length) SFX.play("ability");
+  if (prev && count(f) < count(prev)) setTimeout(() => SFX.play("faint"), 140);
+}
+function showFrame(allLines) {
+  const b = S.battle, f = b.frames[S.frame], prev = b.frames[S.frame - 1];
+  if (S.view === "3d" && Battle3D.mounted) {
+    const forward = !allLines && S.frame === (S.last3d ?? -1) + 1;
+    Battle3D.show(f, S.frame === 0 && forward ? null : prev, { animate: forward && S.frame > 0, ms: speed() > 0 ? speed() : 900 });
+    S.last3d = S.frame;
+  }
+  if (!allLines && S.frame > (S.soundFrame ?? -1)) frameSound(f, prev);
+  S.soundFrame = allLines ? b.frames.length : S.frame;
+  $("frameLabel").textContent = `${f.label} · ${S.frame + 1}/${b.frames.length}`;
+  const attack = f.phase === "phase_attack";
+  const lane = (team, prevTeam, left) => {
+    if (!team.length) return `<span class="empty-lane">no pets left</span>`;
+    const ordered = left ? [...team].reverse() : team;
+    return ordered.map((p) => {
+      const idx = team.indexOf(p);
+      const before = prevTeam && prevTeam[idx];
+      const hurt = before && before.name === p.name && p.health < before.health;
+      let cls = (left ? "left-face " : "") + (hurt ? "hit " : "") + (p.dead ? "dead " : "");
+      if (attack && idx === 0) cls += left ? "lunge-r" : "lunge-l";
+      return petCard(p, { cls, attrs: reg(p) + ` data-bi="${left ? 0 : 1}-${idx}"` });
+    }).join("");
+  };
+  const prevRects = {};
+  if (!allLines) document.querySelectorAll("#battle [data-bi]").forEach((el) => (prevRects[el.dataset.bi] = el.getBoundingClientRect()));
+  $("laneL").innerHTML = lane(f.teams[0], prev && prev.teams[0], true);
+  $("laneR").innerHTML = lane(f.teams[1], prev && prev.teams[1], false);
+  if (!allLines && prev && S.view !== "3d") battleFx(f, prev, prevRects);
+  const lines = allLines
+    ? b.frames.flatMap((x) => (x.lines.length ? [`<p class="dim">${esc(x.label)}</p>`, ...x.lines.map((l) => `<p>${esc(l)}</p>`)] : []))
+    : b.frames.slice(0, S.frame + 1).flatMap((x) => (x.lines.length ? [`<p class="dim">${esc(x.label)}</p>`, ...x.lines.map((l) => `<p>${esc(l)}</p>`)] : []));
+  $("blog").innerHTML = lines.join("") || `<p class="dim">Teams line up.</p>`;
+  $("blog").scrollTop = $("blog").scrollHeight;
+}
+function finishBattle() {
+  clearTimeout(S.timer);
+  S.playing = false;
+  $("bPlay").textContent = "Replay";
+  const b = S.battle, o = b.outcome;
+  if (S.mode === "replays" || !S.st) {
+    const [l, r] = battleLabels(b);
+    $("bResult").textContent = o === "draw" ? "Draw" : `${o === "win" ? l : r} won`;
+    $("bResult").className = "result " + o;
+    SFX.play(o === "draw" ? "draw" : "win");
+    setTimeout(() => MUSIC.setMood("shop"), 1500);
+    return;
+  }
+  const human = S.st.seats[0].kind === "human";
+  const txt = o === "draw" ? "Draw" : human ? (o === "win" ? "You won the battle" : `You lost · −${b.lives} lives`)
+    : `${o === "win" ? S.st.seats[0].label : S.st.seats[1].label} won`;
+  $("bResult").textContent = txt;
+  $("bResult").className = "result " + o;
+  const humanSide = S.st.seats[0].kind === "human";
+  const resEl = $("bResult");
+  if (o === "win" || (!humanSide && o !== "draw")) FX.burst("confetti", resEl, { up: true, n: S.st.over ? 120 : 50 });
+  if (S.st.over) setTimeout(() => FX.burst("confetti", $("over"), { up: true, n: 140, power: 1.3 }), 300);
+  if (!(S.auto && S.mode === "watch" && !S.st.over)) setTimeout(() => MUSIC.setMood("shop"), 1800);
+  if (S.st.over) {
+    const won = S.st.result === "seat0";
+    setTimeout(() => SFX.play(!humanSide || won ? "gamewin" : "gameloss"), 250);
+  } else {
+    SFX.play(o === "draw" ? "draw" : humanSide ? (o === "win" ? "win" : "loss") : "win");
+  }
+  render();
+  if (S.auto && S.mode === "watch" && !S.st.over) {
+    S.timer = setTimeout(step, Math.max(speed(), 150) + 300);
+  } else if (S.st.over) { S.auto = false; render(); }
+}
+
+// ------------------------------------------------------------------ flows
+// -------------------------------------------- saved games (survive refresh)
+function recall() { try { return JSON.parse(localStorage.getItem("sapaiArena") || "{}"); } catch (e) { return {}; } }
+function remember() {
+  const saved = recall();
+  saved[S.mode] = S.id; saved.mode = S.mode;
+  try { localStorage.setItem("sapaiArena", JSON.stringify(saved)); } catch (e) {}
+}
+async function resume(id) {
+  if (!id) return false;
+  try {
+    const j = await api("/api/state", { id });
+    S.id = j.id; S.st = j.state; S.sel = null; S.battle = null;
+    $("battle").hidden = true;
+    const k = j.state.seats.map((x) => x.kind);
+    if (S.mode === "play" && k[0] === "human") $("opp").value = k[1];
+    if (S.mode === "watch") { $("agA").value = k[0]; $("agB").value = k[1]; watchDesc(); }
+    $("oppDesc").textContent = agentDesc($("opp").value);
+    remember();
+    render();
+    toast(`Resumed your game on turn ${j.state.turn}.`);
+    return true;
+  } catch (e) { return false; }
+}
+async function switchMode(mode) {
+  stopAll();
+  if (CHAT.open) chatToggle(false);
+  S.mode = mode; S.id = null; S.st = null; S.battle = null; $("battle").hidden = true;
+  if (Battle3D.mounted) Battle3D.unmount();
+  REP.doc = null;
+  render();
+  if (mode === "replays") { await loadReplays(); return; }
+  if (!(await resume(recall()[mode]))) (mode === "play" ? newGame() : newMatch());
+}
+
+// ---------------------------------------------------------------- replays
+const REP = { list: [], doc: null, turn: 0, confirmDelete: false };
+function when(iso) {
+  const d = new Date(iso);
+  return isNaN(d) ? "" : d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+async function loadReplays() {
+  try { REP.list = (await api("/api/replays", {})).replays; } catch (e) { toast(e.message); REP.list = []; }
+  renderReplayList();
+}
+function replayMatches(m) {
+  const f = $("replayFilter").value, q = $("replaySearch").value.trim().toLowerCase();
+  if (f === "play" && m.mode !== "play") return false;
+  if (f === "watch" && m.mode !== "watch") return false;
+  if (f === "won" && !(m.mode === "play" && m.status === "finished" && m.result === "You won")) return false;
+  if (f === "finished" && m.status !== "finished") return false;
+  if (f === "unfinished" && m.status !== "unfinished") return false;
+  if (q && ![m.title, m.note, ...(m.players || [])].join(" ").toLowerCase().includes(q)) return false;
+  return true;
+}
+function renderReplayList() {
+  const rows = REP.list.filter(replayMatches);
+  $("replayCount").textContent = `${REP.list.length} ${REP.list.length === 1 ? "game" : "games"}`;
+  $("replayRows").innerHTML = rows.length ? rows.map((m) => {
+    const cls = m.status !== "finished" ? "" : m.mode === "play" ? (m.result === "You won" ? "win" : "loss") : "";
+    const b = m.battles || {};
+    const vs = (m.players || []).join(" vs "), sub = [m.title.replace(/^You vs /, "") === (m.players || [])[1] || m.title === vs ? "" : esc(vs), m.note ? esc(m.note) : "", m.steps === false ? "log only" : ""].filter(Boolean).join(" · ");
+    return `<tr class="rrow" tabindex="0" data-rid="${esc(m.id)}"><td><div class="t">${esc(m.title)}</div>${sub ? `<div class="sub">${sub}</div>` : ""}</td>
+      <td><span class="pill ${cls}">${esc(m.result)}</span></td><td>${m.turns}</td><td>${b.win ?? 0} / ${b.loss ?? 0} / ${b.draw ?? 0}</td><td class="sub">${esc(when(m.updated))}</td></tr>`;
+  }).join("") : `<tr><td colspan="5" class="sub">${REP.list.length ? "No games match." : "No games yet. Finish a turn in Play or Watch mode and it shows up here."}</td></tr>`;
+  render();
+}
+async function openReplay(id) {
+  try {
+    REP.doc = (await api("/api/replay", { id })).replay;
+  } catch (e) { toast(e.message); return; }
+  REP.confirmDelete = false;
+  $("replayDelete").textContent = "Delete replay";
+  const m = REP.doc.meta;
+  $("replayTitle").value = m.title; $("replayNote").value = m.note || "";
+  render();
+  renderReplayMeta();
+  selectTurn(Math.max(0, REP.doc.rounds.length - 1), false);
+  window.scrollTo({ top: 0 });
+}
+function renderReplayMeta() {
+  const m = REP.doc.meta, sc = m.score || [{}, {}];
+  $("replayMeta").textContent = `${(m.players || []).join(" vs ")} · ${m.result} · ${m.turns} turns · final score ${sc[0].wins ?? "?"} wins / ${sc[0].lives ?? "?"} lives against ${sc[1].wins ?? "?"} wins / ${sc[1].lives ?? "?"} lives · played ${when(m.created)}` +
+    (m.steps === false ? " · saved before replays existed, so battles show their log only" : "");
+  const r = REP.doc.rounds;
+  $("turnStrip").innerHTML = r.map((x, k) => `<button type="button" role="tab" class="${x.outcome}" data-turn="${k}" aria-selected="${k === REP.turn}" title="Turn ${x.turn}: ${x.outcome}">T${x.turn}</button>`).join("") || `<span class="help">No turns played yet.</span>`;
+}
+function selectTurn(k, play = true) {
+  const rounds = REP.doc.rounds;
+  if (!rounds.length) return;
+  REP.turn = Math.max(0, Math.min(rounds.length - 1, k));
+  const r = rounds[REP.turn], labels = REP.doc.meta.players || ["Left", "Right"];
+  $("turnStrip").querySelectorAll("button").forEach((b) => b.setAttribute("aria-selected", String(Number(b.dataset.turn) === REP.turn)));
+  const res = r.outcome === "draw" ? "draw" : `${r.outcome === "win" ? labels[0] : labels[1]} won the battle`;
+  const n = (v, one, many) => `${v} ${v === 1 ? one : many}`;
+  const after = r.after ? ` · after it: ${labels[0]} ${n(r.after[0].wins, "win", "wins")}, ${n(r.after[0].lives, "life", "lives")}; ${labels[1]} ${n(r.after[1].wins, "win", "wins")}, ${n(r.after[1].lives, "life", "lives")}` : "";
+  $("turnLabel").textContent = `Turn ${r.turn} of ${rounds.at(-1).turn} · ${res}${after}`;
+  $("turnPrev").disabled = REP.turn === 0; $("turnNext").disabled = REP.turn === rounds.length - 1;
+  // shop moves and the models' reasoning for each side
+  $("replayShops").innerHTML = [0, 1].map((i) => {
+    const log = (r.shopLogs || [[], []])[i] || [], th = (r.thoughts || [[], []])[i] || [];
+    const moves = log.length ? log.map((x) => `<li>${esc(x)}</li>`).join("") : "<li>did nothing</li>";
+    const why = th.length ? `<div class="front-note">Model confidence per move</div><ol class="thoughts">${th.map((t) => `<li>${esc(t.choice)} · ${Math.round((t.confidence || 0) * 100)}%${t.options && t.options[1] ? ` (next best: ${esc(t.options[1][0])}, ${Math.round(t.options[1][1] * 100)}%)` : ""}</li>`).join("")}</ol>` : "";
+    return `<div class="panel"><div class="panel-head"><h2>${esc(labels[i])}</h2><span class="note">shopping on turn ${r.turn}</span></div><ol class="shoplog">${moves}</ol>${why}</div>`;
+  }).join("");
+  // the battle: step-by-step frames, or the log lines for games saved before replays
+  const hasFrames = r.frames && r.frames.length > 1;
+  $("replayLines").hidden = hasFrames;
+  if (hasFrames) {
+    startBattle({ frames: r.frames, outcome: r.outcome, lives: r.lives, turn: r.turn, shopLogs: r.shopLogs, labels });
+    if (!play) { S.playing = false; tick(); }
+  } else {
+    clearTimeout(S.timer); $("battle").hidden = true;
+    $("replayLines").innerHTML = (r.lines || []).map((l) => `<p>${esc(l)}</p>`).join("") || `<p class="dim">No battle recorded.</p>`;
+  }
+  // this turn's game log
+  const ev = (REP.doc.events || []).filter((e) => e.turn === r.turn);
+  $("replayLog").innerHTML = ev.length ? ev.map((e) => `<div class="log-e ${e.kind} ${e.warn && e.warn.length ? "bad" : e.ok === false ? "odd" : ""}"><div class="log-h"><span class="who">${esc(e.who || "Battle")}</span> ${esc(e.title)}</div><ul>${e.lines.map((l) => `<li class="${/^(rule|check|ability|effect)/.test(l) ? "meta" : ""}">${esc(l)}</li>`).join("")}</ul></div>`).join("") : `<p class="help">No log entries for this turn.</p>`;
+}
+$("modeReplays").onclick = () => switchMode("replays");
+$("replaySearch").addEventListener("input", renderReplayList);
+$("replayFilter").onchange = renderReplayList;
+$("replayRows").addEventListener("click", (e) => { const tr = e.target.closest("[data-rid]"); if (tr) openReplay(tr.dataset.rid); });
+$("replayRows").addEventListener("keydown", (e) => { const tr = e.target.closest("[data-rid]"); if (tr && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openReplay(tr.dataset.rid); } });
+$("replayBack").onclick = () => { clearTimeout(S.timer); $("battle").hidden = true; if (Battle3D.mounted) Battle3D.unmount(); REP.doc = null; loadReplays(); };
+$("turnStrip").addEventListener("click", (e) => { const b = e.target.closest("[data-turn]"); if (b) selectTurn(Number(b.dataset.turn)); });
+$("turnPrev").onclick = () => selectTurn(REP.turn - 1);
+$("turnNext").onclick = () => selectTurn(REP.turn + 1);
+$("replaySave").onclick = async () => {
+  try {
+    const j = await api("/api/replay/rename", { id: REP.doc.meta.id, title: $("replayTitle").value, note: $("replayNote").value });
+    REP.doc.meta = j.meta; renderReplayMeta(); toast("Saved.");
+  } catch (e) { toast(e.message); }
+};
+$("replayDelete").onclick = async () => {
+  if (!REP.confirmDelete) { REP.confirmDelete = true; $("replayDelete").textContent = "Click again to delete for good"; return; }
+  try { await api("/api/replay/delete", { id: REP.doc.meta.id }); toast("Replay deleted."); } catch (e) { toast(e.message); }
+  REP.doc = null; $("battle").hidden = true; loadReplays();
+};
+
+// ------------------------------------------------------------- game log
+S.log = []; S.logId = null; S.logBusy = false;
+async function syncLog() {
+  if (!S.id || !S.st) return;
+  if (S.logId !== S.id) { S.logId = S.id; S.log = []; renderLog(); }
+  if (S.logBusy || S.st.logCount <= S.log.length) return;
+  S.logBusy = true;
+  const id = S.id;
+  try {
+    const j = await api("/api/log", { id, since: S.log.length });
+    if (id === S.id) { S.log.push(...j.events); renderLog(); }
+  } catch (e) { /* the next action retries */ }
+  finally { S.logBusy = false; }
+  if (S.st && S.st.logCount > S.log.length) syncLog();
+}
+function logFilter(e) {
+  const f = $("logFilter").value;
+  if (f === "all") return true;
+  if (f === "battle") return e.kind === "battle";
+  if (f === "flags") return e.warn.length > 0 || e.ok === false;
+  if (f === "left") return e.seat === 0;
+  if (f === "right") return e.seat === 1;
+  return true;
+}
+function renderLog() {
+  const el = $("logList");
+  const show = S.log.filter(logFilter);
+  const warns = S.log.filter((e) => e.warn.length).length;
+  const diffs = S.log.filter((e) => e.ok === false).length;
+  $("logSummary").textContent = `${S.log.length} entries · ${warns ? warns + " rule problems" : "no rule problems"}` +
+    (diffs ? ` · ${diffs} gold changes that differ from the basic rules (check the ability lines)` : "");
+  $("logSummary").className = "note " + (warns ? "bad" : "");
+  if (!show.length) { el.innerHTML = `<p class="help">Nothing here yet. Every shop action, turn start, end of turn and battle is recorded as it happens.</p>`; return; }
+  let html = "", turn = null;
+  for (const e of show) {
+    if (e.turn !== turn) { turn = e.turn; html += `<h3 class="log-turn">Turn ${turn}</h3>`; }
+    const cls = e.warn.length ? "bad" : e.ok === false ? "odd" : "";
+    html += `<div class="log-e ${e.kind} ${cls}"><div class="log-h"><span class="who">${esc(e.who || "Battle")}</span> ${esc(e.title)}</div>` +
+      `<ul>${e.lines.map((l) => `<li class="${/^(rule|check|ability)/.test(l) ? "meta" : ""}">${esc(l)}</li>`).join("")}` +
+      e.warn.map((w) => `<li class="warn">⚠ rule problem: ${esc(w)}</li>`).join("") + `</ul></div>`;
+  }
+  const stick = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+  el.innerHTML = html;
+  if (stick) el.scrollTop = el.scrollHeight;
+}
+function logText() {
+  const st = S.st;
+  const head = st ? `sapai arena game log\n${st.seats[0].label} vs ${st.seats[1].label}\n` : "";
+  let out = head, turn = null;
+  for (const e of S.log) {
+    if (e.turn !== turn) { turn = e.turn; out += `\n=== Turn ${turn} ===\n`; }
+    out += `\n[${e.who || "Battle"}] ${e.title}\n` + e.lines.map((l) => `    ${l}\n`).join("") +
+      e.warn.map((w) => `    !! rule problem: ${w}\n`).join("");
+  }
+  return out;
+}
+
+async function newGame() {
+  stopAll();
+  try {
+    const j = await api("/api/new", { seat0: "human", seat1: $("opp").value });
+    S.id = j.id; S.st = j.state; S.sel = null; S.battle = null;
+    remember();
+    $("battle").hidden = true;
+    render();
+  } catch (e) { toast(e.message); }
+}
+async function newMatch() {
+  stopAll();
+  try {
+    const j = await api("/api/new", { seat0: $("agA").value, seat1: $("agB").value });
+    S.id = j.id; S.st = j.state; S.battle = null;
+    remember();
+    $("battle").hidden = true;
+    render();
+  } catch (e) { toast(e.message); }
+}
+async function step() {
+  if (S.busy || !S.id) return;
+  S.busy = true; render();
+  try {
+    const j = await api("/api/step", { id: S.id });
+    if (speed() > 0) SFX.play("endturn");
+    S.st = j.state;
+    S.busy = false;
+    startBattle(j.battle);
+  } catch (e) { toast(e.message); S.auto = false; }
+  finally { S.busy = false; render(); }
+}
+function stopAll() { clearTimeout(S.timer); S.auto = false; }
+
+async function runSeries() {
+  const a = $("agA").value, b = $("agB").value, n = Number($("seriesN").value);
+  const out = $("seriesOut");
+  out.hidden = false;
+  out.innerHTML = `Playing ${n} games of ${esc(agentLabel(a))} vs ${esc(agentLabel(b))}…`;
+  $("seriesBtn").disabled = true;
+  try {
+    const { series: r } = await api("/api/series", { a, b, n });
+    const pa = Math.round((100 * r.a) / r.games), pb = Math.round((100 * r.b) / r.games);
+    const [w, l, d] = r.battles, tot = w + l + d || 1;
+    out.innerHTML = `<b>${esc(agentLabel(a))}</b> won <b>${r.a}</b> of ${r.games} games (${pa}%), <b>${esc(agentLabel(b))}</b> won <b>${r.b}</b> (${pb}%)` +
+      (r.unfinished ? `, ${r.unfinished} hit the 40 turn cap` : "") +
+      `. Battles: ${w} / ${l} / ${d} (left wins / right wins / draws), score ${((w + d / 2) / tot).toFixed(3)} for the left side. Took ${r.seconds}s.` +
+      `<div class="bars" aria-hidden="true"><span style="width:${pa}%"></span><span style="width:${pb}%"></span></div>`;
+  } catch (e) { out.textContent = e.message; }
+  finally { $("seriesBtn").disabled = false; }
+}
+
+// ----------------------------------------------------------------- events
+function onTeam(j, opts = {}) {
+  const s = me(), sel = S.sel;
+  if (sel && sel.type === "shop") {
+    const x = s.shop.find((y) => y.index === sel.i);
+    if (x.kind === "food") return x.targeted ? act("buy_food", [x.index, j]) : act("buy_food_untargeted", [x.index]);
+    if (s.team[j] && s.team[j].name === x.name) return act("buy_combine", [x.index, j]);
+  }
+  if (sel && sel.type === "team" && sel.i !== j) {
+    const a = s.team[sel.i], b = s.team[j];
+    if (a.name === b.name && legal("combine", [sel.i, j]) && !opts.swap) return pairMenu(sel.i, j);
+    return act("swap", [sel.i, j]);
+  }
+  S.sel = sel && sel.type === "team" && sel.i === j ? null : { type: "team", i: j };
+  render();
+  selectFeedback(S.sel ? document.querySelector(`[data-team="${j}"]`) : null, j + 2);
+}
+// Two copies of the same pet: ask whether to combine them or just swap places
+function pairMenu(a, b) {
+  closePairMenu();
+  const target = document.querySelector(`[data-team="${b}"]`);
+  const pet = me().team[a];
+  const m = document.createElement("div");
+  m.className = "pair-menu"; m.id = "pairMenu"; m.setAttribute("role", "menu");
+  m.innerHTML = `<button type="button" class="btn primary" data-do="combine" role="menuitem">Combine · level up</button>
+    <button type="button" class="btn" data-do="swap" role="menuitem">Swap places</button>`;
+  document.body.appendChild(m);
+  const r = target.getBoundingClientRect(), mr = m.getBoundingClientRect();
+  const left = Math.min(Math.max(8, r.left + r.width / 2 - mr.width / 2), innerWidth - mr.width - 8);
+  const top = r.bottom + 8 + mr.height > innerHeight ? r.top - mr.height - 8 : r.bottom + 8;
+  m.style.left = `${left + scrollX}px`; m.style.top = `${top + scrollY}px`;
+  m.addEventListener("click", (e) => {
+    const k = e.target.closest("[data-do]");
+    if (!k) return;
+    closePairMenu();
+    act(k.dataset.do, [a, b]);
+  });
+  m.querySelector("button").focus();
+  SFX.play("select", 5);
+  setTimeout(() => document.addEventListener("pointerdown", outsidePairMenu), 0);
+}
+function outsidePairMenu(e) { if (!e.target.closest("#pairMenu")) closePairMenu(); }
+function closePairMenu() {
+  const m = $("pairMenu");
+  if (m) m.remove();
+  document.removeEventListener("pointerdown", outsidePairMenu);
+}
+
+function onShop(i) {
+  S.sel = S.sel && S.sel.type === "shop" && S.sel.i === i ? null : { type: "shop", i };
+  render();
+  selectFeedback(S.sel ? document.querySelector(`[data-shop="${i}"]`) : null, i);
+}
+function selectFeedback(el, i) {
+  if (!el) { SFX.play("deselect"); return; }
+  FX.anim(el, "pop", 360);
+  FX.burst("sparkle", el, { n: 9, power: 0.8 });
+  SFX.play("select", i);
+}
+// The buy action for a shop item that needs no target, or null
+function buyAction(x) {
+  if (!x) return null;
+  if (x.kind === "food") return x.targeted ? null : ["buy_food_untargeted", [x.index]];
+  return ["buy_pet", [x.index]];
+}
+function buySelected() {
+  const sel = S.sel;
+  if (!sel || sel.type !== "shop") return;
+  const x = me().shop.find((y) => y.index === sel.i);
+  if (x && x.kind === "food" && x.targeted) { SFX.play("error"); toast("Tap one of your pets to feed it this food."); return; }
+  const buy = buyAction(x);
+  if (buy) act(...buy);
+}
+function sellOrBuy() {
+  const sel = S.sel;
+  if (!sel) return;
+  if (sel.type === "team") return act("sell", [sel.i]);
+  buySelected();
+}
+
+$("team").addEventListener("click", (e) => {
+  const c = e.target.closest("[data-team]"), em = e.target.closest("[data-empty]");
+  if (c) onTeam(Number(c.dataset.team), { swap: e.shiftKey });
+  else if (em && S.sel && S.sel.type === "shop") buySelected();
+});
+$("shop").addEventListener("click", (e) => { const c = e.target.closest("[data-shop]"); if (c) onShop(Number(c.dataset.shop)); });
+for (const [id, fn] of [["team", (el) => onTeam(Number(el.dataset.team))], ["shop", (el) => onShop(Number(el.dataset.shop))]]) {
+  $(id).addEventListener("keydown", (e) => {
+    const el = e.target.closest(id === "team" ? "[data-team]" : "[data-shop]");
+    if (el && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); e.stopPropagation(); fn(el); }
+  });
+}
+$("rollBtn").onclick = () => act("roll");
+$("freezeBtn").onclick = () => S.sel && S.sel.type === "shop" && act("freeze", [S.sel.i]);
+$("sellBtn").onclick = sellOrBuy;
+function endTurn() {
+  const s = me();
+  if (!s) return;
+  if (s.gold > 0 && !S.confirmEnd) {
+    S.confirmEnd = true;
+    SFX.play("error");
+    toast(`You still have ${s.gold} gold, and unspent gold is lost. Press End turn again to end anyway.`);
+    render();
+    return;
+  }
+  S.confirmEnd = false;
+  act("end_turn");
+}
+$("endBtn").onclick = endTurn;
+$("newGame").onclick = newGame;
+$("newMatch").onclick = newMatch;
+$("stepBtn").onclick = () => { S.auto = false; step(); };
+$("autoBtn").onclick = () => {
+  S.auto = !S.auto; render();
+  if (S.auto && S.st && !S.st.over && (!S.battle || !S.playing)) step();
+};
+$("seriesBtn").onclick = runSeries;
+
+// ------------------------------------------------------------------- chat
+const CHAT = { open: false, claude: false, loadedFor: null, busy: false };
+function chatTarget() {
+  if (!S.st) return null;
+  const seats = S.st.seats;
+  if (S.mode === "watch") return Number($("chatSeat").value);
+  const i = seats.findIndex((x) => x.kind !== "human");
+  return i < 0 ? null : i;
+}
+function chatHeader() {
+  const i = chatTarget(), st = S.st;
+  const isModel = (k) => (S.meta.agents.find((a) => a.id === k) || {}).group === "model";
+  $("chatSeat").hidden = S.mode !== "watch";
+  if (i == null || !st) { $("chatWho").textContent = "No game"; return; }
+  $("chatWho").textContent = st.seats[i].label;
+  $("chatMode").textContent = !isModel(st.seats[i].kind)
+    ? "Only the trained models can explain their moves."
+    : CHAT.claude ? "Claude speaking for the model, using only its real numbers" : "Answers come from the model's real move probabilities";
+}
+function bubble(m) {
+  const you = m.from === "you";
+  return `<div class="bubble ${you ? "you" : "bot"}">${you ? "" : `<span class="tag">${esc(m.from)}${m.mode === "claude" ? " · via Claude" : ""}</span>`}${esc(m.text)}</div>`;
+}
+function chatRender(list) {
+  const el = $("chatLog");
+  el.innerHTML = list.length ? list.map(bubble).join("")
+    : `<div class="bubble bot"><span class="tag">How this works</span>The model is a neural network, so it can't really talk. Instead it shows you what it actually weighed: its confidence in each move, the moves it nearly made, and how good it thinks the game is going. Try a question below.</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+async function chatLoad() {
+  if (!S.id) return;
+  try {
+    const j = await api("/api/chat", { id: S.id });
+    CHAT.claude = j.claude; CHAT.loadedFor = S.id;
+    const i = chatTarget();
+    chatRender(j.chat.filter((m) => m.seat == null || m.seat === i));
+    chatHeader();
+  } catch (e) { chatRender([]); }
+}
+async function chatSend(text) {
+  text = text.trim();
+  if (!text || CHAT.busy || !S.id) return;
+  CHAT.busy = true;
+  const el = $("chatLog");
+  el.insertAdjacentHTML("beforeend", bubble({ from: "you", text }) + `<div class="bubble bot typing" id="typing">thinking…</div>`);
+  el.scrollTop = el.scrollHeight;
+  $("chatInput").value = "";
+  try {
+    const j = await api("/api/chat", { id: S.id, message: text, seat: chatTarget() });
+    CHAT.claude = j.claude;
+    $("typing")?.remove();
+    el.insertAdjacentHTML("beforeend", bubble(j.reply));
+    SFX.play("select", 4);
+  } catch (e) {
+    $("typing")?.remove();
+    el.insertAdjacentHTML("beforeend", bubble({ from: "system", text: e.message }));
+  } finally { CHAT.busy = false; el.scrollTop = el.scrollHeight; chatHeader(); }
+}
+const CHIPS = ["Why did you do that?", "Recap your last turn", "Bruh you inted", "How confident are you?", "Rate my team", "What would you do in my spot?"];
+$("chatChips").innerHTML = CHIPS.map((c) => `<button type="button">${esc(c)}</button>`).join("");
+$("chatChips").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) chatSend(b.textContent); });
+$("chatForm").addEventListener("submit", (e) => { e.preventDefault(); chatSend($("chatInput").value); });
+function chatToggle(open) {
+  CHAT.open = open;
+  $("chat").hidden = !open; $("chatFab").hidden = open;
+  $("chatFab").setAttribute("aria-expanded", String(open));
+  if (open) { chatLoad(); setTimeout(() => $("chatInput").focus(), 50); }
+}
+$("chatFab").onclick = () => chatToggle(true);
+$("chatClose").onclick = () => chatToggle(false);
+$("chatSeat").onchange = chatLoad;
+$("chatInput").addEventListener("keydown", (e) => e.stopPropagation());
+function soundUI() {
+  $("muteBtn").textContent = SFX.muted || SFX.volume === 0 ? "🔇" : "🔊";
+  $("muteBtn").setAttribute("aria-pressed", String(SFX.muted));
+  $("muteBtn").title = SFX.muted ? "Sound is off. Click to turn it on." : "Sound is on. Click to mute.";
+  $("vol").value = Math.round(SFX.volume * 100);
+}
+$("muteBtn").onclick = () => { SFX.setMuted(!SFX.muted); soundUI(); if (!SFX.muted) SFX.play("buy"); };
+$("vol").oninput = () => { SFX.setVolume(Number($("vol").value) / 100); soundUI(); };
+$("vol").onchange = () => SFX.play("buy");
+soundUI();
+function musicUI() {
+  $("musicBtn").setAttribute("aria-pressed", String(MUSIC.enabled));
+  $("musicBtn").classList.toggle("off", !MUSIC.enabled || MUSIC.volume === 0);
+  $("musicBtn").title = MUSIC.enabled ? "Music is on. Click to turn it off." : "Music is off. Click to turn it on.";
+  $("mvol").value = Math.round(MUSIC.volume * 100);
+}
+$("musicBtn").onclick = () => { MUSIC.setEnabled(!MUSIC.enabled); musicUI(); };
+$("mvol").oninput = () => { MUSIC.setVolume(Number($("mvol").value) / 100); musicUI(); };
+musicUI();
+$("logFilter").onchange = renderLog;
+$("logCopy").onclick = async () => {
+  try { await navigator.clipboard.writeText(logText()); toast("Log copied."); }
+  catch (e) { toast("Could not copy. Use Download instead."); }
+};
+$("logSave").onclick = () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([logText()], { type: "text/plain" }));
+  a.download = `sapai-game-log-turn-${S.st ? S.st.turn : 0}.txt`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+$("bPlay").onclick = () => {
+  if (!S.playing && S.frame >= S.battle.frames.length - 1) { S.frame = 0; S.soundFrame = -1; showFrame(false); }
+  S.playing = !S.playing; tick();
+};
+$("bPrev").onclick = stepPrev;
+function stepNext() {
+  if (!S.battle) return;
+  S.playing = false; tick();
+  if (S.frame < S.battle.frames.length - 1) { S.frame++; showFrame(false); }
+  if (S.frame >= S.battle.frames.length - 1) finishBattle();
+}
+function stepPrev() {
+  if (!S.battle) return;
+  S.playing = false; tick();
+  if (S.frame > 0) { S.frame--; S.soundFrame = S.frame; showFrame(false); }
+}
+$("bNext").onclick = stepNext;
+$("bspeed").onchange = () => { setSpeed($("bspeed").value); if (speed() < 0) { S.playing = false; tick(); } };
+$("speed").onchange = () => setSpeed($("speed").value);
+try { const v = localStorage.getItem("sapaiBattleSpeed"); if (v && [...$("bspeed").options].some((o) => o.value === v)) setSpeed(v); } catch (e) {}
+document.addEventListener("keydown", (e) => {
+  if ($("battle").hidden || !S.battle || e.target.closest("input, select, textarea")) return;
+  if (e.key === "ArrowRight") { e.preventDefault(); stepNext(); }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); stepPrev(); }
+  else if (e.key === " " && !e.target.closest("button")) { e.preventDefault(); $("bPlay").click(); }
+});
+$("bSkip").onclick = () => { S.frame = S.battle.frames.length - 1; showFrame(true); finishBattle(); };
+document.addEventListener("click", (e) => {
+  const c = e.target.closest("[data-k]");
+  if (c) openSheet(REG[Number(c.dataset.k)], "view");
+});
+document.addEventListener("keydown", (e) => {
+  const c = e.target.closest && e.target.closest("[data-k]");
+  if (c && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openSheet(REG[Number(c.dataset.k)], "view"); }
+  if (e.key === "Escape") $("sheet").hidden = true;
+});
+$("sheetClose").onclick = () => ($("sheet").hidden = true);
+$("how").addEventListener("toggle", () => { try { localStorage.setItem("howOpen", $("how").open ? "1" : "0"); } catch (e) {} });
+$("bClose").onclick = () => { clearTimeout(S.timer); $("battle").hidden = true; MUSIC.setMood("shop"); if (Battle3D.mounted) Battle3D.unmount(); };
+
+// ------------------------------------------------------------- 2D / 3D view
+S.view = "2d";
+function setView(v) {
+  S.view = v;
+  try { localStorage.setItem("sapaiBattleView", v); } catch (e) {}
+  $("view2d").setAttribute("aria-pressed", String(v === "2d"));
+  $("view3d").setAttribute("aria-pressed", String(v === "3d"));
+  document.querySelector("#battle .stage").hidden = v === "3d";
+  $("stage3d").hidden = v !== "3d";
+  if (v === "3d") {
+    $("stage3dLoading").hidden = false;
+    if (S.st) { $("lbl3L").textContent = S.st.seats[0].label; $("lbl3R").textContent = S.st.seats[1].label; }
+    Battle3D.reset($("stage3d")).then(() => {
+      $("stage3dLoading").hidden = true;
+      if (!S.battle) return;
+      // rebuild the board as of the current step, without animation
+      for (let k = 0; k <= S.frame; k++) Battle3D.show(S.battle.frames[k], k ? S.battle.frames[k - 1] : null, { animate: false });
+      S.last3d = S.frame;
+    }).catch((e) => { toast(e.message); setView("2d"); });
+  } else if (Battle3D.mounted) {
+    Battle3D.unmount();
+    if (S.battle) showFrame(false);
+  }
+}
+$("view2d").onclick = () => setView("2d");
+$("view3d").onclick = () => setView("3d");
+try { if (localStorage.getItem("sapaiBattleView") === "3d") { S.view = "3d"; $("view3d").setAttribute("aria-pressed", "true"); $("view2d").setAttribute("aria-pressed", "false"); document.querySelector("#battle .stage").hidden = true; $("stage3d").hidden = false; } } catch (e) {}
+$("modePlay").onclick = () => switchMode("play");
+$("modeWatch").onclick = () => switchMode("watch");
+$("opp").onchange = () => { $("oppDesc").textContent = agentDesc($("opp").value); };
+const watchDesc = () => { $("watchDesc").textContent = `Left: ${agentDesc($("agA").value)}  Right: ${agentDesc($("agB").value)}`; };
+$("agA").onchange = watchDesc; $("agB").onchange = watchDesc;
+
+document.addEventListener("keydown", (e) => {
+  if (S.mode !== "play" || !me() || e.target.tagName === "SELECT" || e.metaKey || e.ctrlKey) return;
+  const k = e.key.toLowerCase();
+  if (k === "escape") { closePairMenu(); S.sel = null; render(); }
+  else if (k === "r") act("roll");
+  else if (k === "f" && S.sel && S.sel.type === "shop") act("freeze", [S.sel.i]);
+  else if (k === "s") sellOrBuy();
+  else if (k === "b") buySelected();
+  else if (e.key === "Enter" && !e.target.closest("[data-team],[data-shop],button")) endTurn();
+});
+
+// ------------------------------------------------------------------- boot
+(async function boot() {
+  try {
+    S.meta = await api("/api/meta");
+  } catch (e) {
+    $("sub").textContent = "Could not reach the game server. Start it with: python -m gui.server";
+    return;
+  }
+  const groups = { model: "Trained models", bot: "Bots", custom: "Your agents" };
+  const opts = (sel) => Object.entries(groups).map(([g, name]) => {
+    const list = S.meta.agents.filter((a) => a.group === g);
+    if (!list.length) return "";
+    return `<optgroup label="${name}">${list.map((a) => `<option value="${a.id}" ${a.id === sel ? "selected" : ""}>${esc(a.label)}${a.rating ? ` · ${a.rating}` : ""}</option>`).join("")}</optgroup>`;
+  }).join("");
+  const best = (S.meta.agents.find((a) => a.group === "model") || S.meta.agents[0]).id;
+  $("opp").innerHTML = opts(best);
+  $("agA").innerHTML = opts(best);
+  const second = (S.meta.agents.find((a) => a.id === "mlp_19.3M") || S.meta.agents.find((a) => a.id === "greedy")).id;
+  $("agB").innerHTML = opts(second);
+  $("oppDesc").textContent = agentDesc(best);
+  watchDesc();
+  let open = true;
+  try { open = localStorage.getItem("howOpen") !== "0"; } catch (e) {}
+  $("how").open = open;
+  $("perkList").innerHTML = (S.meta.perks || []).map((p) => `<span><b>${p.emoji} ${esc(p.name)}</b>: ${esc(p.desc)}</span>`).join("");
+  const n = S.meta.agents.filter((a) => a.group === "model").length;
+  $("sub").textContent = `${n} trained models · Turtle Pack`;
+  const saved = recall();
+  S.mode = saved.mode === "watch" ? "watch" : "play";
+  if (!(await resume(saved[S.mode]))) (S.mode === "play" ? newGame() : newMatch());
+})();
+</script>
+</body>
+</html>

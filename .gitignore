@@ -135,3 +135,12 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Reinforcement learning runs
+runs/
+
+# GUI saved games
+gui/saves/
+
+# GUI replay catalog
+gui/replays/

@@ -8,6 +8,10 @@ sapai
 
 ``sapai`` is a Super Auto Pets engine built with reinforcement learning training and other related AI models in mind. You may see more of my published work in machine learning on `ResearchGate <https://www.researchgate.net/publication/347653898_Machine_Learned_Model_for_Solid_Form_Volume_Estimation_Based_on_Packing-Accessible_Surface_and_Molecular_Topological_Fragments>`_ or `ACS <https://pubs.acs.org/doi/full/10.1021/acs.jpca.0c06791>`_.
 
+``sapai`` contains exactly the 60 pets of the Turtle Pack, along with the
+Turtle Pack foods. Their stats and abilities follow
+``data/turtle_pack_pets.yaml`` (up to date as of 11/11/26).
+
 You may see and use ``sapai`` examples easily through `Google Colab <https://colab.research.google.com/drive/1sMF50gDxpZt9c98inn4ldMvfgEcfWQa9>`_
 
 .. figure:: doc/static/workflow.png
@@ -45,7 +49,70 @@ Unit tests are located in the ``tests`` directory. Tests can be run with the fol
 
     python -m unittest discover -s tests
 
-    
+
+------------------------------
+Playing in Your Browser
+------------------------------
+
+``gui/`` is a browser game on top of the engine. You can play against the
+trained models in ``models/`` or the greedy bot, or watch two agents play each
+other. It needs only Python 3 and ``numpy``: the models run through a numpy
+version of their networks, so ``torch`` is not required.
+
+.. code-block:: bash
+
+    git clone https://github.com/ArchDome/sapai-by-manny405-but-better.git
+    cd sapai-by-manny405-but-better
+    python -m pip install numpy
+    python -m gui.server
+
+Then open http://127.0.0.1:8405. On Windows, run these one at a time in
+PowerShell or Command Prompt, and use ``py`` instead of ``python`` if
+``python`` isn't found.
+
+What's in it:
+
+- **Play**: a shop board where you tap to buy, feed, stack, swap, sell, freeze
+  and roll, with animated battle replays and a log of every attack and ability.
+- **Watch models**: pick two agents and step through their games or auto play.
+  **Run series** plays 10 to 100 games and reports the win rates.
+- **Talk to the model**: ask a trained model why it made a move. Answers come
+  from its real move probabilities and value estimates.
+- **Game log**: every action with what it changed and what the rules say should
+  happen, for checking the engine.
+- Sound effects and music (made in the browser, no audio files), a How to play
+  guide, and saved games that survive a refresh or server restart.
+
+See ``gui/README.md`` for adding your own agent, re-exporting models after
+training, and turning on free-form chat with an Anthropic API key.
+
+-------------------------------
+Playing a Game in the Terminal
+-------------------------------
+
+A simple interactive game is included. Each turn you shop, then your team
+battles a computer opponent that shops with the same rules. Win 10 battles
+before running out of lives.
+
+.. code-block:: bash
+
+    python -m sapai.cli
+    python -m sapai.cli --seed 1 --lives 5
+
+Type ``help`` in the game for the commands, for example ``buy 0``,
+``buy 3 0`` (feed shop food 3 to team pet 0), ``sell 1``, ``roll``,
+``freeze 2``, ``move 2 0``, ``end`` and ``log``.
+
+By default the opponent is a greedy bot. You can instead play against one of
+the trained models in ``models/`` (this needs ``torch``, ``gymnasium`` and
+``sb3-contrib``):
+
+.. code-block:: bash
+
+    python -m sapai.cli --opponent token   # strongest: the most trained token model
+    python -m sapai.cli --opponent mlp     # the most trained MLP model
+    python -m sapai.cli --opponent models/token_22.5M.zip
+
 ---------------------------
 Introduction: Code Examples
 ---------------------------
@@ -62,18 +129,18 @@ Creating a Pet
     >>> pet = Pet("ant")
     >>> print(pet)
     ### Printing pet is given in the form of < PetName Attack-Health Status Level-Exp > 
-    < pet-ant 2-1 none 1-0 >
+    < pet-ant 2-2 none 1-0 >
     >>> pet._attack += 3
     >>> pet.gain_experience()
     >>> print(pet)
-    < pet-ant 5-1 none 1-1 >
+    < pet-ant 5-2 none 1-1 >
     >>> print(pet.ability)
     ### Organization of pet abilities provided by super-auto-pets-db project
-    {'description': 'Faint: Give a random friend +2/+1',
+    {'description': 'Faint: Give one random friend +1 attack and +1 health.',
      'trigger': 'Faint',
      'triggeredBy': {'kind': 'Self'},
      'effect': {'kind': 'ModifyStats',
-      'attackAmount': 2,
+      'attackAmount': 1,
       'healthAmount': 1,
       'target': {'kind': 'RandomFriend', 'n': 1},
       'untilEndOfBattle': False}}
@@ -90,29 +157,29 @@ Creating a Team
     >>> team0 = Team(["ant","ox","tiger"])
     >>> team1 = Team(["sheep","tiger"])
     >>> print(team0)
-    0: < Slot pet-ant 2-1 none 1-0 > 
-      1: < Slot pet-ox 1-4 none 1-0 > 
-      2: < Slot pet-tiger 4-3 none 1-0 > 
+    0: < Slot pet-ant 2-2 none 1-0 > 
+      1: < Slot pet-ox 1-3 none 1-0 > 
+      2: < Slot pet-tiger 6-4 none 1-0 > 
       3: < Slot EMPTY > 
       4: < Slot EMPTY > 
    >>> print(team1)
    0: < Slot pet-sheep 2-2 none 1-0 > 
-      1: < Slot pet-tiger 4-3 none 1-0 > 
+      1: < Slot pet-tiger 6-4 none 1-0 > 
       2: < Slot EMPTY > 
       3: < Slot EMPTY > 
       4: < Slot EMPTY > 
    >>> team0.move(1,4)
    >>> print(team0)
-   0: < Slot pet-ant 2-1 none 1-0 > 
+   0: < Slot pet-ant 2-2 none 1-0 > 
       1: < Slot EMPTY > 
-      2: < Slot pet-tiger 4-3 none 1-0 > 
+      2: < Slot pet-tiger 6-4 none 1-0 > 
       3: < Slot EMPTY > 
-      4: < Slot pet-ox 1-4 none 1-0 >  
+      4: < Slot pet-ox 1-3 none 1-0 >  
    >>> team0.move_forward()
    >>> print(team0)
-   0: < Slot pet-ant 2-1 none 1-0 > 
-      1: < Slot pet-tiger 4-3 none 1-0 > 
-      2: < Slot pet-ox 1-4 none 1-0 > 
+   0: < Slot pet-ant 2-2 none 1-0 > 
+      1: < Slot pet-tiger 6-4 none 1-0 > 
+      2: < Slot pet-ox 1-3 none 1-0 > 
       3: < Slot EMPTY > 
       4: < Slot EMPTY > 
     
@@ -127,7 +194,8 @@ Battles
     >>> battle = Battle(team0,team1)
     >>> winner = battle.battle()
     >>> print(winner)
-    2
+    1
+    ### The outcome can differ between runs because some abilities are random
     ### Possible fight outputs:
     ### 0 = Team0 Wins
     ### 1 = Team1 Wins
@@ -160,21 +228,13 @@ The implementation of battle is efficient. Using IPython magic, this can be test
       ###  4.32 ms ± 20.8 µs per loop (mean ± std. dev. of 7 runs, 100 loops each)
       ###  More than 230 battle per second on a single core
       
-^^^^^^^^^^^^
-Battle Graph
-^^^^^^^^^^^^
+^^^^^^^^^^^^^^
+Battle History
+^^^^^^^^^^^^^^
 
-All battle history is stored for every phase, effect, and attack that occured during the battle. This battle history can be graphed and visualized. The full graph for the battle is shown below. 
-
-  >>> from sapai.graph import graph_battle
-  >>> graph_battle(battle, file_name="Example")
-
-
-.. figure:: doc/static/battle_graph_full.png
-
-    :height: 2140
-    :width: 536
-    :align: center
+Every phase, effect, and attack that occurred during a battle is stored in
+``battle.battle_history``. In the terminal game, the ``log`` command shows the
+last battle step by step.
 
 ------
 Status
