@@ -515,6 +515,7 @@ def _lines(entries_by_phase, names):
             except Exception:
                 line = None
             if line:
+                line = line.replace("deals damage to nothing", "has no enemy left to hit")
                 out.append(_rename(line, names))
     return out
 
@@ -542,16 +543,33 @@ def replay_battle(t0, t1, names=("You", "Opponent")):
     where = {"round": "Start of battle"}
     original = battle_mod.battle_phase
 
+    stack = []  # phases currently running, outermost first: [phase, phase_dict, flushed]
+
+    def emit(phase, entries):
+        lines = _lines({phase: entries}, names) if not phase.startswith("phase_move") else []
+        f = _snap(b, f"{where['round']} · {PHASE_LABELS.get(phase, phase)}", lines)
+        f["phase"] = phase
+        if lines or f["teams"] != frames[-1]["teams"]:
+            frames.append(f)
+
     def recording_phase(battle_obj, phase, teams, pet_priority, phase_dict):
-        before = len(phase_dict.get(phase, []))
-        out = original(battle_obj, phase, teams, pet_priority, phase_dict)
-        if battle_obj is b:
-            entries = phase_dict.get(phase, [])[before:]
-            lines = _lines({phase: entries}, names) if not phase.startswith("phase_move") else []
-            f = _snap(b, f"{where['round']} · {PHASE_LABELS.get(phase, phase)}", lines)
-            f["phase"] = phase
-            if lines or f["teams"] != frames[-1]["teams"]:
-                frames.append(f)
+        if battle_obj is not b:
+            return original(battle_obj, phase, teams, pet_priority, phase_dict)
+        if stack:
+            ### A phase running inside another one (Rhino: each knock-out hit
+            ###   runs its own faint phase). Show what the outer phase did so
+            ###   far first, so the hit appears before the faint it causes.
+            parent = stack[-1]
+            done = parent[1].get(parent[0], [])
+            emit(parent[0], done[parent[2]:])
+            parent[2] = len(done)
+        entry = [phase, phase_dict, len(phase_dict.get(phase, []))]
+        stack.append(entry)
+        try:
+            out = original(battle_obj, phase, teams, pet_priority, phase_dict)
+        finally:
+            stack.pop()
+        emit(phase, phase_dict.get(phase, [])[entry[2]:])
         return out
 
     battle_mod.battle_phase = recording_phase

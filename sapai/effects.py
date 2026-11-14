@@ -1184,10 +1184,13 @@ def TransferStats(apet, apet_idx, teams, te=None, te_idx=None, fixed_targets=Non
             ### Randomness not needed as outcome will be the same for all pets
             ###   that have this ability
             temp_from = temp_from[0][0]
+            ### At least 1: Crab copies 25% of a friend's health, which rounds
+            ###   down to 0 for any friend with 3 health or less and used to
+            ###   make the Crab faint at the start of battle.
             if copy_attack:
-                apet._attack = int(temp_from.attack * percentage)
+                apet._attack = max(1, int(temp_from.attack * percentage))
             if copy_health:
-                apet._health = int(temp_from.health * percentage)
+                apet._health = max(1, int(temp_from.health * percentage))
 
     return target, possible
 
