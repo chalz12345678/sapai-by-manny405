@@ -575,6 +575,11 @@ class Pet:
             if trigger == self:
                 ### Only time this doesn't activate is if it self triggered
                 return activated, targets, possible
+            ### Only friends: oteam is the fainted pet's opponents, so a pet on
+            ###   that team is its enemy (an enemy fainting used to use up
+            ###   Fly's triggers)
+            if oteam is not None and self.team is oteam:
+                return activated, targets, possible
             ### A pet that has fainted itself does not trigger off of friends
             if self._health <= 0:
                 return activated, targets, possible

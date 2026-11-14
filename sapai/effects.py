@@ -964,6 +964,11 @@ def SummonPet(apet, apet_idx, teams, te=None, te_idx=None, fixed_targets=None):
             ### Assume that oteam was not input, for example if Rat was pilled
             ###   during the shop phase
             return [], []
+        ### Enemies that fainted at the same time as this pet are gone and
+        ###   leave room, whichever faint is handled first
+        for temp_slot in target_team:
+            if not temp_slot.empty and temp_slot.pet.health <= 0:
+                target_team.remove(temp_slot.pet)
         target_team.move_backward()
     else:
         raise Exception(apet.ability["effect"]["team"])

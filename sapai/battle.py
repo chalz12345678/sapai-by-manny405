@@ -485,7 +485,12 @@ def battle_phase_start(battle_obj, phase, teams, pet_priority, phase_dict):
 
 def battle_phase_hurt_and_faint(battle_obj, phase, teams, pet_priority, phase_dict):
     phase_list = phase_dict[phase]
-    pp = pet_priority
+    ### Pets may have been summoned since pet_priority was made (for example
+    ###   a Bee from Honey), so use the teams as they are now
+    battle_obj.pet_priority = battle_obj.update_pet_priority(
+        battle_obj.t0, battle_obj.t1
+    )
+    pp = battle_obj.pet_priority
     status_list = []
     while True:
         ### Get a list of fainted pets
@@ -499,6 +504,13 @@ def battle_phase_hurt_and_faint(battle_obj, phase, teams, pet_priority, phase_di
                 if p.status != "none":
                     status_list.append([p, team_idx, pet_idx])
 
+        ### Pets that may trigger off the fainted pets (including the fainted
+        ###   pets themselves), taken once for every pet that fainted at the
+        ###   same time and before any trigger runs: a trigger can remove a
+        ###   fainted pet from the team (for example to make room for a
+        ###   summon) before its own ability runs
+        responders = [(t, i, teams[t][i].pet) for t, i in pp]
+
         ### Check every fainted pet
         faint_targets_list = []
         for team_idx, pet_idx, fainted_pet in fainted_list:
@@ -507,10 +519,6 @@ def battle_phase_hurt_and_faint(battle_obj, phase, teams, pet_priority, phase_di
             phase_list.append(
                 ("Fainted", (team_idx, pet_idx), (fainted_pet.__repr__()), [""])
             )
-            ### Pets that may trigger off this fainted pet (including itself).
-            ###   Taken before any trigger runs, because a trigger can remove
-            ###   the fainted pet from the team before its own ability runs.
-            responders = [(t, i, teams[t][i].pet) for t, i in pp]
             for te_team_idx, te_pet_idx, other_pet in responders:
                 if other_pet.name == "pet-none":
                     continue
@@ -604,6 +612,11 @@ def battle_phase_hurt_and_faint(battle_obj, phase, teams, pet_priority, phase_di
     ### Check for status triggers on pet
     for p, team_idx, pet_idx in status_list:
         check_status_triggers(phase_list, p, team_idx, pet_idx, teams)
+    ### Perks may have summoned pets (Honey, Mushroom)
+    if status_list:
+        battle_obj.pet_priority = battle_obj.update_pet_priority(
+            battle_obj.t0, battle_obj.t1
+        )
 
     return phase_list
 
@@ -745,11 +758,12 @@ def battle_phase_knockout(battle_obj, phase, teams, pet_priority, phase_dict):
                     ### Easy breaking condition
                     break
 
+                ### The current order: pets may have been summoned this attack
                 battle_phase(
                     battle_obj,
                     "phase_hurt_and_faint_k",
                     teams,
-                    pet_priority,
+                    battle_obj.pet_priority,
                     phase_dict,
                 )
 

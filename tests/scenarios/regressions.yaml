@@ -1,0 +1,22 @@
+# Engine bugs found by sapai.stress, worked out by hand from the rules.
+
+- name: A pet knocked out by Rhino's knock-out damage still faints properly
+  source: stress test, battle 2091 (a summoned pet killed by Rhino was left on the team)
+  verified: false
+  team: [Fish 1/1, Cricket 1/1]
+  enemy: [Rhino 5/20]
+  # Round 1: Fish faints, Rhino 5/19. Rhino's knock-out deals 8 (double
+  # against tier 1) to Cricket, which faints and summons a Zombie Cricket;
+  # Rhino knocks that out too.
+  result: loss
+  survivors: {team: [], enemy: [Rhino 5/19]}
+
+- name: Fly's uses are not spent on enemies fainting
+  source: stress test, battle 11586 (the result changed when the teams swapped sides)
+  verified: false
+  team: [Beaver 1/3, Fly 1/50]
+  enemy: [Fish 1/1, Fish 1/1, Fish 1/1, Pig 2/2]
+  # Beaver knocks out three Fish, fainting with the third. Fly summons a 4/4
+  # Zombie Fly in its place (its first use), which beats Pig and keeps 2 health.
+  result: win
+  survivors: {team: [Zombie Fly 4/2, Fly 1/50], enemy: []}
