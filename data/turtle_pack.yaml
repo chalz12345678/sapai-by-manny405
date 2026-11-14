@@ -29,7 +29,8 @@ rules:
   roll_cost: 1
   pet_cost: 3
   max_team_size: 5
-  max_shop_slots: 7        # shop slots including food
+  max_shop_slots: 9        # shop slots in all; extra food or level-up pets
+                           # replace the rightmost unfrozen pet (see Shop.append)
   max_stat: 50             # attack and health cap
   starting_lives: 6        # lose 1 per lost battle (livesLost below)
   wins_to_win: null        # battle wins that end the match; null: only lives decide
@@ -37,8 +38,8 @@ rules:
   turns:
   - {index: 1, foodShopSlots: 1, animalShopSlots: 3, livesLost: 1, tiersAvailable: 1, levelUpTier: 2}
   - {index: 2, foodShopSlots: 1, animalShopSlots: 3, livesLost: 1, tiersAvailable: 1, levelUpTier: 2}
-  - {index: 3, foodShopSlots: 2, animalShopSlots: 3, livesLost: 1, tiersAvailable: 2, levelUpTier: 3}
-  - {index: 4, foodShopSlots: 2, animalShopSlots: 3, livesLost: 1, tiersAvailable: 2, levelUpTier: 3}
+  - {index: 3, foodShopSlots: 1, animalShopSlots: 3, livesLost: 1, tiersAvailable: 2, levelUpTier: 3}
+  - {index: 4, foodShopSlots: 1, animalShopSlots: 3, livesLost: 1, tiersAvailable: 2, levelUpTier: 3}
   - {index: 5, foodShopSlots: 2, animalShopSlots: 4, livesLost: 1, tiersAvailable: 3, levelUpTier: 4}
   - {index: 6, foodShopSlots: 2, animalShopSlots: 4, livesLost: 1, tiersAvailable: 3, levelUpTier: 4}
   - {index: 7, foodShopSlots: 2, animalShopSlots: 4, livesLost: 1, tiersAvailable: 4, levelUpTier: 5}

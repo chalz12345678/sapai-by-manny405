@@ -13,7 +13,7 @@
   "roll_cost": 1,
   "pet_cost": 3,
   "max_team_size": 5,
-  "max_shop_slots": 7,
+  "max_shop_slots": 9,
   "max_stat": 50,
   "starting_lives": 6,
   "wins_to_win": null
@@ -7656,7 +7656,7 @@
      "kind": "shop",
      "turn": "turn-3",
      "perShop": {
-      "StandardPack": 0.3599999999999999
+      "StandardPack": 0.19999999999999996
      },
      "perSlot": {
       "StandardPack": 0.2
@@ -7666,7 +7666,7 @@
      "kind": "shop",
      "turn": "turn-4",
      "perShop": {
-      "StandardPack": 0.3599999999999999
+      "StandardPack": 0.19999999999999996
      },
      "perSlot": {
       "StandardPack": 0.2
@@ -7797,7 +7797,7 @@
      "kind": "shop",
      "turn": "turn-3",
      "perShop": {
-      "StandardPack": 0.3599999999999999
+      "StandardPack": 0.19999999999999996
      },
      "perSlot": {
       "StandardPack": 0.2
@@ -7807,7 +7807,7 @@
      "kind": "shop",
      "turn": "turn-4",
      "perShop": {
-      "StandardPack": 0.3599999999999999
+      "StandardPack": 0.19999999999999996
      },
      "perSlot": {
       "StandardPack": 0.2
@@ -7919,7 +7919,7 @@
      "kind": "shop",
      "turn": "turn-3",
      "perShop": {
-      "StandardPack": 0.3599999999999999
+      "StandardPack": 0.19999999999999996
      },
      "perSlot": {
       "StandardPack": 0.2
@@ -7929,7 +7929,7 @@
      "kind": "shop",
      "turn": "turn-4",
      "perShop": {
-      "StandardPack": 0.3599999999999999
+      "StandardPack": 0.19999999999999996
      },
      "perSlot": {
       "StandardPack": 0.2
@@ -8040,7 +8040,7 @@
      "kind": "shop",
      "turn": "turn-3",
      "perShop": {
-      "StandardPack": 0.3599999999999999
+      "StandardPack": 0.19999999999999996
      },
      "perSlot": {
       "StandardPack": 0.2
@@ -8050,7 +8050,7 @@
      "kind": "shop",
      "turn": "turn-4",
      "perShop": {
-      "StandardPack": 0.3599999999999999
+      "StandardPack": 0.19999999999999996
      },
      "perSlot": {
       "StandardPack": 0.2
@@ -8160,7 +8160,7 @@
      "kind": "shop",
      "turn": "turn-3",
      "perShop": {
-      "StandardPack": 0.3599999999999999
+      "StandardPack": 0.19999999999999996
      },
      "perSlot": {
       "StandardPack": 0.2
@@ -8170,7 +8170,7 @@
      "kind": "shop",
      "turn": "turn-4",
      "perShop": {
-      "StandardPack": 0.3599999999999999
+      "StandardPack": 0.19999999999999996
      },
      "perSlot": {
       "StandardPack": 0.2
@@ -9570,7 +9570,7 @@
    "name": "Turn 3",
    "id": "turn-3",
    "index": 3,
-   "foodShopSlots": 2,
+   "foodShopSlots": 1,
    "animalShopSlots": 3,
    "livesLost": 1,
    "tiersAvailable": 2,
@@ -9580,7 +9580,7 @@
    "name": "Turn 4",
    "id": "turn-4",
    "index": 4,
-   "foodShopSlots": 2,
+   "foodShopSlots": 1,
    "animalShopSlots": 3,
    "livesLost": 1,
    "tiersAvailable": 2,

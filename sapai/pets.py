@@ -85,11 +85,13 @@ class Pet:
     def attack(self):
         if self._attack == "none":
             return self._attack
-        return min(
-            status.apply_attack_dict[self.status](
-                self._attack + self._until_end_of_battle_attack_buff
-            ),
-            RULES["max_stat"],
+        ### The attack stat is capped at 50, but a perk's bonus damage goes on
+        ###   top (a 50 attack pet with Steak hits for 70)
+        return status.apply_attack_dict[self.status](
+            min(
+                self._attack + self._until_end_of_battle_attack_buff,
+                RULES["max_stat"],
+            )
         )
 
     @property

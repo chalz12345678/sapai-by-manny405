@@ -164,7 +164,12 @@ class Shop(SAPList):
         if idx < 0:
             raise Exception(f"Unrecognized Shop Object {obj}")
 
+        ### Level-up rewards come in pairs and only one can be bought: buying
+        ###   one removes the other
+        group = getattr(self.slots[idx], "group", None)
         del self.slots[idx]
+        if group is not None:
+            self.slots = [s for s in self.slots if getattr(s, "group", None) != group]
 
     def index(self, obj):
         if isinstance(obj, ShopSlot):
@@ -242,7 +247,18 @@ class Shop(SAPList):
             ### Just do nothing if attempting to freeze outside the range of
             ###   the current shop
             return
+        if self.partner_frozen(idx):
+            raise Exception("Only one of the two level-up pets can be frozen")
         self.slots[idx].freeze()
+
+    def partner_frozen(self, idx):
+        """Whether the other pet of this slot's level-up pair is frozen"""
+        group = getattr(self.slots[idx], "group", None)
+        return group is not None and any(
+            s.frozen and getattr(s, "group", None) == group
+            for i, s in enumerate(self.slots)
+            if i != idx
+        )
 
     def unfreeze(self, idx):
         """
@@ -261,8 +277,13 @@ class Shop(SAPList):
         with a new pet
 
         """
-        new_slot = ShopSlot("levelup", pack=self.pack, turn=self.turn)
-        self.append(new_slot)
+        ### Two pets from the next tier, of which only one can be bought
+        self._groups = getattr(self, "_groups", 0) + 1
+        group = f"levelup-{self.turn}-{self._groups}"
+        for _ in range(2):
+            new_slot = ShopSlot("levelup", pack=self.pack, turn=self.turn)
+            new_slot.group = group
+            self.append(new_slot)
 
     def update_shop_rules(self, turn=-1, roll_only_empty=False):
         if turn < 0:
@@ -423,18 +444,39 @@ class Shop(SAPList):
 
     def append(self, obj):
         """
-        Append should be used when adding an animal from a levelup
+        Add a slot to the shop (level-up rewards, food stocked by Worm, Pigeon
+        or Cow). The shop holds at most max_shop_slots slots in all. When it
+        is full, the rightmost pet that is not frozen is removed to make room;
+        if every pet is frozen, the rightmost food that is not frozen; if
+        everything is frozen, the new slot is lost.
         """
-        if len(self.slots) >= self.max_slots:
-            ### Max slots already reached so cannot be added
-            return
-
         if isinstance(obj, ShopSlot):
             add_slot = obj
         else:
             add_slot = ShopSlot(
                 obj, pack=self.pack, turn=self.turn, seed_state=self.seed_state
             )
+        if len(self.slots) >= self.max_slots:
+            group = getattr(add_slot, "group", None)
+
+            def removable(kinds):
+                for i in range(len(self.slots) - 1, -1, -1):
+                    s = self.slots[i]
+                    ### Never the other pet of the pair being added
+                    if (
+                        s.slot_type in kinds
+                        and not s.frozen
+                        and (group is None or getattr(s, "group", None) != group)
+                    ):
+                        return i
+                return None
+
+            victim = removable(("pet", "levelup"))
+            if victim is None:
+                victim = removable(("food",))
+            if victim is None:
+                return
+            del self.slots[victim]
         pslots = []
         fslots = []
         for iter_idx, slot in enumerate(self.slots):
@@ -762,6 +804,8 @@ class ShopSlot(Slot):
         self.pack = pack
         self.frozen = frozen
         self.cost = cost
+        ### Level-up rewards come in pairs that share a group
+        self.group = None
         self.obj = ShopSlotNoneItem(seed_state=self.seed_state)
 
         if slot_type not in ["pet", "food", "levelup", "none"]:
@@ -928,6 +972,7 @@ class ShopSlot(Slot):
             "cost": self.cost,
             "frozen": self.frozen,
             "seed_state": seed_state,
+            "group": getattr(self, "group", None),
         }
         return state_dict
 
@@ -958,7 +1003,7 @@ class ShopSlot(Slot):
         # if seed_state is not None:
         #     obj.rs.set_state(state["item"]["seed_state"])
 
-        return cls(
+        slot = cls(
             obj=obj,
             slot_type=slot_type,
             frozen=frozen,
@@ -967,6 +1012,11 @@ class ShopSlot(Slot):
             pack=pack,
             seed_state=seed_state,
         )
+        ### A pet object makes the slot a plain pet slot; keep level-up slots
+        if slot_type == "levelup":
+            slot.slot_type = "levelup"
+        slot.group = state.get("group")
+        return slot
 
 
 def get_shop_rules(turn, pack="StandardPack"):

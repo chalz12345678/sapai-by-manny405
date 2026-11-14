@@ -251,16 +251,25 @@ class TestParrot(unittest.TestCase):
         self.assertEqual(player.team[1].pet.ability["trigger"], "EndOfTurn")
 
     def test_parrot_copies_the_new_friend_ahead_next_turn(self):
-        player = Player(team=Team([pet("fish"), pet("dolphin"), pet("parrot")]))
+        player = Player(team=Team([pet("ant"), pet("dolphin"), pet("parrot")]))
         ### Turn 1: copies Dolphin
         player.end_turn()
         player.start_turn()
-        ### Turn 2: Dolphin is sold, Fish is now ahead of the Parrot
+        ### Turn 2: Dolphin is sold, Ant is now ahead of the Parrot
         player.sell(1)
         player.team.move_forward()
         player.end_turn()
         parrot = [x for x in filled(player.team) if x.name == "pet-parrot"][0]
-        self.assertEqual(parrot.ability["trigger"], "LevelUp")
+        self.assertEqual(parrot.ability["trigger"], "Faint")
+
+    def test_parrot_does_not_copy_shop_abilities(self):
+        ### Confirmed in the game: Monkey's end of turn ability is not copied
+        player = Player(team=Team([pet("monkey"), pet("parrot")]))
+        player.end_turn()
+        parrot = [x for x in filled(player.team) if x.name == "pet-parrot"][0]
+        self.assertEqual(
+            parrot.ability["description"], parrot.fd["level1Ability"]["description"]
+        )
 
 
 ################################################################################

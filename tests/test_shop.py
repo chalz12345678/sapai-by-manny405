@@ -139,7 +139,9 @@ class TestShop(unittest.TestCase):
         player = Player(shop=Shop(["fish", "fish"]), team=Team([Pet("fish")]))
         player.buy_combine(1, 0)
         player.buy_combine(0, 0)
-        self.assertEqual(len(player.shop), 1)
+        ### Levelling up adds two level-up pets, of which one can be bought
+        self.assertEqual(len(player.shop), 2)
+        self.assertEqual([s.slot_type for s in player.shop], ["levelup", "levelup"])
 
     def test_shop_levelup_from_food(self):
         pet = Pet("fish")
@@ -148,11 +150,11 @@ class TestShop(unittest.TestCase):
         player = Player(shop=Shop(["ant", "ant", "ant", "chocolate"]), team=[pet])
         player.buy_food(3, 0)
         self.assertEqual(pet.level, 3)
-        ### Chocolate was bought and a level-up pet was added to the shop
-        self.assertEqual(len(player.shop.filled), 4)
+        ### Chocolate was bought and two level-up pets were added to the shop
+        self.assertEqual(len(player.shop.filled), 5)
         levelup = [x for x in player.shop if x.slot_type == "levelup"]
-        self.assertEqual(len(levelup), 1)
-        self.assertEqual(levelup[0].obj.tier, 2)
+        self.assertEqual(len(levelup), 2)
+        self.assertEqual({x.obj.tier for x in levelup}, {2})
 
     def test_buy_multi_target_food(self):
         player = Player(shop=["sushi"], team=["seal", "rabbit", "fish"])

@@ -811,13 +811,13 @@ def RefillShops(apet, apet_idx, teams, te=None, te_idx=None, fixed_targets=None)
     shop.slots = [x for x in shop.slots if x.slot_type != "food"]
     targets = []
     for _ in range(n):
-        if len(shop.slots) >= shop.max_slots:
-            break
+        ### A full shop makes room itself (see Shop.append)
         slot = sapai.shop.ShopSlot(
             Food(food_name, shop=shop), pack=shop.pack, turn=shop.turn
         )
         shop.append(slot)
-        targets.append(slot)
+        if slot in shop.slots:
+            targets.append(slot)
     return targets, [targets]
 
 
@@ -837,15 +837,15 @@ def StockFood(apet, apet_idx, teams, te=None, te_idx=None, fixed_targets=None):
     n = effect.get("n", 1)
     targets = []
     for _ in range(n):
-        if len(shop.slots) >= shop.max_slots:
-            break
+        ### A full shop makes room itself (see Shop.append)
         slot = sapai.shop.ShopSlot(
             Food(food_name, shop=shop), pack=shop.pack, turn=shop.turn
         )
         if "cost" in effect:
             slot.cost = effect["cost"]
         shop.append(slot)
-        targets.append(slot)
+        if slot in shop.slots:
+            targets.append(slot)
     return targets, [targets]
 
 
@@ -1157,12 +1157,11 @@ def Swallow(apet, apet_idx, teams, te=None, te_idx=None, fixed_targets=None):
             },
         }
         apet.set_ability(summon_dict)
-        ### Swallowed, not fainted: it leaves the team without its faint
-        ###   ability firing, and does not use its start of battle ability.
-        ###   The slot stays empty until the team moves up, so the order
-        ###   the remaining start of battle abilities go in is unchanged.
-        if fteam.check_friend(temp_target):
-            fteam.remove(temp_target)
+        ### Swallowing counts as fainting (confirmed in the game): the pet's
+        ###   own ability still fires, like any pet knocked out at the start
+        ###   of battle, and the faint phase removes it from the team
+        temp_target._until_end_of_battle_health_buff = 0
+        temp_target._health = 0
 
     return target, possible
 
@@ -1181,11 +1180,37 @@ def TransferAbility(apet, apet_idx, teams, te=None, te_idx=None, fixed_targets=N
         level = apet.ability["effect"].get("level", target[0].level)
         key = f"level{level}Ability"
         if target[0].override_ability or key not in target[0].fd:
-            apet.set_ability(target[0].ability)
+            ability = target[0].ability
         else:
-            apet.set_ability(target[0].fd[key])
+            ability = target[0].fd[key]
+        ### Parrot can only copy abilities that work in battle (confirmed in
+        ###   the game): a shop ability such as Monkey's or Penguin's is not
+        ###   copied and the pet keeps its own
+        if ability.get("trigger") in OUT_OF_BATTLE_TRIGGERS:
+            return [], possible
+        apet.set_ability(ability)
 
     return target, possible
+
+
+### Triggers that only happen in the shop, never in battle
+OUT_OF_BATTLE_TRIGGERS = {
+    "StartOfTurn",
+    "EndOfTurn",
+    "EndOfTurnAfterLoss",
+    "EndOfTurnWith3PlusGold",
+    "EndOfTurnWithLvl3Friend",
+    "EndOfTurnWith4OrLessAnimals",
+    "Sell",
+    "Buy",
+    "BuyFood",
+    "BuyAfterLoss",
+    "BuyTier1Animal",
+    "EatsShopFood",
+    "PurchaseFood",
+    "LevelUp",
+    "none",
+}
 
 
 def TransferStats(apet, apet_idx, teams, te=None, te_idx=None, fixed_targets=None):

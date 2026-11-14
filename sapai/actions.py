@@ -68,7 +68,9 @@ def action_mask(player):
     for i, slot in enumerate(shop[:MAX_SHOP]):
         if slot.empty:
             continue
-        mask[ACTION_START["freeze"] + i] = True
+        ### Only one of a pair of level-up pets can be frozen
+        if slot.frozen or not player.shop.partner_frozen(i):
+            mask[ACTION_START["freeze"] + i] = True
         affordable = slot.cost <= gold
         if slot.slot_type in ["pet", "levelup"]:
             if affordable and len(team) < MAX_TEAM:

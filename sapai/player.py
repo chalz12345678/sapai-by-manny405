@@ -414,7 +414,8 @@ class Player:
         elif type(obj) == int:
             shop_idx = obj
         shop_slot = self.shop.slots[shop_idx]
-        shop_slot.freeze()
+        ### Through the shop, which allows only one of a level-up pair
+        self.shop.freeze(shop_idx)
         return (shop_slot,)
 
     def unfreeze(self, obj):

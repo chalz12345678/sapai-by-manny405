@@ -159,14 +159,16 @@ class TestPigeon(AuditCase):
         self.assertEqual(len(crumbs), 2)
         self.assertTrue(all(s.cost == 0 for s in crumbs))
 
-    def test_full_shop_stocks_only_what_fits(self):
-        ### 7 is the most shop slots: one free slot means one Bread Crumbs
-        shop = Shop(["ant", "ant", "ant", "ant", "ant", "apple"])
+    def test_full_shop_makes_room(self):
+        ### 9 is the most shop slots: the third Bread Crumbs replaces the
+        ###   rightmost pet that is not frozen
+        shop = Shop(["ant", "ant", "ant", "ant", "ant", "ant", "apple"])
         player = Player(shop=shop, team=Team([pet("pigeon", 3)]))
         player.sell(0)
         crumbs = [s for s in player.shop if s.obj.name == "food-bread-crumbs"]
-        self.assertEqual(len(crumbs), 1)
-        self.assertEqual(len(player.shop), 7)
+        self.assertEqual(len(crumbs), 3)
+        self.assertEqual(len(player.shop), 9)
+        self.assertEqual(len([s for s in player.shop if s.slot_type == "pet"]), 5)
 
     def test_crumbs_are_free_and_give_attack(self):
         player = Player(shop=Shop(["ant"]), team=Team([pet("pigeon"), pet("fish")]))
@@ -226,7 +228,6 @@ class TestLateGameStock(AuditCase):
     # OPEN QUESTION (docs/RULES.md Q8): sapai/effects.py StockFood stops when the shop already
     # has RULES["max_shop_slots"] (7) slots, so from turn 9 the Worm stocks
     # nothing. This rests on the assumed 7-slot limit (RULES.md 2.8).
-    @unittest.expectedFailure
     def test_worm_on_turn_9(self):
         player = Player(team=Team([pet("worm")]), shop=Shop(turn=8), turn=8)
         player.start_turn()
@@ -234,8 +235,7 @@ class TestLateGameStock(AuditCase):
         cheap = [s for s in player.shop if s.obj.name == "food-apple" and s.cost == 2]
         self.assertEqual(len(cheap), 1)
 
-    # OPEN QUESTION (docs/RULES.md Q8): same cause as the Worm test above.
-    @unittest.expectedFailure
+    # Answered in the game (docs/RULES.md Q8): same as the Worm test above.
     def test_pigeon_on_turn_9(self):
         player = Player(team=Team([pet("pigeon")]), shop=Shop(turn=9), turn=9)
         player.sell(0)

@@ -16,9 +16,10 @@ def merge(a, b):
     """Merge team pet 1 into team pet 0. Returns the kept pet and the number
     of level-up reward slots added to the shop"""
     player = Player(team=Team([a, b]))
-    before = len(player.shop.slots)
     player.combine(0, 1)
-    return player.team[0].pet, len(player.shop.slots) - before
+    ### Each level gained adds a pair of level-up pets (one can be bought)
+    groups = {s.group for s in player.shop.slots if s.slot_type == "levelup"}
+    return player.team[0].pet, len(groups)
 
 
 class TestMergingAddsExperience(unittest.TestCase):
