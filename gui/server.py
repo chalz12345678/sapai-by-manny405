@@ -22,7 +22,7 @@ import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from gui import chat, game, replays
+from gui import chat, game, lab, replays
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MATCHES = {}
@@ -154,6 +154,8 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/replay/delete":
             replays.delete(req.get("id", ""))
             return {"ok": True}
+        if path.startswith("/api/lab/"):
+            return lab_route(path, req)
         if path == "/api/series":
             for k in (req.get("a"), req.get("b")):
                 if k not in game.AGENTS:
@@ -191,6 +193,51 @@ class Handler(BaseHTTPRequestHandler):
             except OSError as e:
                 print(f"Could not save replay {mid}: {e}")
         return out
+
+
+def lab_meta():
+    pets = sorted(
+        p["name"]
+        for k, p in game.data["pets"].items()
+        if k != "pet-none" and p.get("name") not in (None, "none")
+    )
+    perks = ["none"] + sorted(s["name"] for s in game.data["statuses"].values())
+    return {
+        "ok": True,
+        "layout": lab.load_layout(),
+        "learned": lab.Memory.load().counts(),
+        "pets": pets,
+        "perks": perks,
+    }
+
+
+def lab_frame(req):
+    f = req.get("frame") or {}
+    return lab.decode_rgb(
+        f.get("data", ""), int(f.get("width", 0)), int(f.get("height", 0))
+    )
+
+
+def lab_route(path, req):
+    """Battle Lab: read frames of the real game and recreate their battles"""
+    if path == "/api/lab/meta":
+        return lab_meta()
+    if path == "/api/lab/layout":
+        lab.save_layout(req.get("layout") or {})
+        return lab_meta()
+    if path == "/api/lab/read":
+        return {"ok": True, "seen": lab.read_frame(lab_frame(req))}
+    if path == "/api/lab/teach":
+        added = lab.teach(lab_frame(req), req.get("labels") or {})
+        return {"ok": True, "added": added, "learned": lab.Memory.load().counts()}
+    if path == "/api/lab/run":
+        return {"ok": True, "check": lab.run(req["start"], req.get("end"))}
+    if path == "/api/lab/save":
+        return {
+            "ok": True,
+            "saved": lab.save(req["start"], req["end"], req.get("note", "")),
+        }
+    raise Exception("Unknown request")
 
 
 SAVE_DIR = os.path.join(HERE, "saves")

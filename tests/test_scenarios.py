@@ -17,7 +17,17 @@ class TestScenarios(unittest.TestCase):
         self.assertGreater(len(scenarios), 0)
         for s in scenarios:
             with self.subTest(f"{s['file']}: {s['name']}"):
-                self.assertEqual(check(s), [])
+                if s.get("discrepancy"):
+                    ### A battle from the real game the engine can't reproduce
+                    ###   yet: once it can, drop the discrepancy mark
+                    self.assertNotEqual(
+                        check(s),
+                        [],
+                        "the engine now reproduces this battle: remove"
+                        " 'discrepancy: true' and move it to from_game.yaml",
+                    )
+                else:
+                    self.assertEqual(check(s), [])
 
     def test_a_wrong_expectation_fails(self):
         from sapai.scenarios import check
@@ -39,6 +49,21 @@ class TestScenarios(unittest.TestCase):
             "runs": 30,
         }
         self.assertTrue(any("random" in p for p in check(s)))
+
+    def test_seen_battles_pass_when_the_engine_can_end_that_way(self):
+        from sapai.scenarios import check
+
+        s = {
+            "name": "x",
+            "seen": True,
+            "team": ["Mosquito 2/3"],
+            "enemy": ["Ant 2/1", "Fish 2/1"],
+            "runs": 60,
+        }
+        ### Either ending can happen (Mosquito picks its target at random)
+        self.assertEqual(check(dict(s, result="win")), [])
+        self.assertEqual(check(dict(s, result="draw")), [])
+        self.assertNotEqual(check(dict(s, result="loss")), [])
 
     def test_pet_spec(self):
         from sapai.scenarios import parse_pet

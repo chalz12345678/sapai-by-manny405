@@ -158,6 +158,27 @@ def check(scenario, runs=None):
                 )
         return problems
 
+    if scenario.get("seen"):
+        ### One battle seen in the game: the engine must be able to end the
+        ###   same way (same result and survivors) on at least one seed
+        runs = runs or scenario.get("runs", 200)
+        want_team = scenario.get("survivors", {}).get("team")
+        want_enemy = scenario.get("survivors", {}).get("enemy")
+        want_team = describe(make_team(want_team)) if want_team is not None else None
+        want_enemy = describe(make_team(want_enemy)) if want_enemy is not None else None
+        results = {}
+        for seed in range(runs):
+            result, team, enemy = run_battle(scenario, seed)
+            results[result] = results.get(result, 0) + 1
+            if (
+                ("result" not in scenario or result == scenario["result"])
+                and (want_team is None or team == want_team)
+                and (want_enemy is None or enemy == want_enemy)
+            ):
+                return []
+        odds = ", ".join(f"{k} {v / runs:.0%}" for k, v in sorted(results.items()))
+        return [f"the engine never ends this way in {runs} battles ({odds})"]
+
     runs = runs or scenario.get("runs", 5)
     seen = set()
     for seed in range(runs):

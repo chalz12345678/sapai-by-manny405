@@ -111,6 +111,38 @@ game log. **View replay** on the game-over banner opens the game you just
 finished. Games saved before replays existed are imported on startup from
 their game log, so their battles show as text.
 
+## Battle Lab
+
+The **Battle Lab** tab recreates battles from your own Super Auto Pets game
+and checks the engine against them. It runs entirely on your computer with
+numpy: no API key, nothing sent anywhere.
+
+1. **Share the game window** (desktop browsers). The lab keeps one frame a
+   second for the last 30 seconds in a strip. Play as usual; after a battle,
+   switch to the browser and click the frame where the battle starts, then
+   the one where it ends. You can also load screenshots instead.
+2. **Set up the screen layout** once: on a start-of-battle frame, click the
+   5 pet positions on each side (front pet first), then drag boxes around
+   your front pet's picture, attack number, health number, perk spot and
+   level label. If the game draws the opponent's stats the other way round,
+   tick "Opponent's stats are mirrored" before setting up.
+3. **Read both frames.** The lab fills in each side's pets, stats, levels and
+   perks from what it has learned. Guesses it isn't sure of are highlighted.
+   It knows nothing at first: type the teams in and press **Learn from my
+   corrections**, and it keeps pictures of each pet, digit, perk and level
+   it saw. Each battle you correct teaches it more.
+4. **Recreate battle.** The engine plays the battle in the battle viewer and
+   runs it 200 times to cover random abilities. With the end frame filled in,
+   it says whether the engine can end the battle the way the game did.
+5. **Save as a test.** Battles that match go into
+   `tests/scenarios/from_game.yaml` (confirmed rules). Ones the engine can't
+   reproduce go into `tests/scenarios/game_discrepancies.yaml`: each is a
+   rule to look into, and the test suite expects them to fail until the
+   engine is fixed.
+
+What the lab has learned is kept in `gui/lab_data/` (not in git). Delete that
+folder to start over, for example after the game changes its art.
+
 ## Updating the models
 
 `gui/models/*.npz` are the actor weights exported from `models/*.zip`. After

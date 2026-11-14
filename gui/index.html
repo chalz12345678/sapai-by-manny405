@@ -382,6 +382,32 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
   .vs { text-align: center; }
   .lane.left, .lane.right { justify-content: center; }
 }
+
+/* Battle Lab */
+.lab-strip { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; min-height: 60px; align-items: center; }
+.lab-strip canvas { width: 96px; height: 54px; border-radius: 6px; border: 2px solid var(--line); cursor: pointer; flex: 0 0 auto; background: var(--sunk); }
+.lab-strip canvas:hover, .lab-strip canvas:focus-visible { border-color: var(--accent); outline: none; }
+.lab-frames { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.lab-frame { margin: 0; display: grid; gap: 4px; min-width: 0; }
+.lab-frame figcaption { font-weight: 600; font-size: 13px; }
+.lab-frame canvas { width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 8px; border: 1px solid var(--line); background: var(--sunk); cursor: crosshair; }
+.lab-steps { margin: 0; padding: 8px 12px; border-radius: 8px; background: var(--accent-soft); font-size: 13.5px; }
+.lab-teams { display: grid; gap: 12px; }
+.lab-side { display: grid; gap: 6px; min-width: 0; }
+.lab-side h3 { margin: 0; font-size: 14px; }
+.lab-table { overflow-x: auto; }
+.lab-table table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.lab-table th { text-align: left; font-weight: 600; color: var(--muted); padding: 4px 6px; white-space: nowrap; }
+.lab-table td { padding: 3px 6px; border-top: 1px solid var(--line); vertical-align: middle; }
+.lab-table img { width: 40px; height: 40px; image-rendering: pixelated; border-radius: 6px; display: block; }
+.lab-table input[type=number] { width: 4.2em; }
+.lab-table input[type=text] { width: 9em; }
+.lab-table .unsure { background: var(--atk-soft); }
+.lab-check { display: grid; gap: 6px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); }
+.lab-check.ok { border-color: var(--win); }
+.lab-check.bad { border-color: var(--loss); }
+.lab-check h3 { margin: 0; font-size: 15px; }
+.lab-check ul { margin: 0; padding-left: 18px; font-size: 13px; }
 </style>
 </head>
 <body>
@@ -398,6 +424,7 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
       <button id="modePlay" aria-pressed="true">Play</button>
       <button id="modeWatch" aria-pressed="false">Watch models</button>
       <button id="modeReplays" aria-pressed="false">Replays</button>
+      <button id="modeLab" aria-pressed="false">Battle Lab</button>
     </div>
   </header>
 
@@ -489,6 +516,33 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
     <div class="duo" id="replayShops"></div>
     <div class="log" id="replayLines" hidden></div>
     <details class="panel how" id="replayLogBox"><summary>Game log for this turn</summary><div class="loglist" id="replayLog"></div></details>
+  </section>
+
+  <section class="panel" id="labPanel" hidden>
+    <div class="panel-head"><h2>Battle Lab</h2><span class="note" id="labLearned"></span></div>
+    <p class="help">Recreate a battle from your Super Auto Pets game and check the engine against it. Share the game window, play as usual, then pick the frame where the battle starts and the frame where it ends. The lab reads the pets from what it has learned on your screen; fix anything it got wrong and it learns from that too. Nothing leaves your computer.</p>
+    <div class="setup">
+      <button class="btn primary" id="labShare">Share game window</button>
+      <button class="btn" id="labGrab" disabled>Grab frame now</button>
+      <div class="field"><label for="labFile">Or load a screenshot</label><input id="labFile" type="file" accept="image/*"></div>
+      <div class="field"><label for="labPickFor">Clicking a frame sets</label>
+        <select id="labPickFor"><option value="start">Start of battle</option><option value="end">End of battle</option></select></div>
+      <button class="btn" id="labCalibrate">Set up screen layout</button>
+      <label class="help"><input type="checkbox" id="labMirror"> Opponent's stats are mirrored (health on the left)</label>
+    </div>
+    <div class="lab-strip" id="labStrip" aria-label="Recent frames"><span class="help">Recent frames appear here once you share the game window (one per second, last 30 seconds).</span></div>
+    <div class="lab-frames">
+      <figure class="lab-frame"><figcaption>Start of battle</figcaption><canvas id="labStart" width="640" height="360"></canvas></figure>
+      <figure class="lab-frame"><figcaption>End of battle</figcaption><canvas id="labEnd" width="640" height="360"></canvas></figure>
+    </div>
+    <p class="lab-steps" id="labSteps" hidden></p>
+    <div class="setup">
+      <button class="btn" id="labRead" disabled>Read both frames</button>
+      <button class="btn" id="labTeach" disabled>Learn from my corrections</button>
+      <button class="btn primary" id="labRun" disabled>Recreate battle</button>
+    </div>
+    <div class="lab-teams" id="labTeams"></div>
+    <div class="lab-check" id="labCheck" hidden></div>
   </section>
 
   <section class="panel" id="battle" hidden>
@@ -1070,6 +1124,13 @@ function render() {
   $("autoBtn").textContent = S.auto ? "Stop" : "Auto play";
   $("autoBtn").setAttribute("aria-pressed", S.auto);
   $("modeReplays").setAttribute("aria-pressed", S.mode === "replays");
+  $("modeLab").setAttribute("aria-pressed", S.mode === "lab");
+  const labMode = S.mode === "lab";
+  $("labPanel").hidden = !labMode;
+  if (labMode) {
+    for (const id of ["setupPlay", "setupWatch", "score", "over", "teamPanel", "watchArea", "replayList", "replayView", "logPanel", "how", "chatFab"]) $(id).hidden = true;
+    return;
+  }
   const rep = S.mode === "replays";
   $("replayList").hidden = !rep || !!REP.doc;
   $("replayView").hidden = !rep || !REP.doc;
@@ -1245,8 +1306,323 @@ async function switchMode(mode) {
   REP.doc = null;
   render();
   if (mode === "replays") { await loadReplays(); return; }
+  if (mode === "lab") { await labOpen(); return; }
   if (!(await resume(recall()[mode]))) (mode === "play" ? newGame() : newMatch());
 }
+
+
+// ------------------------------------------------------------- battle lab
+// Reads frames of the real game (captured from a shared window or loaded from
+// a screenshot), recreates the battle in the engine and checks it.
+const LAB = { meta: null, stream: null, video: null, timer: null, strip: [], frames: { start: null, end: null }, seen: { start: null, end: null }, calib: null };
+const LAB_MAX_W = 1280;
+const labCss = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const SIDE_NAMES = { player: "Your team", opponent: "Opponent" };
+
+async function labOpen() {
+  try { LAB.meta = await api("/api/lab/meta", {}); } catch (e) { toast(e.message); return; }
+  if (!document.getElementById("labPets")) {
+    const dl = document.createElement("datalist"); dl.id = "labPets";
+    dl.innerHTML = LAB.meta.pets.map((n) => `<option value="${esc(n)}">`).join("");
+    document.body.appendChild(dl);
+  }
+  $("labMirror").checked = !!(LAB.meta.layout && LAB.meta.layout.mirror);
+  labLearned(); labDrawAll(); labTables(); labButtons();
+}
+function labLearned() {
+  const l = (LAB.meta && LAB.meta.learned) || {};
+  $("labLearned").textContent = LAB.meta && LAB.meta.layout
+    ? `Knows ${l.pet || 0} kinds of pet (counting empty slots), ${l.digit || 0} digits, ${l.perk || 0} perks`
+    : "Screen layout not set up yet";
+}
+function labButtons() {
+  const both = LAB.frames.start || LAB.frames.end;
+  $("labRead").disabled = !both || !(LAB.meta && LAB.meta.layout);
+  $("labTeach").disabled = !both || !(LAB.meta && LAB.meta.layout);
+  $("labRun").disabled = !LAB.frames.start && !labHasPets("start");
+}
+
+// Capture ----------------------------------------------------------------
+async function labShare() {
+  if (LAB.stream) { labStop(); return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) { toast("This browser can't share a window. Load screenshots instead."); return; }
+  try { LAB.stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 5 }, audio: false }); }
+  catch (e) { toast("Window sharing was cancelled."); return; }
+  LAB.video = document.createElement("video"); LAB.video.muted = true; LAB.video.srcObject = LAB.stream;
+  await LAB.video.play();
+  LAB.stream.getVideoTracks()[0].addEventListener("ended", labStop);
+  $("labShare").textContent = "Stop sharing"; $("labGrab").disabled = false;
+  $("labStrip").innerHTML = "";
+  LAB.timer = setInterval(labSnap, 1000);
+}
+function labStop() {
+  clearInterval(LAB.timer); LAB.timer = null;
+  if (LAB.stream) LAB.stream.getTracks().forEach((t) => t.stop());
+  LAB.stream = null; LAB.video = null;
+  $("labShare").textContent = "Share game window"; $("labGrab").disabled = true;
+}
+function labCanvasFrom(source, w, h) {
+  const scale = Math.min(1, LAB_MAX_W / w);
+  const c = document.createElement("canvas");
+  c.width = Math.round(w * scale); c.height = Math.round(h * scale);
+  c.getContext("2d").drawImage(source, 0, 0, c.width, c.height);
+  return c;
+}
+function labSnap() {
+  const v = LAB.video;
+  if (!v || !v.videoWidth) return null;
+  const frame = labCanvasFrom(v, v.videoWidth, v.videoHeight);
+  labAddToStrip(frame);
+  return frame;
+}
+function labAddToStrip(frame) {
+  const strip = $("labStrip");
+  if (!LAB.strip.length) strip.innerHTML = "";
+  LAB.strip.push(frame);
+  const thumb = document.createElement("canvas");
+  thumb.width = 192; thumb.height = Math.round(192 * frame.height / frame.width);
+  thumb.getContext("2d").drawImage(frame, 0, 0, thumb.width, thumb.height);
+  thumb.tabIndex = 0; thumb.title = "Use this frame";
+  const pick = () => labSetFrame($("labPickFor").value, frame);
+  thumb.onclick = pick; thumb.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } };
+  strip.appendChild(thumb);
+  while (LAB.strip.length > 30) { LAB.strip.shift(); strip.firstChild.remove(); }
+  strip.scrollLeft = strip.scrollWidth;
+}
+function labSetFrame(which, frame) {
+  LAB.frames[which] = frame; LAB.seen[which] = null;
+  if (which === "start") $("labPickFor").value = "end";
+  labDrawAll(); labTables(); labButtons();
+  toast(which === "start" ? "Start of battle set. Now pick the end." : "End of battle set.");
+}
+function labLoadFile(file) {
+  const img = new Image();
+  img.onload = () => { const f = labCanvasFrom(img, img.naturalWidth, img.naturalHeight); labAddToStrip(f); labSetFrame($("labPickFor").value, f); URL.revokeObjectURL(img.src); };
+  img.onerror = () => toast("That file isn't an image this browser can open.");
+  img.src = URL.createObjectURL(file);
+}
+
+// Drawing frames and the layout -------------------------------------------
+function labPartBox(layout, side, slot, part) {
+  const [cx, cy] = layout[side][slot];
+  if (part === "pet") return [cx, cy, layout.slot[0], layout.slot[1]];
+  let [dx, dy, w, h] = layout[part];
+  if (side === "opponent" && layout.mirror) dx = -dx;
+  return [cx + dx, cy + dy, w, h];
+}
+function labDraw(which) {
+  const c = $(which === "start" ? "labStart" : "labEnd"), g = c.getContext("2d");
+  const frame = LAB.frames[which];
+  if (!frame) { c.width = 640; c.height = 360; g.fillStyle = labCss("--sunk"); g.fillRect(0, 0, c.width, c.height); g.fillStyle = labCss("--muted"); g.font = "14px sans-serif"; g.fillText("Pick a frame from the strip above", 16, 30); return; }
+  c.width = 640; c.height = Math.round(640 * frame.height / frame.width);
+  g.drawImage(frame, 0, 0, c.width, c.height);
+  const layout = (LAB.calib && LAB.calib.layout) || (LAB.meta && LAB.meta.layout);
+  if (!layout || !layout.player) return;
+  const rect = (b, color) => { g.strokeStyle = color; g.lineWidth = 2; g.strokeRect((b[0] - b[2] / 2) * c.width, (b[1] - b[3] / 2) * c.height, b[2] * c.width, b[3] * c.height); };
+  const colors = { pet: "#ffffff", attack: "#f0a030", health: "#e05050", perk: "#50c0f0", level: "#c070f0" };
+  for (const side of ["player", "opponent"]) {
+    (layout[side] || []).forEach((pt, i) => {
+      if (!pt) return;
+      g.fillStyle = side === "player" ? "#3fd07a" : "#f06a5a";
+      g.beginPath(); g.arc(pt[0] * c.width, pt[1] * c.height, 5, 0, 7); g.fill();
+      g.fillStyle = "#fff"; g.font = "bold 11px sans-serif"; g.fillText(String(i + 1), pt[0] * c.width + 6, pt[1] * c.height - 6);
+      if (!layout.slot) return;
+      for (const part of ["pet", "attack", "health", "perk", "level"]) if (part === "pet" ? layout.slot : layout[part]) rect(labPartBox(layout, side, i, part), colors[part]);
+    });
+  }
+}
+function labDrawAll() { labDraw("start"); labDraw("end"); }
+
+// Calibration -------------------------------------------------------------
+const CALIB_STEPS = [
+  ...[1, 2, 3, 4, 5].map((n) => ({ kind: "point", side: "player", i: n - 1, text: `Click the middle of pet position ${n} on YOUR side (1 = the front pet, nearest the middle).` })),
+  ...[1, 2, 3, 4, 5].map((n) => ({ kind: "point", side: "opponent", i: n - 1, text: `Click the middle of pet position ${n} on the OPPONENT's side (1 = their front pet).` })),
+  { kind: "box", part: "slot", text: "Drag a box around your front pet's picture (just the pet, not its stats)." },
+  { kind: "box", part: "attack", text: "Drag a tight box around your front pet's ATTACK number." },
+  { kind: "box", part: "health", text: "Drag a tight box around your front pet's HEALTH number." },
+  { kind: "box", part: "perk", text: "Drag a box where a perk (held food) shows on your front pet." },
+  { kind: "box", part: "level", text: "Drag a box around your front pet's level label." },
+];
+function labCalibrate() {
+  if (!LAB.frames.start) { toast("Pick a start-of-battle frame with full teams first."); return; }
+  LAB.calib = { step: 0, layout: { player: [], opponent: [], mirror: $("labMirror").checked } };
+  labCalibStep();
+}
+function labCalibStep() {
+  const st = CALIB_STEPS[LAB.calib.step];
+  $("labSteps").hidden = false;
+  $("labSteps").textContent = `Layout step ${LAB.calib.step + 1} of ${CALIB_STEPS.length}: ${st.text} (on the start frame)`;
+  labDraw("start");
+}
+function labCanvasPoint(e) {
+  const c = $("labStart"), r = c.getBoundingClientRect();
+  return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height];
+}
+let labDown = null;
+function labPointerDown(e) { if (LAB.calib) { labDown = labCanvasPoint(e); e.preventDefault(); } }
+async function labPointerUp(e) {
+  if (!LAB.calib || !labDown) return;
+  const up = labCanvasPoint(e), down = labDown; labDown = null;
+  const st = CALIB_STEPS[LAB.calib.step], L = LAB.calib.layout;
+  if (st.kind === "point") L[st.side][st.i] = up;
+  else {
+    const w = Math.abs(up[0] - down[0]), h = Math.abs(up[1] - down[1]);
+    if (w < 0.005 || h < 0.005) { toast("Drag to draw a box."); return; }
+    const cx = (up[0] + down[0]) / 2, cy = (up[1] + down[1]) / 2;
+    if (st.part === "slot") { L.slot = [w, h]; L.player[0] = [cx, cy]; }
+    else L[st.part] = [cx - L.player[0][0], cy - L.player[0][1], w, h];
+  }
+  LAB.calib.step++;
+  if (LAB.calib.step < CALIB_STEPS.length) { labCalibStep(); return; }
+  try {
+    LAB.meta = await api("/api/lab/layout", { layout: L });
+    toast("Screen layout saved.");
+  } catch (err) { toast(err.message); }
+  LAB.calib = null; $("labSteps").hidden = true;
+  labLearned(); labDrawAll(); labButtons();
+}
+
+// Reading and teaching ----------------------------------------------------
+function labFramePayload(frame) {
+  const d = frame.getContext("2d").getImageData(0, 0, frame.width, frame.height).data;
+  const rgb = new Uint8Array(frame.width * frame.height * 3);
+  for (let i = 0, j = 0; i < d.length; i += 4) { rgb[j++] = d[i]; rgb[j++] = d[i + 1]; rgb[j++] = d[i + 2]; }
+  let bin = "";
+  for (let i = 0; i < rgb.length; i += 0x8000) bin += String.fromCharCode.apply(null, rgb.subarray(i, i + 0x8000));
+  return { data: btoa(bin), width: frame.width, height: frame.height };
+}
+async function labRead() {
+  for (const which of ["start", "end"]) {
+    if (!LAB.frames[which]) continue;
+    try { LAB.seen[which] = (await api("/api/lab/read", { frame: labFramePayload(LAB.frames[which]) })).seen; }
+    catch (e) { toast(e.message); return; }
+  }
+  labTables();
+  const unsure = ["start", "end"].flatMap((w) => LAB.seen[w] ? ["player", "opponent"].flatMap((s) => LAB.seen[w][s].filter((p) => !p.empty && p.unsure.length)) : []);
+  toast(unsure.length ? `Read both frames. ${unsure.length} pet(s) need checking (highlighted).` : "Read both frames.");
+}
+function labTables() {
+  const parts = [];
+  for (const which of ["start", "end"]) {
+    if (!LAB.frames[which] && !LAB.seen[which]) continue;
+    parts.push(`<h3>${which === "start" ? "Start of battle" : "End of battle (survivors)"}</h3>`);
+    for (const side of ["player", "opponent"]) {
+      const seen = LAB.seen[which] ? LAB.seen[which][side] : [];
+      const rows = [0, 1, 2, 3, 4].map((i) => labRow(which, side, i, seen[i])).join("");
+      parts.push(`<div class="lab-side"><h3>${SIDE_NAMES[side]} <span class="help">(front first)</span></h3><div class="lab-table"><table>
+        <thead><tr><th>#</th><th>Seen</th><th>Empty</th><th>Pet</th><th>Attack</th><th>Health</th><th>Level</th><th>Perk</th></tr></thead><tbody>${rows}</tbody></table></div></div>`);
+    }
+  }
+  $("labTeams").innerHTML = parts.join("") || `<p class="help">Pick a start-of-battle frame to see its teams here.</p>`;
+}
+function labRow(which, side, i, p) {
+  const id = `lab-${which}-${side}-${i}`;
+  const u = (k) => (p && p.unsure && p.unsure.includes(k) ? ' class="unsure"' : "");
+  const name = p && !p.empty && p.name && p.name !== "empty" ? p.name : "";
+  const pet = p && !p.empty ? p : null;
+  const perks = (LAB.meta ? LAB.meta.perks : ["none"]).map((n) => `<option${pet && pet.perk === n ? " selected" : ""}>${esc(n)}</option>`).join("");
+  const lv = [1, 2, 3].map((n) => `<option${pet && String(pet.level) === String(n) ? " selected" : ""}>${n}</option>`).join("");
+  return `<tr data-row="${id}">
+    <td>${i + 1}</td>
+    <td>${p && p.crop ? `<img alt="" src="data:image/png;base64,${p.crop}">` : ""}</td>
+    <td><input type="checkbox" id="${id}-empty" aria-label="Empty slot"${p && p.empty ? " checked" : ""}></td>
+    <td${u("name")}><input type="text" id="${id}-name" list="labPets" value="${esc(name)}" aria-label="Pet"></td>
+    <td${u("attack")}><input type="number" id="${id}-attack" min="0" max="50" value="${p && p.attack != null && !p.empty ? p.attack : ""}" aria-label="Attack"></td>
+    <td${u("health")}><input type="number" id="${id}-health" min="0" max="50" value="${p && p.health != null && !p.empty ? p.health : ""}" aria-label="Health"></td>
+    <td${u("level")}><select id="${id}-level" aria-label="Level">${lv}</select></td>
+    <td${u("perk")}><select id="${id}-perk" aria-label="Perk">${perks}</select></td></tr>`;
+}
+function labLabels(which) {
+  const out = {};
+  for (const side of ["player", "opponent"]) {
+    out[side] = [0, 1, 2, 3, 4].map((i) => {
+      const id = `lab-${which}-${side}-${i}`, el = (k) => document.getElementById(`${id}-${k}`);
+      if (!el("name")) return null;
+      if (el("empty").checked) return { empty: true };
+      const name = el("name").value.trim();
+      if (!name) return null;
+      const known = LAB.meta.pets.find((n) => n.toLowerCase() === name.toLowerCase());
+      if (!known) throw new Error(`"${name}" isn't a pet the engine knows (${SIDE_NAMES[side]}, position ${i + 1}).`);
+      const a = el("attack").value, h = el("health").value;
+      if (a === "" || h === "") throw new Error(`Fill in attack and health for ${known} (${SIDE_NAMES[side]}, position ${i + 1}).`);
+      return { name: known, attack: Number(a), health: Number(h), level: Number(el("level").value), perk: el("perk").value };
+    });
+  }
+  return out;
+}
+function labHasPets(which) {
+  try { const l = labLabels(which); return ["player", "opponent"].some((s) => l[s].some((p) => p && !p.empty)); } catch (e) { return false; }
+}
+async function labTeach() {
+  let total = 0;
+  try {
+    for (const which of ["start", "end"]) {
+      if (!LAB.frames[which]) continue;
+      const r = await api("/api/lab/teach", { frame: labFramePayload(LAB.frames[which]), labels: labLabels(which) });
+      total += Object.values(r.added).reduce((a, b) => a + b, 0);
+      LAB.meta.learned = r.learned;
+    }
+  } catch (e) { toast(e.message); return; }
+  labLearned();
+  toast(total ? `Learned ${total} new picture(s).` : "Nothing new to learn from these frames.");
+}
+
+// Recreating, checking and saving -----------------------------------------
+function labTeamsFor(which) {
+  const l = labLabels(which);
+  return { player: l.player.filter((p) => p && !p.empty), opponent: l.opponent.filter((p) => p && !p.empty) };
+}
+async function labRun() {
+  let start, end = null;
+  try {
+    start = labTeamsFor("start");
+    if (LAB.frames.end || LAB.seen.end) end = labTeamsFor("end");
+  } catch (e) { toast(e.message); return; }
+  let r;
+  try { r = (await api("/api/lab/run", { start, end })).check; } catch (e) { toast(e.message); return; }
+  LAB.last = { start, end, check: r };
+  labShowCheck(r);
+  startBattle({ frames: r.frames, outcome: r.outcome, turn: "", labels: ["You", "Opponent"] });
+  $("battleTitle").textContent = "Recreated battle";
+}
+function labShowCheck(r) {
+  const el = $("labCheck"); el.hidden = false;
+  const pct = (x) => `${Math.round(x * 100)}%`;
+  const odds = `Engine results over 200 battles: win ${pct(r.odds.win)}, loss ${pct(r.odds.loss)}, draw ${pct(r.odds.draw)}.`;
+  const endings = r.endings.map((e) => `<li>${pct(e.share)}: ${esc(e.result)} · you ${esc(e.player.join(", ") || "none")} · opponent ${esc(e.opponent.join(", ") || "none")}</li>`).join("");
+  if (!r.match) {
+    el.className = "lab-check";
+    el.innerHTML = `<h3>Battle recreated</h3><p class="help">${odds} Add the end-of-battle frame to compare with what happened in the game.</p><ul>${endings}</ul>`;
+    return;
+  }
+  const g = r.game;
+  const gameLine = `In the game: ${esc(g.result || "?")} · you ${esc(g.player.join(", ") || "none")} · opponent ${esc(g.opponent.join(", ") || "none")}`;
+  el.className = "lab-check " + (r.match.matches ? "ok" : "bad");
+  el.innerHTML = r.match.matches
+    ? `<h3>Matches the game</h3><p>${gameLine}</p><p class="help">The engine ends this way in ${pct(r.match.ending_share)} of battles. ${odds}</p>`
+    : `<h3>Discrepancy: the engine never ends this way</h3><p>${gameLine}</p><p class="help">${odds} Check the teams were read correctly; if they were, this is a rule to fix. The engine's endings:</p><ul>${endings}</ul>`;
+  el.innerHTML += `<div class="setup"><div class="field grow-field"><label for="labNote">Note (optional)</label><input id="labNote" type="text" placeholder="What happened, e.g. Ox gained Melon after Ant fainted"></div><button class="btn primary" id="labSave">Save as a test</button></div>`;
+  $("labSave").onclick = labSave;
+}
+async function labSave() {
+  if (!LAB.last || !LAB.last.end) { toast("Add the end of the battle first."); return; }
+  try {
+    const r = (await api("/api/lab/save", { start: LAB.last.start, end: LAB.last.end, note: $("labNote").value })).saved;
+    toast(`Saved to ${r.file}.`);
+  } catch (e) { toast(e.message); }
+}
+
+$("modeLab").onclick = () => switchMode("lab");
+$("labShare").onclick = labShare;
+$("labGrab").onclick = () => { const f = labSnap(); if (f) labSetFrame($("labPickFor").value, f); };
+$("labFile").onchange = (e) => { const f = e.target.files[0]; if (f) labLoadFile(f); e.target.value = ""; };
+$("labCalibrate").onclick = labCalibrate;
+$("labRead").onclick = labRead;
+$("labTeach").onclick = labTeach;
+$("labRun").onclick = labRun;
+$("labTeams").addEventListener("input", labButtons);
+$("labStart").addEventListener("pointerdown", labPointerDown);
+$("labStart").addEventListener("pointerup", labPointerUp);
 
 // ---------------------------------------------------------------- replays
 const REP = { list: [], doc: null, turn: 0, confirmDelete: false };
