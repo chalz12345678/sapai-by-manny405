@@ -8,7 +8,7 @@ example after the machine restarted.
 For each series of runs (runs/mlp1, runs/mlp2, ... is the series "mlp"), the
 newest run folder with an args.json and a latest_model.zip is continued in the
 next folder (runs/mlp3) with the same settings, from its latest model and with
-its saved self-play pool. Runs that are still training are left alone. Then
+its self-play pool of earlier models. Runs that are still training are left alone. Then
 the benchmark watcher is restarted with the same settings, watching the new
 run folders.
 
@@ -42,7 +42,6 @@ def resumable(folder):
     """A run folder with saved settings and something to continue from"""
     return os.path.exists(os.path.join(folder, "args.json")) and (
         os.path.exists(os.path.join(folder, "latest_model.zip"))
-        or os.path.isdir(os.path.join(folder, "latest_agent"))
     )
 
 
@@ -98,8 +97,16 @@ def train_command(args, folder, new_folder):
     if module == "sapai.rl.train":
         resume = os.path.join(folder, "model_resume.zip")
         args["resume"] = resume
-        pool = os.path.join(folder, "selfplay_teams.pkl")
-        args["selfplay_teams"] = pool if os.path.exists(pool) else None
+        ### The new run starts with the old run's self-play pool
+        pool = os.path.join(folder, "pool")
+        args["pool_models"] = (
+            sorted(
+                (os.path.join(pool, x) for x in os.listdir(pool) if x.endswith(".zip")),
+                key=os.path.getmtime,
+            )
+            if os.path.isdir(pool)
+            else []
+        )
     else:
         ### Other trainers continue from the run folder itself
         resume = None
@@ -108,6 +115,10 @@ def train_command(args, folder, new_folder):
     command = [sys.executable, "-m", module]
     for key, value in args.items():
         if value is None or key.startswith("_"):
+            continue
+        if isinstance(value, list):
+            if value:
+                command += [f"--{key.replace('_', '-')}"] + [str(v) for v in value]
             continue
         command.append(f"--{key.replace('_', '-')}={value}")
     return command, resume

@@ -1,12 +1,12 @@
 """
-Evaluate a trained model or a bot against the live greedy bot.
+Evaluate a trained model or a bot in 1v1 matches against the greedy bot.
 
     python -m sapai.rl.evaluate --model runs/token/best_model.zip --games 500
     python -m sapai.rl.evaluate --bot greedy --games 500
     python -m sapai.rl.evaluate --bot random --games 500
 
-Each game follows the normal rules (10 wins to win, lives lost by turn). The
-greedy opponent shops every turn alongside the agent.
+Each game is a 1v1 match with the normal rules (first to 10 wins, or the last
+with lives left). The greedy opponent shops every turn alongside the agent.
 """
 
 import argparse
@@ -14,7 +14,7 @@ import random
 
 import numpy as np
 
-from sapai.rl.env import END_TURN, SAPEnv
+from sapai.rl.env import END_TURN, SAPEnv, observation_for
 from sapai.rl.opponents import GreedyBot, GreedyOpponent, RandomBot
 
 
@@ -35,7 +35,6 @@ def play_games(
     """
     env = SAPEnv(opponent or GreedyOpponent(), **(env_kwargs or {}))
     is_bot = hasattr(controller, "shop")
-    is_searcher = hasattr(controller, "shop_env")
     battles = {"win": 0, "loss": 0, "draw": 0}
     games_won = 0
     turns = []
@@ -44,15 +43,15 @@ def play_games(
         obs, info = env.reset(seed=seed + game)
         done = False
         while not done:
-            if is_searcher:
-                controller.shop_env(env)
-                action = END_TURN
-            elif is_bot:
+            if is_bot:
                 controller.shop(env.player)
                 action = END_TURN
             else:
+                ### Models trained before matches were 1v1 see only part of it
                 action, _ = controller.predict(
-                    obs, action_masks=env.action_masks(), deterministic=deterministic
+                    observation_for(controller, obs),
+                    action_masks=env.action_masks(),
+                    deterministic=deterministic,
                 )
             obs, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated

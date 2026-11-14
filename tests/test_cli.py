@@ -204,10 +204,10 @@ class TestCLIOpponents(unittest.TestCase):
             feed.game = game
             self.assertIn(game.run(), ["won", "lost"])
             self.assertIn("Your opponent: trained model mlp_1.0M", out)
-            ### The model saw the results from its own side
-            opponent = game.opponent.model_opponent
-            self.assertEqual(opponent.wins, game.losses)
-            self.assertEqual(opponent.player.turn, game.player.turn)
+            ### The model plays the other side of the same match
+            self.assertIs(game.match.players[1], game.opponent.player)
+            self.assertEqual(game.match.wins[1], game.losses)
+            self.assertEqual(game.opponent.player.turn, game.player.turn)
 
             game = Game(
                 opponent=os.path.join(d, "mlp_1.0M.zip"),

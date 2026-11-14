@@ -1,8 +1,9 @@
 """
-Gymnasium environment for training agents on sapai (Turtle Pack).
+Gymnasium environment for training agents on sapai (Turtle Pack): a 1v1 match.
 
-One episode is one game. One step is one shop action. Ending the turn starts a
-battle against an opponent team for that turn, then the next turn begins.
+One episode is one match against a single opponent (sapai.match.Match). One
+step is one shop action. Ending the turn lets the opponent shop, then the two
+teams battle, then the next turn begins. The opponent is the same all match.
 
 Observation
 -----------
@@ -13,17 +14,23 @@ A flat float32 vector made of tokens, see the layout constants below:
                      health, cost, frozen
     1 global token:  gold, turn, lives, wins, actions this turn, last battle
                      result one-hot, team size, shop size
+    5 opponent team tokens: the opponent's team as it entered the last
+                     battle, laid out like the team tokens
+    opponent globals: opponent lives, opponent wins, seen (1 after the first
+                     battle)
+The first part (BASE_OBS_SIZE) is the layout models were trained on before
+the opponent was visible; such models are given only that part.
 The team is always kept compact, so team slot j is the j-th pet from the front.
 
 Actions
 -------
-Discrete(118) with action masking, see ACTIONS below. Illegal actions are
+Discrete(118) with action masking, see sapai.actions. Illegal actions are
 masked out by action_masks(), which sb3-contrib's MaskablePPO uses.
 
 Rewards
 -------
 +1 for winning a battle, -1 for losing one, 0 for a draw, and a bonus for
-winning the game. Nothing else is rewarded.
+winning the match. Nothing else is rewarded.
 
 """
 
@@ -31,10 +38,8 @@ import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
 
-from sapai.battle import Battle
 from sapai.data import data, RULES
-from sapai.player import Player
-from sapai.teams import Team
+from sapai.match import Match
 
 from sapai.actions import MAX_SHOP, MAX_TEAM
 
@@ -58,7 +63,10 @@ SHOP_KINDS = ["pet", "levelup", "food"]
 SHOP_NUM = 4  # attack, health, cost, frozen
 SHOP_TOKEN = len(SHOP_KINDS) + N_PETS + N_FOODS + SHOP_NUM
 GLOBAL_TOKEN = 12
-OBS_SIZE = MAX_TEAM * TEAM_TOKEN + MAX_SHOP * SHOP_TOKEN + GLOBAL_TOKEN
+BASE_OBS_SIZE = MAX_TEAM * TEAM_TOKEN + MAX_SHOP * SHOP_TOKEN + GLOBAL_TOKEN
+OPPONENT_GLOBAL = 3  # lives, wins, seen
+OPPONENT_START = BASE_OBS_SIZE
+OBS_SIZE = BASE_OBS_SIZE + MAX_TEAM * TEAM_TOKEN + OPPONENT_GLOBAL
 
 ### The action list and its helpers live in sapai.actions
 from sapai.actions import (  # noqa: E402,F401
@@ -74,23 +82,30 @@ from sapai.actions import (  # noqa: E402,F401
 )
 
 
+def encode_pet(t, pet):
+    """Fill one team token for a pet"""
+    t[PET_INDEX[pet.name]] = 1
+    t[N_PETS + STATUS_INDEX.get(pet.status, 0)] = 1
+    n = N_PETS + N_STATUSES
+    t[n] = 1
+    t[n + 1] = min(pet.attack, MAX_STAT) / MAX_STAT
+    t[n + 2] = min(pet.health, MAX_STAT) / MAX_STAT
+    t[n + 2 + pet.level] = 1
+    t[n + 6] = pet.experience / 3
+    t[n + 7] = min(pet._until_end_of_battle_attack_buff, MAX_STAT) / MAX_STAT
+    t[n + 8] = min(pet._until_end_of_battle_health_buff, MAX_STAT) / MAX_STAT
+    t[n + 9] = min(pet.sell_value_bonus, 10) / 10
+
+
 def encode(player, actions_this_turn=0, last_result=None, max_turns=25, wins=0):
-    """Encode the player's state as the flat observation vector"""
-    obs = np.zeros(OBS_SIZE, dtype=np.float32)
+    """
+    The player's own state as the BASE_OBS_SIZE observation (no opponent
+    information), the layout of models trained before matches were 1v1
+    """
+    obs = np.zeros(BASE_OBS_SIZE, dtype=np.float32)
 
     for j, pet in enumerate(team_pets(player)[:MAX_TEAM]):
-        t = obs[j * TEAM_TOKEN : (j + 1) * TEAM_TOKEN]
-        t[PET_INDEX[pet.name]] = 1
-        t[N_PETS + STATUS_INDEX.get(pet.status, 0)] = 1
-        n = N_PETS + N_STATUSES
-        t[n] = 1
-        t[n + 1] = min(pet.attack, MAX_STAT) / MAX_STAT
-        t[n + 2] = min(pet.health, MAX_STAT) / MAX_STAT
-        t[n + 2 + pet.level] = 1
-        t[n + 6] = pet.experience / 3
-        t[n + 7] = min(pet._until_end_of_battle_attack_buff, MAX_STAT) / MAX_STAT
-        t[n + 8] = min(pet._until_end_of_battle_health_buff, MAX_STAT) / MAX_STAT
-        t[n + 9] = min(pet.sell_value_bonus, 10) / 10
+        encode_pet(obs[j * TEAM_TOKEN : (j + 1) * TEAM_TOKEN], pet)
 
     shop_start = MAX_TEAM * TEAM_TOKEN
     for i, slot in enumerate(player.shop.slots[:MAX_SHOP]):
@@ -110,7 +125,7 @@ def encode(player, actions_this_turn=0, last_result=None, max_turns=25, wins=0):
         t[n + 2] = slot.cost / 3
         t[n + 3] = float(slot.frozen)
 
-    g = obs[OBS_SIZE - GLOBAL_TOKEN :]
+    g = obs[BASE_OBS_SIZE - GLOBAL_TOKEN :]
     g[0] = min(player.gold, 40) / 20
     g[1] = min(player.turn, max_turns) / max_turns
     g[2] = max(player.lives, 0) / 10
@@ -123,18 +138,56 @@ def encode(player, actions_this_turn=0, last_result=None, max_turns=25, wins=0):
     return obs
 
 
+def encode_view(view, actions_this_turn=0, max_turns=25):
+    """
+    The full OBS_SIZE observation for one side of a match, from
+    Match.view(i): the player's own state plus the opponent's last team,
+    lives and wins
+    """
+    obs = np.zeros(OBS_SIZE, dtype=np.float32)
+    obs[:BASE_OBS_SIZE] = encode(
+        view["player"],
+        actions_this_turn,
+        view["last_result"],
+        max_turns,
+        view["wins"],
+    )
+    team = view["opponent_last_team"]
+    if team is not None:
+        pets = [slot.pet for slot in team if not slot.empty][:MAX_TEAM]
+        for j, pet in enumerate(pets):
+            start = OPPONENT_START + j * TEAM_TOKEN
+            encode_pet(obs[start : start + TEAM_TOKEN], pet)
+    g = obs[OBS_SIZE - OPPONENT_GLOBAL :]
+    g[0] = max(view["opponent_lives"], 0) / 10
+    g[1] = min(view["opponent_wins"], 10) / 10
+    g[2] = float(team is not None)
+    return obs
+
+
+def observation_for(model, obs):
+    """
+    Cut a full observation down to what a model was trained on: models from
+    before matches were 1v1 take only the first BASE_OBS_SIZE values
+    """
+    size = model.observation_space.shape[0]
+    return obs[..., :size]
+
+
 class SAPEnv(gym.Env):
     """
     Arguments
     ---------
-    opponent: object with reset(rng), team_for_turn(turn) and
-        after_battle(result). See sapai.rl.opponents. Defaults to a live
-        greedy bot.
-    wins_needed: wins needed to win the game
-    lives: starting lives. Losses cost lives based on the turn, like the game.
-    max_turns: games are truncated after this many turns
+    opponent: the other side of the match, an object with reset(rng) and
+        shop(player, view) that shops for its own player each turn. See
+        sapai.rl.opponents. Defaults to the greedy bot.
+    wins_needed: wins needed to win the match
+    lives: starting lives of both sides. Losses cost lives based on the turn.
+    max_turns: matches are truncated after this many turns
     max_actions_per_turn: the turn is ended after this many shop actions
-    game_win_bonus: extra reward for winning the game
+    game_win_bonus: extra reward for winning the match
+    play_out: play all max_turns turns whatever the wins and lives (lives
+        stay at least 1), for head-to-head benchmark matches
     """
 
     metadata = {"render_modes": ["ansi"]}
@@ -160,19 +213,13 @@ class SAPEnv(gym.Env):
         self.max_turns = max_turns
         self.max_actions_per_turn = max_actions_per_turn
         self.game_win_bonus = game_win_bonus
-        ### play_out: play all max_turns turns regardless of wins and lives,
-        ###   for head-to-head benchmark matches. Lives stay at least 1 so the
-        ###   observation stays like a normal game.
         self.play_out = play_out
         self.observation_space = spaces.Box(0.0, 2.0, (OBS_SIZE,), np.float32)
         self.action_space = spaces.Discrete(N_ACTIONS)
         self.engine_errors = 0
-        ### Teams the player had at the end of each turn, for self-play
-        self.record_teams = False
-        self.recorded_teams = {}
         ### Keep the team of the last battle in last_team_state
-        self.record_last_team = False
         self.last_team_state = None
+        self.match = None
         self.player = None
 
     ############################################################################
@@ -183,14 +230,21 @@ class SAPEnv(gym.Env):
         super().reset(seed=seed)
         ### sapai draws its randomness from numpy's global random state
         np.random.seed(int(self.np_random.integers(0, 2**31 - 1)))
-        self.player = Player(lives=self.start_lives)
-        self.wins = 0
-        self.losses = 0
-        self.draws = 0
+        self.match = Match(
+            lives=self.start_lives, wins_to_win=self.wins_needed, endless=self.play_out
+        )
+        self.player = self.match.players[0]
         self.actions_this_turn = 0
-        self.last_result = None
         self.opponent.reset(self.np_random)
         return self._obs(), self._info()
+
+    @property
+    def wins(self):
+        return self.match.wins[0]
+
+    @property
+    def last_result(self):
+        return self.match.view(0)["last_result"]
 
     def step(self, action):
         action = int(action)
@@ -213,21 +267,6 @@ class SAPEnv(gym.Env):
     def action_masks(self):
         return action_mask(self.player)
 
-    def add_opponent_teams(self, teams, source="self", age=0.0):
-        """Add recorded teams to a library opponent, used for self-play"""
-        self.opponent.add_teams(teams, source, age)
-
-    def cap_opponent_teams(self, max_total):
-        """Remove the oldest self-play teams beyond max_total teams in total"""
-        return self.opponent.cap_teams(max_total)
-
-    def prune_opponent_teams(self, source, keep_fraction):
-        """Keep keep_fraction of a library opponent's teams from source"""
-        import random
-
-        rng = random.Random(int(self.np_random.integers(0, 2**31 - 1)))
-        return self.opponent.prune_teams(source, keep_fraction, rng)
-
     def render(self):
         return f"{self._info()}\n{self.player.team}\n{self.player.shop}"
 
@@ -236,69 +275,46 @@ class SAPEnv(gym.Env):
     ############################################################################
 
     def _obs(self):
-        return encode(
-            self.player,
-            self.actions_this_turn,
-            self.last_result,
-            self.max_turns,
-            self.wins,
-        )
+        return encode_view(self.match.view(0), self.actions_this_turn, self.max_turns)
 
     def _info(self):
+        results = [r["result"] for r in self.match.history]
         return {
             "turn": self.player.turn,
-            "wins": self.wins,
-            "losses": self.losses,
-            "draws": self.draws,
+            "wins": self.match.wins[0],
+            "losses": results.count(1),
+            "draws": results.count(2),
             "lives": self.player.lives,
+            "opponent_lives": self.match.players[1].lives,
             "engine_errors": self.engine_errors,
         }
 
     def _end_turn(self):
-        p = self.player
-        turn = p.turn
-        p.end_turn()
-        p.team.move_forward()
-        if self.record_teams:
-            self.recorded_teams.setdefault(turn, []).append(p.team.state)
-        if self.record_last_team:
-            self.last_team_state = p.team.state
-
-        opponent_team = self.opponent.team_for_turn(turn)
+        m = self.match
         try:
-            result = Battle(p.team, opponent_team).battle()
+            self.opponent.shop(m.players[1], m.view(1))
         except Exception:
             self.engine_errors += 1
-            result = 2
-        self.opponent.after_battle(result)
+        try:
+            record = m.battle()
+            result = record["result"]
+        except Exception:
+            ### Engine bug: count it, and end the match as a draw
+            self.engine_errors += 1
+            info = self._info()
+            info["result"] = 2
+            info["game_won"] = False
+            return self._obs(), 0.0, False, True, info
+        self.last_team_state = record["teams"][0]
 
-        reward = 0.0
-        if result == 0:
-            self.wins += 1
-            reward = 1.0
-        elif result == 1:
-            self.losses += 1
-            reward = -1.0
-            p.lives -= data["turns"][f"turn-{min(turn, 11)}"]["livesLost"]
-        else:
-            self.draws += 1
-        self.last_result = result
-
-        terminated = False
-        if self.play_out:
-            p.lives = max(p.lives, 1)
-        elif self.wins >= self.wins_needed:
+        reward = {0: 1.0, 1: -1.0, 2: 0.0}[result]
+        terminated = m.over and not self.play_out
+        if terminated and m.winner == 0:
             reward += self.game_win_bonus
-            terminated = True
-        elif p.lives <= 0:
-            terminated = True
-
-        ### A loss counts as losing the last battle for Snail
-        p.start_turn(winner=(result != 1))
         self.actions_this_turn = 0
-        truncated = (not terminated) and p.turn > self.max_turns
+        truncated = (not terminated) and (m.over or self.player.turn > self.max_turns)
         info = self._info()
         info["result"] = result
         if terminated or truncated:
-            info["game_won"] = self.wins >= self.wins_needed
+            info["game_won"] = m.winner == 0
         return self._obs(), reward, terminated, truncated, info

@@ -43,6 +43,7 @@ class Match:
         seed=None,
         lives_lost=lives_lost,
         players=None,
+        endless=False,
     ):
         """
         lives: starting lives of each player
@@ -54,7 +55,10 @@ class Match:
             loss on that turn
         players: two existing Players to use (for example ones a bot
             already shops with); their lives are set to the starting lives
+        endless: keep playing whatever the wins and lives (lives stay at
+            least 1), until max_turns if given; for head-to-head benchmarks
         """
+        self.endless = endless
         if seed is not None:
             np.random.seed(seed)
         self.start_lives = RULES["starting_lives"] if lives is None else lives
@@ -162,6 +166,14 @@ class Match:
         return record
 
     def _check_over(self):
+        if self.endless:
+            for p in self.players:
+                p.lives = max(p.lives, 1)
+            if self.max_turns is not None and self.turn >= self.max_turns:
+                self.over = True
+                if self.wins[0] != self.wins[1]:
+                    self.winner = 0 if self.wins[0] > self.wins[1] else 1
+            return
         for i in (0, 1):
             if self.wins[i] >= self.wins_to_win:
                 self.over, self.winner = True, i

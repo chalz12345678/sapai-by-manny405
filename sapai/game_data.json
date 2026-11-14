@@ -2,7 +2,7 @@
  "pack": {
   "name": "Turtle",
   "internal_id": "StandardPack",
-  "game_version": "unknown - data checked against the game on 2026-11-11",
+  "game_version": "current as of 2026-11-11 (checked against the game)",
   "sources": [
    "Super Auto Pets Wiki (superautopets.wiki.gg)",
    "the game app"

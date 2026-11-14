@@ -5,7 +5,7 @@ that the real game works the same way, and the test that checks it. The goal
 is for every rule here to be confirmed in the real game.
 
 - **Game version:** Turtle Pack, data checked against the game on 2026-11-11
-  (`pack.game_version` in `data/turtle_pack.yaml`).
+  and confirmed current (`pack.game_version` in `data/turtle_pack.yaml`).
 - **Numbers** (gold, costs, limits, lives, per-turn rules, pet and food
   values) live in `data/turtle_pack.yaml`; this book describes the rules
   around them. See `docs/PATCHING.md` for updating after a patch.
@@ -26,7 +26,7 @@ Nothing is ✅ yet: confirming rules in the game is the next step (see
 
 | # | Rule | Status | Test |
 |---|---|---|---|
-| 1.1 | Two players meet every turn; there is no random opponent | ❓ open (Q4) | `tests/test_match.py` |
+| 1.1 | Two players meet every turn; there is no random opponent (arena mode is gone) | ✅ decided | `tests/test_match.py`, `tests/test_rl.py` |
 | 1.2 | Both players shop at the same time and cannot see each other's shop or current team | 🤔 assumed | `sapai/match.py` |
 | 1.3 | After a battle each player knows the other's team as it entered that battle (pets, levels, stats, perks), and the other's lives and wins | 🤔 assumed | `test_each_player_sees_the_other_team_as_it_entered_battle` |
 | 1.4 | The winner of a battle gains a win; the loser loses lives (rule 1.5); a draw changes neither | 🤔 assumed | `test_winner_gains_a_win_and_loser_loses_lives_for_the_turn`, `test_draw_costs_no_lives` |
@@ -121,15 +121,15 @@ level (`tests/scenarios/tier*.yaml`, 153 battles; `tests/test_audit_tier*.py`,
 These need someone who plays the game to answer. The engine's current
 behaviour is in brackets.
 
-- **Q1. Game version.** Which version of the game should the engine match?
-  Is the data in `data/turtle_pack.yaml` (checked 2026-11-11) current?
+- **Q1. Game version.** Answered: the data in `data/turtle_pack.yaml`
+  (checked 2026-11-11) is current.
 - **Q2. 1v1 rules.** Starting lives (10), lives lost per loss by turn (1, 1,
   2, 2, 3, 3, 3, 3, 4, 4, 5), how a match is won (first to 10 wins or the
   last with lives), and whether a draw costs anything (no).
 - **Q3. Real-game cases.** Screenshots or recordings of tricky battles,
   especially ability order and summons, to turn 🤔 and 📖 rules into ✅.
-- **Q4. Arena mode.** Remove it completely? (The terminal game is already
-  1v1; the training environment still uses random saved teams.)
+- **Q4. Arena mode.** Answered: removed. Training, evaluation and the
+  terminal game all play 1v1 matches.
 - **Q5. Merge stats.** Merging a pet worth several copies: +1/+1 or +1/+1 per
   copy? (+1/+1)
 - **Q6. Merge perks.** Which perk does a merged pet keep? (the higher-tier

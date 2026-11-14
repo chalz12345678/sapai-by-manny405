@@ -167,7 +167,7 @@ class Opponent:
         self.rng = rng
         self.player = Player()
 
-    def shop_turn(self):
+    def shop_turn(self, view=None):
         p = self.player
         for _ in range(40):
             if p.gold <= 0:
@@ -238,21 +238,11 @@ class ModelBot:
         self.model_opponent = ModelOpponent(MaskablePPO.load(path, device="cpu"))
         self.model_opponent.reset()
 
-    @property
-    def player(self):
-        return self.model_opponent.player
+        self.player = Player()
 
-    def shop_turn(self):
-        self.model_opponent.shop()
-
-    def record_result(self, result, wins):
-        """
-        What the model sees of the last battle: its wins and result. result
-        is from the player's side (0 means the model lost). The match keeps
-        lives, so they are not changed here.
-        """
-        self.model_opponent.wins = wins
-        self.model_opponent.last_result = {0: 1, 1: 0, 2: 2}[result]
+    def shop_turn(self, view=None):
+        """Shop with what the model can see: its side of the match"""
+        self.model_opponent.shop(self.player, view)
 
 
 def find_model(kind, models_dir=MODELS_DIR):
@@ -557,7 +547,7 @@ class Game:
         turn = p.turn
 
         ### The opponent shops at the same time, without seeing your team
-        self.opponent.shop_turn()
+        self.opponent.shop_turn(self.match.view(1))
         p.team.move_forward()
 
         record = self.match.battle()
@@ -570,9 +560,6 @@ class Game:
         self.print("--- Battle ---")
         self.print("You:      " + self.team_line(Team.from_state(record["teams"][0])))
         self.print("Opponent: " + self.team_line(Team.from_state(record["teams"][1])))
-        ### A model opponent sees its own wins and last result
-        if hasattr(self.opponent, "record_result"):
-            self.opponent.record_result(result, self.match.wins[1])
 
         lost = lives_lost(turn)
         plural = "life" if lost == 1 else "lives"

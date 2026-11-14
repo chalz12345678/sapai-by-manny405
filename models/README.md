@@ -3,6 +3,15 @@
 MaskablePPO agents (sb3-contrib) trained on the Turtle Pack with
 `sapai.rl.train`, first against greedy bot teams and then with self-play.
 
+**These models are from before matches were 1v1.** They were trained against a
+different recorded team every turn, and they do not see the opponent. They
+still play 1v1 matches (they are given the part of the observation they know,
+`sapai.rl.env.observation_for`), and they can be upgraded to see the
+opponent's last team, lives and wins without changing how they play, then
+trained further (see below). They also learned under engine rules that have
+since been fixed (see `docs/RULES.md`), so they are a starting point, not a
+finished 1v1 player.
+
 | File | Policy | Training steps | Benchmark rating |
 |---|---|---|---|
 | **`token_22.5M.zip`** | token network (`TokenMaskablePolicy`) | 22.5M | **1475** (best, final) |
@@ -56,25 +65,47 @@ python -m sapai.rl.benchmark --players greedy models/token_22.5M.zip models/mlp_
 from sb3_contrib import MaskablePPO
 from sapai.rl.env import SAPEnv
 
+from sapai.rl.env import observation_for
+
 model = MaskablePPO.load("models/token_22.5M.zip", device="cpu")
-env = SAPEnv()  # plays against the live greedy bot
+env = SAPEnv()  # a 1v1 match against the greedy bot
 obs, info = env.reset(seed=0)
 done = False
 while not done:
-    action, _ = model.predict(obs, action_masks=env.action_masks(), deterministic=True)
+    action, _ = model.predict(
+        observation_for(model, obs), action_masks=env.action_masks(), deterministic=True
+    )
     obs, reward, terminated, truncated, info = env.step(action)
     done = terminated or truncated
 print(info)
 ```
 
-To continue training a model, pass it to `python -m sapai.rl.train --resume`.
-The models depend on the observation and action layout in `sapai/rl/env.py`
-and on the pets and foods in `sapai/data.py`; changing either means
-retraining.
+To continue training a model in 1v1 matches, pass it to
+`python -m sapai.rl.train --resume`; it is upgraded to see the opponent first.
+To upgrade one without training:
+
+```bash
+python -m sapai.rl.grow models/token_22.5M.zip token_1v1_start.zip --upgrade
+```
+
+Self-play now plays whole matches against the agent's own earlier versions:
+every `--pool-every` steps the model is saved into the run's `pool/` folder,
+and each match is against the greedy bot (`--greedy-fraction`) or a model from
+the pool. `--pool-models` adds other models to the pool, for example:
+
+```bash
+python -m sapai.rl.train --resume models/token_22.5M.zip --out runs/token1v1 \
+    --pool-models models/token_22.5M.zip models/mlp_19.3M.zip
+```
+
+The models depend on the action layout in `sapai/actions.py`, the observation
+layout in `sapai/rl/env.py` and the pets and foods in `data/turtle_pack.yaml`;
+changing those means retraining (or, for the observation, upgrading).
 
 ## Search experiments
 
-`sapai.rl.search` adds a search on top of a policy: for each shop decision
+This code (`sapai.rl.search`) was removed with arena mode; the results are
+kept here. It added a search on top of a policy: for each shop decision
 the policy's top moves are played forward to the end of the turn and scored,
 and the best score (plus a bonus for the policy's own preference) is taken.
 Starting from `token_11.8M`, no scoring tried beat the plain policy in

@@ -20,24 +20,26 @@ if HAVE_RL:
     from sapai import Player, Team
     from sapai.rl.env import (
         ACTIONS,
+        BASE_OBS_SIZE,
         END_TURN,
         N_ACTIONS,
         OBS_SIZE,
+        OPPONENT_START,
         SAPEnv,
         action_mask,
         apply_action,
     )
     from sapai.rl.opponents import (
         GreedyBot,
-        LibraryOpponent,
+        GreedyOpponent,
+        ModelOpponent,
+        PoolOpponent,
         RandomBot,
-        TeamLibrary,
-        harvest_teams,
     )
 
 
 class FixedOpponent:
-    """Always battles the same team"""
+    """Always battles with the same team"""
 
     def __init__(self, names):
         self.names = names
@@ -45,11 +47,8 @@ class FixedOpponent:
     def reset(self, rng=None):
         pass
 
-    def team_for_turn(self, turn):
-        return Team(self.names)
-
-    def after_battle(self, result):
-        pass
+    def shop(self, player, view=None):
+        player.team = Team(self.names)
 
 
 def random_states(n_games=8, seed=0):
@@ -171,101 +170,85 @@ class TestEnv(unittest.TestCase):
 
 @unittest.skipUnless(HAVE_RL, "gymnasium, sb3-contrib and torch are required")
 class TestOpponents(unittest.TestCase):
-    def test_bots_and_library(self):
-        library = TeamLibrary.from_bots(3, turns=5)
-        self.assertEqual(len(library), 3 * 2 * 5)
-        team = library.sample(3, random.Random(0))
-        self.assertIsInstance(team, Team)
-        ### Turns past the recorded ones use the last recorded turn
-        self.assertIsInstance(library.sample(20, random.Random(0)), Team)
+    def test_agent_sees_the_opponents_last_team(self):
+        env = SAPEnv(FixedOpponent(["mammoth", "ant"]))
+        obs, _ = env.reset(seed=0)
+        self.assertEqual(obs.shape, (OBS_SIZE,))
+        ### Before the first battle only the opponent's lives are known
+        self.assertEqual(obs[OPPONENT_START:-3].sum(), 0)
+        self.assertEqual(obs[-1], 0)
+        obs, _, _, _, info = env.step(END_TURN)
+        seen = env.match.opponent_last_team(0)
+        self.assertEqual(
+            [x.pet.name for x in seen if not x.empty], ["pet-mammoth", "pet-ant"]
+        )
+        self.assertGreater(obs[OPPONENT_START:].sum(), 0)
+        self.assertEqual(info["opponent_lives"], env.match.players[1].lives)
 
-        with tempfile.TemporaryDirectory() as d:
-            path = os.path.join(d, "library.pkl")
-            library.save(path)
-            self.assertEqual(len(TeamLibrary.load(path)), len(library))
+    def test_the_opponent_can_lose_the_match(self):
+        ### An opponent with no pets loses every battle and runs out of lives
+        env = SAPEnv(FixedOpponent([]), wins_needed=99, lives=2)
+        env.reset(seed=0)
+        buy = [
+            a for a in np.flatnonzero(env.action_masks()) if ACTIONS[a][0] == "buy_pet"
+        ]
+        env.step(buy[0])
+        done, total = False, 0
+        while not done:
+            _, reward, terminated, truncated, info = env.step(END_TURN)
+            total += reward
+            done = terminated or truncated
+        self.assertTrue(terminated)
+        self.assertTrue(info["game_won"])
+        self.assertLessEqual(info["opponent_lives"], 0)
 
-        env = SAPEnv(LibraryOpponent(library))
+    def test_old_models_play_with_part_of_the_observation(self):
+        from sb3_contrib import MaskablePPO
+
+        from sapai.rl.env import observation_for
+
+        model = MaskablePPO.load(
+            os.path.join(os.path.dirname(__file__), "..", "models", "mlp_8.2M.zip"),
+            device="cpu",
+        )
+        self.assertEqual(model.observation_space.shape, (BASE_OBS_SIZE,))
+        obs = np.zeros(OBS_SIZE, dtype=np.float32)
+        self.assertEqual(observation_for(model, obs).shape, (BASE_OBS_SIZE,))
+        env = SAPEnv(ModelOpponent(model))
         env.reset(seed=0)
         env.step(END_TURN)
+        self.assertEqual(env.engine_errors, 0)
 
-    def test_library_sources_and_pruning(self):
-        library = TeamLibrary.from_bots(10, bots=("greedy",), turns=4)
-        self.assertEqual(library.count("bot"), 40)
-        self_teams = TeamLibrary.from_bots(3, bots=("random",), turns=4).teams
-        library.add_all(self_teams, "self")
-        self.assertEqual(library.count("self"), 12)
+    def test_pool_opponent(self):
+        from sb3_contrib import MaskablePPO
 
-        library.prune("bot", 0.2, random.Random(0))
-        ### 20% of the 10 bot teams for each of the 4 turns, self-play kept
-        self.assertEqual(library.count("bot"), 8)
-        self.assertEqual(library.count("self"), 12)
-        for turn in library.teams:
-            self.assertEqual(len(library.teams[turn]), len(library.sources[turn]))
-            self.assertEqual(library.sources[turn].count("bot"), 2)
+        from sapai.rl.policy import TokenMaskablePolicy
 
         with tempfile.TemporaryDirectory() as d:
-            path = os.path.join(d, "library.pkl")
-            library.save(path)
-            loaded = TeamLibrary.load(path)
-            self.assertEqual(loaded.count("self"), 12)
-            self.assertEqual(loaded.count("bot"), 8)
-
-            ### Libraries saved before sources existed load as bot teams
-            import pickle
-
-            with open(path, "wb") as f:
-                pickle.dump(library.teams, f)
-            self.assertEqual(TeamLibrary.load(path).count("bot"), 20)
-
-        env = SAPEnv(LibraryOpponent(library))
-        env.reset(seed=0)
-        ### 3 self-play teams per turn, half rounds to 2 per turn
-        self.assertEqual(env.prune_opponent_teams("self", 0.5), 8)
-
-    def test_library_cap_removes_oldest_self_play_teams(self):
-        library = TeamLibrary.from_bots(2, bots=("greedy",), turns=3)
-        states = TeamLibrary.from_bots(4, bots=("random",), turns=3).teams
-        old = {t: x[:2] for t, x in states.items()}
-        new = {t: x[2:] for t, x in states.items()}
-        library.add_all(old, "self", age=100)
-        library.add_all(new, "self", age=200)
-        self.assertEqual((library.count("bot"), library.count("self")), (6, 12))
-
-        ### Only the oldest self-play teams go; bot teams are kept
-        removed = library.cap(12)
-        self.assertEqual(removed, 6)
-        self.assertEqual((library.count("bot"), library.count("self")), (6, 6))
-        for turn in library.teams:
-            ages = [
-                a
-                for s, a in zip(library.sources[turn], library.ages[turn])
-                if s == "self"
-            ]
-            self.assertEqual(ages, [200, 200])
-        self.assertEqual(library.cap(100), 0)
-        ### A limit of 0 removes every self-play team
-        self.assertEqual(library.cap(0), 6)
-        self.assertEqual(library.count("self"), 0)
-
-        with tempfile.TemporaryDirectory() as d:
-            path = os.path.join(d, "library.pkl")
-            library.save(path)
-            self.assertEqual(TeamLibrary.load(path).ages, library.ages)
-
-            ### Pools saved before ages existed are aged by their order
-            import pickle
-
-            with open(path, "wb") as f:
-                pickle.dump({"teams": library.teams, "sources": library.sources}, f)
-            loaded = TeamLibrary.load(path)
-            for turn, ages in loaded.ages.items():
-                self.assertEqual(ages, sorted(ages))
-
-        ### add_library keeps ages
-        copy = TeamLibrary()
-        copy.add_library(library, "self")
-        self.assertEqual(copy.ages, library.ages)
-        self.assertEqual(copy.count("self"), len(library))
+            ### An empty pool plays the greedy bot
+            pool = PoolOpponent(d, greedy_fraction=0)
+            pool.reset(random.Random(0))
+            self.assertEqual(pool.current_name, "greedy")
+            model = MaskablePPO(
+                TokenMaskablePolicy,
+                SAPEnv(FixedOpponent(["ant"])),
+                policy_kwargs={"d_model": 32, "n_heads": 2, "n_layers": 1},
+                n_steps=64,
+                device="cpu",
+            )
+            model.save(os.path.join(d, "a.zip"))
+            pool.reset(random.Random(0))
+            self.assertEqual(pool.current_name, "a.zip")
+            env = SAPEnv(pool)
+            env.reset(seed=0)
+            for _ in range(3):
+                env.step(END_TURN)
+            self.assertEqual(env.engine_errors, 0)
+            self.assertGreater(len(env.match.players[1].team), 0)
+            ### greedy_fraction 1 always plays the greedy bot
+            pool = PoolOpponent(d, greedy_fraction=1)
+            pool.reset(random.Random(0))
+            self.assertEqual(pool.current_name, "greedy")
 
     def test_greedy_bot_builds_a_team(self):
         player = Player()
@@ -361,13 +344,6 @@ class TestPolicy(unittest.TestCase):
                 )
                 self.assertEqual(int(a1), int(a2))
 
-            ### Self-play: teams built by the model, recorded by turn
-            teams = harvest_teams(model, SAPEnv(FixedOpponent(["ant"])), 2)
-            self.assertIn(1, teams)
-            library = TeamLibrary()
-            library.add_all(teams)
-            self.assertGreater(len(library), 0)
-
     def test_evaluate_and_train_scripts(self):
         from sapai.rl.evaluate import play_games
         from sapai.rl.train import main as train_main
@@ -380,149 +356,50 @@ class TestPolicy(unittest.TestCase):
             train_main(
                 [
                     "--policy=token",
-                    "--timesteps=128",
+                    "--timesteps=192",
                     "--n-envs=1",
                     "--n-steps=64",
                     "--batch-size=32",
                     "--eval-every=64",
                     "--eval-games=1",
-                    "--library-games=2",
-                    "--selfplay-every=64",
+                    "--pool-every=64",
+                    "--pool-size=2",
+                    "--greedy-fraction=0",
                     f"--out={d}",
                 ]
             )
             for name in ["best_model.zip", "final_model.zip", "progress.csv"]:
                 self.assertTrue(os.path.exists(os.path.join(d, name)))
+            ### Checkpoints go into the self-play pool, newest kept
+            pool = sorted(os.listdir(os.path.join(d, "pool")))
+            self.assertEqual(len(pool), 2)
+            with open(os.path.join(d, "args.json")) as f:
+                self.assertEqual(json.load(f)["pool_size"], 2)
 
-            ### Resume training against greedy bot teams only
+            ### Resuming a model from before matches were 1v1 upgrades it,
+            ###   and --pool-models starts the pool with other models
+            old = os.path.join(
+                os.path.dirname(__file__), "..", "models", "mlp_8.2M.zip"
+            )
             resumed = os.path.join(d, "resumed")
             train_main(
                 [
-                    f"--resume={os.path.join(d, 'final_model.zip')}",
+                    f"--resume={old}",
                     "--timesteps=64",
-                    "--n-envs=1",
-                    "--eval-every=64",
-                    "--eval-games=1",
-                    "--library-games=2",
-                    "--library-bots=greedy",
-                    f"--out={resumed}",
-                ]
-            )
-            self.assertTrue(os.path.exists(os.path.join(resumed, "final_model.zip")))
-
-            ### Self-play starts once evaluations stop improving
-            plateau = os.path.join(d, "plateau")
-            train_main(
-                [
-                    "--policy=mlp",
-                    "--timesteps=320",
                     "--n-envs=1",
                     "--n-steps=64",
                     "--batch-size=32",
                     "--eval-every=64",
                     "--eval-games=1",
-                    "--library-games=2",
-                    "--selfplay-every=64",
-                    "--selfplay-on-plateau=1",
-                    "--selfplay-games=1",
-                    f"--out={plateau}",
+                    f"--pool-models={old}",
+                    f"--out={resumed}",
                 ]
             )
-            for name in ["selfplay_start.zip", "latest_model.zip"]:
-                self.assertTrue(os.path.exists(os.path.join(plateau, name)))
-            with open(os.path.join(plateau, "progress.csv")) as f:
-                selfplay = [row.strip().split(",")[-1] for row in f][1:]
-            self.assertEqual(selfplay[0], "0")
-            self.assertIn("1", selfplay)
+            from sb3_contrib import MaskablePPO
 
-            ### Most bot teams are removed once the self-play pool is big
-            ###   enough, and the pool is saved for later runs
-            import contextlib
-            import io
-
-            pruned = os.path.join(d, "pruned")
-            log = io.StringIO()
-            with contextlib.redirect_stdout(log):
-                train_main(
-                    [
-                        "--policy=mlp",
-                        "--timesteps=128",
-                        "--n-envs=1",
-                        "--n-steps=64",
-                        "--batch-size=32",
-                        "--eval-every=64",
-                        "--eval-games=1",
-                        "--library-games=4",
-                        "--library-bots=greedy",
-                        "--selfplay-every=64",
-                        "--selfplay-games=1",
-                        "--selfplay-initial-games=2",
-                        "--prune-bots-at=1",
-                        "--keep-bot-fraction=0.25",
-                        f"--out={pruned}",
-                    ]
-                )
-            self.assertIn("kept 25% of the 100 bot teams", log.getvalue())
-            pool_path = os.path.join(pruned, "selfplay_teams.pkl")
-            self.assertGreater(TeamLibrary.load(pool_path).count("self"), 0)
-
-            ### A later run starts with the saved pool and prunes right away
-            log = io.StringIO()
-            with contextlib.redirect_stdout(log):
-                train_main(
-                    [
-                        f"--resume={os.path.join(pruned, 'final_model.zip')}",
-                        "--timesteps=64",
-                        "--n-envs=1",
-                        "--eval-every=64",
-                        "--eval-games=1",
-                        "--library-games=4",
-                        "--library-bots=greedy",
-                        "--selfplay-every=1000",
-                        f"--selfplay-teams={pool_path}",
-                        "--prune-bots-at=1",
-                        f"--out={os.path.join(d, 'pruned2')}",
-                    ]
-                )
-            self.assertIn("self-play teams", log.getvalue())
-            self.assertIn("kept 20% of the 100 bot teams", log.getvalue())
-
-            ### The opponent pool is capped by removing the oldest self-play
-            ###   teams, and the run's settings are saved for resume_all
-            capped = os.path.join(d, "capped")
-            log = io.StringIO()
-            with contextlib.redirect_stdout(log):
-                train_main(
-                    [
-                        f"--resume={os.path.join(pruned, 'final_model.zip')}",
-                        "--timesteps=64",
-                        "--n-envs=1",
-                        "--eval-every=64",
-                        "--eval-games=1",
-                        "--library-games=4",
-                        "--library-bots=greedy",
-                        "--selfplay-every=1000",
-                        f"--selfplay-teams={pool_path}",
-                        "--selfplay-games=1",
-                        "--prune-bots-at=1",
-                        "--max-opponent-teams=40",
-                        f"--out={capped}",
-                    ]
-                )
-            self.assertIn("opponent pool capped at 40 teams", log.getvalue())
-            ### 100 bot teams over 25 turns, 20% rounds up to 1 per turn: 25
-            ###   bot teams stay, so 15 self-play teams fit
-            saved = TeamLibrary.load(os.path.join(capped, "selfplay_teams.pkl"))
-            self.assertEqual(len(saved), 40 - 25)
-            loaded = TeamLibrary.load(pool_path)
-            newest = sorted(a for x in loaded.ages.values() for a in x)[-1]
-            ### The newest harvest is kept (the order of removal is checked in
-            ###   test_library_cap_removes_oldest_self_play_teams)
-            self.assertGreaterEqual(
-                max(a for x in saved.ages.values() for a in x), newest
-            )
-            with open(os.path.join(capped, "args.json")) as f:
-                self.assertEqual(json.load(f)["max_opponent_teams"], 40)
+            final = MaskablePPO.load(os.path.join(resumed, "final_model.zip"))
+            self.assertEqual(final.observation_space.shape, (OBS_SIZE,))
+            self.assertIn("mlp_8.2M.zip", os.listdir(os.path.join(resumed, "pool")))
 
 
 @unittest.skipUnless(HAVE_RL, "gymnasium, sb3-contrib and torch are required")
@@ -552,12 +429,15 @@ class TestBenchmark(unittest.TestCase):
             device="cpu",
             seed=0,
         )
-        opponent = ModelOpponent(model)
+        ### A model opponent shops for its own side of the match
+        from sapai.match import Match
+
+        opponent = ModelOpponent(model, deterministic=False)
         opponent.reset()
-        team = opponent.team_for_turn(1)
-        self.assertIsInstance(team, Team)
-        opponent.after_battle(0)
-        self.assertEqual((opponent.last_result, opponent.player.turn), (1, 2))
+        m = Match(seed=0)
+        opponent.shop(m.players[1], m.view(1))
+        m.battle()
+        self.assertEqual(m.players[1].turn, 2)
 
         ### Greedy against greedy is close to even
         greedy = benchmark.Player("greedy", None)
@@ -633,7 +513,8 @@ class TestResumeAll(unittest.TestCase):
                 with open(os.path.join(d, name, "args.json"), "w") as f:
                     json.dump({"policy": policy, "out": name, "resume": None}, f)
                 open(os.path.join(d, name, "latest_model.zip"), "w").close()
-            open(os.path.join(d, "mlp3", "selfplay_teams.pkl"), "w").close()
+            os.makedirs(os.path.join(d, "mlp3", "pool"))
+            open(os.path.join(d, "mlp3", "pool", "step_5.zip"), "w").close()
             csv_path = os.path.join(d, "benchmark.csv")
             with open(os.path.join(d, "benchmark_watch.json"), "w") as f:
                 json.dump(
@@ -662,10 +543,13 @@ class TestResumeAll(unittest.TestCase):
             self.assertIn(
                 f"--resume={os.path.join(d, 'mlp3', 'model_resume.zip')}", mlp
             )
-            self.assertIn("--selfplay-teams=", mlp)
+            ### The next run starts with this run's self-play pool
+            self.assertIn(
+                "--pool-models " + os.path.join(d, "mlp3", "pool", "step_5.zip"), mlp
+            )
             tok = [x for x in lines if "--policy=token" in x][0]
             self.assertIn(f"--out={os.path.join(d, 'tok8')}", tok)
-            self.assertNotIn("--selfplay-teams=", tok)
+            self.assertNotIn("--pool-models", tok)
             watch = [x for x in lines if "sapai.rl.benchmark" in x][0]
             self.assertIn(os.path.join(d, "mlp4"), watch)
             self.assertIn(os.path.join(d, "tok8"), watch)
@@ -723,23 +607,6 @@ class TestResumeAll(unittest.TestCase):
             self.assertNotIn("--policy=mlp", log.getvalue())
             self.assertIn("--policy=token", log.getvalue())
 
-            ### Runs of other trainers continue from their run folder
-            os.makedirs(os.path.join(d, "search1", "latest_agent"))
-            with open(os.path.join(d, "search1", "args.json"), "w") as f:
-                json.dump({"_module": "sapai.rl.search_train", "games": 5}, f)
-            log = io.StringIO()
-            with mock.patch.object(resume_all, "running_commands", return_value=[]):
-                with contextlib.redirect_stdout(log):
-                    resume_all.main(
-                        ["--runs-dir", d, "--benchmark-csv", csv_path, "--dry-run"]
-                        + ["--only", "search"]
-                    )
-            line = [x for x in log.getvalue().splitlines() if "search_train" in x][0]
-            self.assertIn(f"--resume={os.path.join(d, 'search1')}", line)
-            self.assertIn(f"--out={os.path.join(d, 'search2')}", line)
-            self.assertIn("--games=5", line)
-            self.assertNotIn("_module", line)
-
 
 @unittest.skipUnless(HAVE_RL, "gymnasium, sb3-contrib and torch are required")
 class TestGrow(unittest.TestCase):
@@ -784,177 +651,43 @@ class TestGrow(unittest.TestCase):
         with self.assertRaises(ValueError):
             grow_model(grown, 2)
 
-
-@unittest.skipUnless(HAVE_RL, "gymnasium, sb3-contrib and torch are required")
-class TestSearch(unittest.TestCase):
-    def make_agent(self, **kwargs):
+    def test_upgraded_models_play_the_same(self):
+        import torch as th
         from sb3_contrib import MaskablePPO
 
-        from sapai.rl.policy import TokenMaskablePolicy
-        from sapai.rl.search import SearchAgent, ValueNet
+        from sapai.rl.grow import upgrade_model
 
-        policy = MaskablePPO(
-            TokenMaskablePolicy,
-            SAPEnv(FixedOpponent(["ant"])),
-            policy_kwargs={"d_model": 32, "n_heads": 2, "n_layers": 1},
-            n_steps=64,
-            device="cpu",
-            seed=0,
-        )
-        return SearchAgent(policy, ValueNet(32, 2, 1), **kwargs)
-
-    def test_value_net(self):
-        from sapai.rl.search import ValueNet
-
-        env = SAPEnv(FixedOpponent(["ant"]))
-        obs, _ = env.reset(seed=0)
-        values = ValueNet(32, 2, 1).predict(np.stack([obs, obs]))
-        self.assertEqual(values.shape, (2,))
-
-    def test_choose_and_shop(self):
-        from sapai.rl.search import Context
-
-        agent = self.make_agent(n_candidates=4, rollout_depth=3)
-        env = SAPEnv(FixedOpponent(["ant"]))
-        env.reset(seed=0)
-        np.random.seed(0)
-        state = env.player.state
-        action, info = agent.choose(env.player, Context())
-        self.assertTrue(action_mask(env.player)[action])
-        self.assertIn(END_TURN, info["q"])
-        ### Searching does not change the real player
-        self.assertEqual(env.player.state, state)
-
-        ### Playing whole games, ending turns before the action cap
-        record = []
-        for _ in range(3):
-            agent.shop_env(env, record)
-            self.assertLess(env.actions_this_turn, env.max_actions_per_turn)
-            env.step(END_TURN)
-        self.assertGreater(len(record), 0)
-        self.assertTrue(all(m[a] for _, m, a in record))
-
-    def test_prior_weight_follows_policy(self):
-        from sapai.rl.search import Context
-
-        ### With a huge prior weight the search picks the policy's favourite
-        agent = self.make_agent(n_candidates=4, rollout_depth=1, prior_weight=1e6)
-        env = SAPEnv(FixedOpponent(["ant"]))
-        env.reset(seed=0)
-        ctx = Context()
-        mask = action_mask(env.player)
-        probs = agent.policy_probs([ctx.encode(env.player)], [mask])[0]
-        action, _ = agent.choose(env.player, ctx)
-        self.assertEqual(action, int(np.argmax(np.where(mask, probs, -1))))
-
-    def test_save_load_and_benchmark_player(self):
-        from sapai.rl import benchmark
-        from sapai.rl.search import SearchAgent, SearchOpponent, is_agent_folder
-
-        agent = self.make_agent(n_candidates=3, rollout_depth=2, prior_weight=0.7)
-        with tempfile.TemporaryDirectory() as d:
-            folder = os.path.join(d, "agent")
-            agent.save(folder)
-            self.assertTrue(is_agent_folder(folder))
-            loaded = SearchAgent.load(folder)
-            self.assertEqual(loaded.settings(), agent.settings())
-
-            player = benchmark.Player("search", folder)
-            self.assertIsNotNone(player.agent)
-            opponent = player.opponent()
-            self.assertIsInstance(opponent, SearchOpponent)
-            opponent.reset()
-            self.assertIsInstance(opponent.team_for_turn(1), Team)
-            opponent.after_battle(1)
-            self.assertEqual(opponent.wins, 1)
-            score, r = benchmark.match(player, benchmark.Player("greedy", None), 2, 3)
-            self.assertGreaterEqual(score, 0)
-
-    def test_battle_averaged_targets(self):
-        from sapai.rl.search_train import expected_battle, play_training_game
-
-        library = TeamLibrary.from_bots(4, bots=("greedy",), turns=5)
-        turn, teams = next(iter(library.teams.items()))
-        value = expected_battle(teams[0], turn, library, random.Random(0), 6)
-        self.assertTrue(-1 <= value <= 1)
-
-        env = SAPEnv(LibraryOpponent(library), max_turns=5, lives=50)
-        env.record_last_team = True
-        samples, teams, info = play_training_game(
-            env,
-            policy=self.make_agent().policy_model,
-            library=library,
-            rng=random.Random(0),
-            battle_samples=4,
-        )
-        returns = [float(r) for _, r in samples]
-        self.assertEqual(len(returns), sum(len(x) for x in teams.values()))
-        ### Each turn adds between -1 and 1 to the rest of the game
-        for a, b in zip(returns[:-1], returns[1:]):
-            self.assertLessEqual(abs(a - b), 1 + 1e-9)
-
-    def test_search_train(self):
-        from sapai.rl.search import is_agent_folder
-        from sapai.rl.search_train import main as search_main
-        from sapai.rl.policy import TokenMaskablePolicy
-        from sb3_contrib import MaskablePPO
-
-        with tempfile.TemporaryDirectory() as d:
-            policy = MaskablePPO(
-                TokenMaskablePolicy,
-                SAPEnv(FixedOpponent(["ant"])),
-                policy_kwargs={"d_model": 32, "n_heads": 2, "n_layers": 1},
-                n_steps=64,
-                device="cpu",
+        models = os.path.join(os.path.dirname(__file__), "..", "models")
+        env = SAPEnv(GreedyOpponent())
+        obs = []
+        o, _ = env.reset(seed=0)
+        rng = np.random.default_rng(0)
+        for _ in range(60):
+            obs.append(o)
+            o, _, done, trunc, _ = env.step(
+                rng.choice(np.flatnonzero(env.action_masks()))
             )
-            policy.save(os.path.join(d, "policy.zip"))
-            out = os.path.join(d, "search1")
-            common = [
-                "--library-games=4",
-                "--keep-bot-teams=20",
-                "--opponent-pool",
-                "--games-per-iter=2",
-                "--value-steps=2",
-                "--distill-every=1",
-                "--distill-steps=2",
-                "--eval-every=2",
-                "--eval-games=1",
-                "--eval-turns=3",
-                "--battle-samples=2",
-                "--distill-min-score=0",
-                "--n-candidates=3",
-                "--rollout-depth=2",
-                "--d-model=32",
-                "--n-heads=2",
-                "--n-layers=1",
-            ]
-            search_main(
-                [
-                    f"--policy={os.path.join(d, 'policy.zip')}",
-                    "--bootstrap-games=2",
-                    "--bootstrap-steps=2",
-                    "--total-games=2",
-                    f"--out={out}",
-                ]
-                + common
-            )
-            self.assertTrue(is_agent_folder(os.path.join(out, "latest_agent")))
-            with open(os.path.join(out, "args.json")) as f:
-                self.assertEqual(json.load(f)["_module"], "sapai.rl.search_train")
-            with open(os.path.join(out, "progress.csv")) as f:
-                rows = f.read().splitlines()
-            self.assertEqual(rows[0].split(",")[4], "score_vs_start")
-            ### With distill-min-score 0 the policy learns from the search
-            self.assertGreater(int(rows[-1].split(",")[5]), 0)
-            ### Resuming continues the game count
-            out2 = os.path.join(d, "search2")
-            search_main(
-                [f"--resume={out}", "--total-games=4", f"--out={out2}"] + common
-            )
-            with open(os.path.join(out2, "progress.csv")) as f:
-                steps = [int(x.split(",")[0]) for x in f.read().splitlines()[1:]]
-            self.assertGreaterEqual(min(steps), 2)
-            self.assertGreaterEqual(max(steps), 4)
+            if done or trunc:
+                o, _ = env.reset()
+        x = th.as_tensor(np.array(obs, dtype=np.float32))
+        ### The opponent's team is in these observations
+        self.assertGreater(float(x[:, OPPONENT_START:].abs().sum()), 0)
+        for name in ["mlp_8.2M.zip", "token_3.5M.zip"]:
+            old = MaskablePPO.load(os.path.join(models, name), device="cpu")
+            new = upgrade_model(old)
+            self.assertEqual(new.observation_space.shape, (OBS_SIZE,))
+            with th.no_grad():
+                for f, a, b in [
+                    (
+                        lambda m, o: m.policy.get_distribution(o).distribution.logits,
+                        x[:, :BASE_OBS_SIZE],
+                        x,
+                    ),
+                    (lambda m, o: m.policy.predict_values(o), x[:, :BASE_OBS_SIZE], x),
+                ]:
+                    self.assertTrue(th.allclose(f(old, a), f(new, b), atol=1e-5))
+            with self.assertRaises(ValueError):
+                upgrade_model(new)
 
 
 # %%

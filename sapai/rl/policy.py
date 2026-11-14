@@ -19,6 +19,7 @@ from torch import nn
 from sb3_contrib.common.maskable.policies import MaskableActorCriticPolicy
 
 from sapai.rl.env import (
+    BASE_OBS_SIZE,
     GLOBAL_TOKEN,
     MAX_SHOP,
     MAX_TEAM,
@@ -26,6 +27,8 @@ from sapai.rl.env import (
     N_PETS,
     N_STATUSES,
     OBS_SIZE,
+    OPPONENT_GLOBAL,
+    OPPONENT_START,
     PAIRS,
     SHOP_KINDS,
     SHOP_TOKEN,
@@ -63,8 +66,15 @@ class TokenNet(nn.Module):
         dim_feedforward=256,
         separate_critic=True,
         critic_hidden=256,
+        obs_size=OBS_SIZE,
     ):
+        """
+        obs_size: OBS_SIZE for models that see the opponent (1v1 matches),
+            BASE_OBS_SIZE for models trained before the opponent was visible
+        """
         super().__init__()
+        self.obs_size = obs_size
+        self.sees_opponent = obs_size > BASE_OBS_SIZE
         self.latent_dim_pi = N_ACTIONS
         self.separate_critic = separate_critic
         self.latent_dim_vf = critic_hidden if separate_critic else d_model
@@ -76,6 +86,17 @@ class TokenNet(nn.Module):
         self.shop_pos = nn.Parameter(th.zeros(MAX_SHOP, d_model))
         nn.init.normal_(self.team_pos, std=0.02)
         nn.init.normal_(self.shop_pos, std=0.02)
+
+        if self.sees_opponent:
+            ### The opponent's last team and its lives and wins are summed up
+            ###   (mean and max over its pets) and added to the global token.
+            ###   opp_proj starts at zero, so a model upgraded from one that
+            ###   did not see the opponent plays exactly as before until
+            ###   training gives these weights a use.
+            self.opp_in = nn.Linear(TEAM_TOKEN, d_model)
+            self.opp_proj = nn.Linear(2 * d_model + OPPONENT_GLOBAL, d_model)
+            nn.init.zeros_(self.opp_proj.weight)
+            nn.init.zeros_(self.opp_proj.bias)
 
         layer = nn.TransformerEncoderLayer(
             d_model,
@@ -106,7 +127,7 @@ class TokenNet(nn.Module):
             ### The critic is its own MLP on the raw observation, so value
             ###   learning does not reshape the actor's transformer
             self.value = nn.Sequential(
-                nn.Linear(OBS_SIZE, critic_hidden),
+                nn.Linear(obs_size, critic_hidden),
                 nn.Tanh(),
                 nn.Linear(critic_hidden, critic_hidden),
                 nn.Tanh(),
@@ -135,13 +156,16 @@ class TokenNet(nn.Module):
         shop = obs[:, n_team : n_team + MAX_SHOP * SHOP_TOKEN].reshape(
             b, MAX_SHOP, SHOP_TOKEN
         )
-        glob = obs[:, -GLOBAL_TOKEN:]
+        glob = obs[:, BASE_OBS_SIZE - GLOBAL_TOKEN : BASE_OBS_SIZE]
 
         team_present = team[:, :, TEAM_PRESENT] > 0.5
         shop_present = shop[:, :, : len(SHOP_KINDS)].sum(-1) > 0.5
+        g_in = self.global_in(glob)
+        if self.sees_opponent:
+            g_in = g_in + self.opponent_summary(obs)
         tokens = th.cat(
             [
-                self.global_in(glob)[:, None, :],
+                g_in[:, None, :],
                 self.team_in(team) + self.team_pos,
                 self.shop_in(shop) + self.shop_pos,
             ],
@@ -156,6 +180,21 @@ class TokenNet(nn.Module):
         t = h[:, 1 : 1 + MAX_TEAM]
         s = h[:, 1 + MAX_TEAM :]
         return g, t, s, team_present
+
+    def opponent_summary(self, obs):
+        b = obs.shape[0]
+        n_opp = MAX_TEAM * TEAM_TOKEN
+        opp = obs[:, OPPONENT_START : OPPONENT_START + n_opp].reshape(
+            b, MAX_TEAM, TEAM_TOKEN
+        )
+        opp_global = obs[
+            :, OPPONENT_START + n_opp : OPPONENT_START + n_opp + OPPONENT_GLOBAL
+        ]
+        present = (opp[:, :, TEAM_PRESENT] > 0.5).float()[:, :, None]
+        e = th.relu(self.opp_in(opp)) * present
+        mean = e.sum(1) / present.sum(1).clamp(min=1)
+        biggest = e.max(1).values
+        return self.opp_proj(th.cat([mean, biggest, opp_global], dim=1))
 
     def logits(self, g, t, s):
         b = g.shape[0]
@@ -225,7 +264,9 @@ class TokenMaskablePolicy(MaskableActorCriticPolicy):
         super().__init__(*args, **kwargs)
 
     def _build_mlp_extractor(self):
-        self.mlp_extractor = TokenNet(**self.token_kwargs)
+        self.mlp_extractor = TokenNet(
+            obs_size=self.observation_space.shape[0], **self.token_kwargs
+        )
 
     def _build(self, lr_schedule):
         self._build_mlp_extractor()

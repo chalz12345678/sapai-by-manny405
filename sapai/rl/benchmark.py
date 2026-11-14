@@ -54,29 +54,17 @@ def load_model(path):
 
 
 class Player:
-    """
-    A benchmark player: the greedy bot (path None), a saved model (.zip) or a
-    saved SearchAgent folder
-    """
+    """A benchmark player: the greedy bot (path None) or a saved model (.zip)"""
 
     def __init__(self, name, path):
-        from sapai.rl.search import SearchAgent, is_agent_folder
-
         self.name = name
         self.path = path
-        self.agent = SearchAgent.load(path) if path and is_agent_folder(path) else None
-        self.model = load_model(path) if path and not self.agent else None
+        self.model = load_model(path) if path else None
 
     def controller(self, seed):
-        if self.agent:
-            return self.agent
         return self.model if self.model else GreedyBot(random.Random(seed))
 
     def opponent(self):
-        from sapai.rl.search import SearchOpponent
-
-        if self.agent:
-            return SearchOpponent(self.agent)
         return ModelOpponent(self.model) if self.model else GreedyOpponent()
 
 
@@ -252,22 +240,14 @@ def watch(run_dirs, pool, games, turns, seed, every_minutes, out_dir, csv_path):
             run = os.path.basename(os.path.normpath(run_dir))
             steps = latest_steps(run_dir)
             latest = os.path.join(run_dir, "latest_model.zip")
-            latest_agent = os.path.join(run_dir, "latest_agent")
-            if not os.path.exists(latest) and not os.path.isdir(latest_agent):
+            if not os.path.exists(latest):
                 continue
             if steps is None or done.get(run) == steps:
                 continue
             done[run] = steps
             name = f"{run}_{steps}"
-            if os.path.isdir(latest_agent):
-                ### A SearchAgent run saves a folder
-                path = os.path.join(out_dir, name)
-                if os.path.exists(path):
-                    shutil.rmtree(path)
-                shutil.copytree(latest_agent, path)
-            else:
-                path = os.path.join(out_dir, name + ".zip")
-                shutil.copy(latest, path)
+            path = os.path.join(out_dir, name + ".zip")
+            shutil.copy(latest, path)
             candidate = Player(name, path)
             results = []
             rows = []
