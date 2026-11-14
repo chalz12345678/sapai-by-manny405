@@ -8,13 +8,13 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python 3.6
-      uses: actions/setup-python@v2
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
       with:
-        python-version: 3.6
+        python-version: "3.11"
 
     - name: Install dependencies
       run: pip install wheel setuptools
@@ -23,7 +23,7 @@ jobs:
       run: python setup.py bdist_wheel
 
     - name: Upload Python wheel
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: Python wheel
         path: ${{github.workspace}}/dist/sapai-*.whl
@@ -35,23 +35,25 @@ jobs:
     strategy:
       max-parallel: 10
       matrix:
-        python-version: [3.6]
-        os: [ubuntu-20.04, windows-2019, macos-11]
+        python-version: ["3.11"]
+        os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Set up Python ${{matrix.python-version}}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v5
       with:
         python-version: ${{matrix.python-version}}
 
     - name: Download artifact
-      uses: actions/download-artifact@master
+      uses: actions/download-artifact@v4
       with:
         name: "Python wheel"
 
     - name: Install wheel
-      run: pip install --find-links=${{github.workspace}} sapai
+      run: |
+        pip install torch --index-url https://download.pytorch.org/whl/cpu
+        pip install --find-links=${{github.workspace}} sapai
 
     - name: Test library accessibility
       run: python -c "import sapai"
