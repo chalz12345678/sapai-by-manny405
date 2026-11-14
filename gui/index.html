@@ -168,7 +168,8 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
   background: repeating-linear-gradient(135deg, rgba(255,255,255,.32) 0 2px, transparent 2px 10px), linear-gradient(180deg, rgba(120,180,255,.22), transparent 70%); }
 @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.09) translateY(-3px); } 100% { transform: scale(1); } }
-@keyframes deal { 0% { transform: perspective(500px) rotateY(88deg) translateY(10px); } 100% { transform: none; } }
+/* Roll: cards turn in from a 50 degree tilt (never edge-on), ease out with no overshoot */
+@keyframes deal { 0% { transform: perspective(600px) rotateY(50deg) translateY(6px) scale(.94); } 100% { transform: none; } }
 @keyframes shake { 0%, 100% { transform: none; } 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
 @keyframes hop { 0%, 100% { transform: none; } 45% { transform: translateY(-9px); } }
 @keyframes glow { 0% { box-shadow: 0 0 0 0 var(--gold); } 100% { box-shadow: 0 0 0 14px transparent; } }
@@ -178,7 +179,7 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
 .field.inline { display: inline-flex; align-items: center; gap: 6px; }
 .field.inline label { white-space: nowrap; }
 .step-hint { flex-basis: 100%; }
-.deal { animation: deal .42s cubic-bezier(.2,.8,.3,1.2) both; animation-delay: calc(var(--i, 0) * 70ms); }
+.deal { animation: deal .3s cubic-bezier(.22,1,.36,1) both; animation-delay: calc(var(--i, 0) * 40ms); }
 .shake { animation: shake .36s ease; }
 .hop { animation: hop .4s ease; }
 .glow { animation: glow .8s ease-out; }
@@ -734,8 +735,8 @@ function actionFx(name, args, before, after, c) {
     document.querySelectorAll("#shop .card").forEach((el, i) => {
       if (el.classList.contains("frozen")) return;
       el.style.setProperty("--i", i);
-      FX.anim(el, "deal", 420 + i * 70);
-      setTimeout(() => SFX.play("tick", i), i * 70);
+      FX.anim(el, "deal", 320 + i * 40);
+      setTimeout(() => SFX.play("tick", i), i * 40);
     });
   }
   if (name === "swap") {
