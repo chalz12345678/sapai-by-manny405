@@ -18,6 +18,7 @@ except ImportError:  # pragma: no cover
 
 if HAVE_RL:
     from sapai import Player, Team
+    from sapai.data import RULES
     from sapai.rl.env import (
         ACTIONS,
         BASE_OBS_SIZE,
@@ -147,7 +148,7 @@ class TestEnv(unittest.TestCase):
         env = SAPEnv(FixedOpponent(["mammoth"]))
         env.reset(seed=0)
         _, reward, _, _, info = env.step(END_TURN)
-        self.assertEqual((reward, info["lives"]), (-1.0, 9))
+        self.assertEqual((reward, info["lives"]), (-1.0, RULES["starting_lives"] - 1))
 
     def test_actions_per_turn_cap(self):
         env = SAPEnv(FixedOpponent(["ant"]), max_actions_per_turn=3)

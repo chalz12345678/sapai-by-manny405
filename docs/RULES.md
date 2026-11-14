@@ -29,9 +29,9 @@ Nothing is ✅ yet: confirming rules in the game is the next step (see
 | 1.1 | Two players meet every turn; there is no random opponent (arena mode is gone) | ✅ decided | `tests/test_match.py`, `tests/test_rl.py` |
 | 1.2 | Both players shop at the same time and cannot see each other's shop or current team | 🤔 assumed | `sapai/match.py` |
 | 1.3 | After a battle each player knows the other's team as it entered that battle (pets, levels, stats, perks), and the other's lives and wins | 🤔 assumed | `test_each_player_sees_the_other_team_as_it_entered_battle` |
-| 1.4 | The winner of a battle gains a win; the loser loses lives (rule 1.5); a draw changes neither | 🤔 assumed | `test_winner_gains_a_win_and_loser_loses_lives_for_the_turn`, `test_draw_costs_no_lives` |
-| 1.5 | Lives lost for a loss depend on the turn: 1 (turns 1-2), 2 (3-4), 3 (5-8), 4 (9-10), 5 (11+) | ❓ open (Q2) | `test_lives_lost_grows_with_the_turn` |
-| 1.6 | Players start with 10 lives | ❓ open (Q2) | `test_starts_with_the_rules` |
+| 1.4 | The winner of a battle gains a win; the loser loses lives (rule 1.5); a win or a draw costs no lives | ✅ decided | `test_winner_gains_a_win_and_loser_loses_lives_for_the_turn`, `test_draw_costs_no_lives` |
+| 1.5 | A loss always costs 1 life, whatever the turn | ✅ decided | `test_a_loss_always_costs_one_life` |
+| 1.6 | Players start with 6 lives | ✅ decided | `test_starts_with_the_rules` |
 | 1.7 | The first player to 10 wins, or the last with lives left, wins the match | ❓ open (Q2) | `test_ends_at_the_wins_needed`, `test_ends_when_a_player_runs_out_of_lives` |
 
 ## 2. Turn and shop
@@ -123,9 +123,13 @@ behaviour is in brackets.
 
 - **Q1. Game version.** Answered: the data in `data/turtle_pack.yaml`
   (checked 2026-11-11) is current.
-- **Q2. 1v1 rules.** Starting lives (10), lives lost per loss by turn (1, 1,
-  2, 2, 3, 3, 3, 3, 4, 4, 5), how a match is won (first to 10 wins or the
-  last with lives), and whether a draw costs anything (no).
+- **Q2. Match rules.** Partly answered: 6 lives, a loss costs 1 life, a win
+  or draw costs none. Still open: is the match won by reaching 10 wins, or
+  only by being the last with lives left? (either, now)
+- **Q15. More opponents.** Planned: matches against 1 to 8 opponents, each
+  seen as it was in the last battle, with training picking how many at
+  random. Open: who do you battle each turn when there are several
+  opponents, and how are wins and the match winner decided?
 - **Q3. Real-game cases.** Screenshots or recordings of tricky battles,
   especially ability order and summons, to turn 🤔 and 📖 rules into ✅.
 - **Q4. Arena mode.** Answered: removed. Training, evaluation and the

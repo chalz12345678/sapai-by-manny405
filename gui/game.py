@@ -8,8 +8,8 @@ random bot, one of the trained models in ``models/`` (run with numpy through
 
 All shop actions go through ``sapai.rl.env`` (``action_mask``, ``apply_action``
 and ``encode``), the exact action and observation layout the models were
-trained on. The game rules match ``SAPEnv``: 10 lives, 10 wins to win, lives
-lost per turn from ``data["turns"]``.
+trained on. The game rules match ``SAPEnv``: lives, wins to win and lives
+lost per loss from the rules in ``data/turtle_pack.yaml``.
 
 Works from a normal shell too::
 
@@ -52,14 +52,14 @@ _stub_missing()
 
 from sapai.battle import Battle  # noqa: E402
 from sapai.cli import Opponent as GreedyShopper, log_line, pet_parts  # noqa: E402
-from sapai.data import data  # noqa: E402
+from sapai.data import RULES, data  # noqa: E402
 from sapai.player import Player  # noqa: E402
 from sapai.rl import env as E  # noqa: E402
 from sapai.rl.opponents import RandomBot  # noqa: E402, F401
 from gui import audit  # noqa: E402
 
 MAX_WINS = 10
-START_LIVES = 10
+START_LIVES = RULES["starting_lives"]
 MAX_ACTIONS = 30
 
 

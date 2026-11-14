@@ -28,7 +28,7 @@ class TestMatch(unittest.TestCase):
         record = m.battle()
         self.assertEqual(record["result"], 0)
         self.assertEqual(m.wins, [1, 0])
-        self.assertEqual(m.players[1].lives, 10 - lives_lost(1))
+        self.assertEqual(m.players[1].lives, 9)
         self.assertEqual(m.players[0].lives, 10)
         self.assertEqual(m.turn, 2)
         self.assertEqual(m.players[0].turn, 2)
@@ -41,11 +41,10 @@ class TestMatch(unittest.TestCase):
         self.assertEqual([p.lives for p in m.players], [10, 10])
         self.assertEqual(m.wins, [0, 0])
 
-    def test_lives_lost_grows_with_the_turn(self):
-        self.assertEqual(lives_lost(1), 1)
-        self.assertLessEqual(lives_lost(5), lives_lost(11))
-        ### Turns after the last listed turn use its rules
-        self.assertEqual(lives_lost(30), lives_lost(11))
+    def test_a_loss_always_costs_one_life(self):
+        self.assertEqual(RULES["starting_lives"], 6)
+        for turn in (1, 5, 11, 30):
+            self.assertEqual(lives_lost(turn), 1)
 
     def test_each_player_sees_the_other_team_as_it_entered_battle(self):
         m = Match()
