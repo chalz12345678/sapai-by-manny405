@@ -1,0 +1,59 @@
+# sapai arena (GUI)
+
+A browser GUI for the engine: play against the trained models, or pick two
+agents and watch them play each other.
+
+```bash
+python -m gui.server          # open http://127.0.0.1:8405
+```
+
+Only numpy is needed. The trained MaskablePPO models in `models/` run through a
+numpy port of their actor network (`gui/npmodel.py`), so torch, gymnasium and
+sb3-contrib are not required to play.
+
+## Modes
+
+- **Play**: you shop and an agent shops; ending the turn plays the battle,
+  replayed step by step with a log of every attack and ability.
+- **Watch models**: choose a left and right agent, then step through rounds or
+  auto play. Each side's shop actions for the turn are listed under its team.
+  **Run series** plays 10 to 100 full games and reports the win rates.
+
+Agents: every model in `gui/models/` (the token transformer and MLP checkpoints
+with their benchmark ratings), the greedy bot and a random bot.
+
+## Updating the models
+
+`gui/models/*.npz` are the actor weights exported from `models/*.zip`. After
+training a new checkpoint, copy it to `models/` and re-export:
+
+```bash
+python -m gui.export_models
+```
+
+The exporter reads the SB3 checkpoint directly, so it also works without torch.
+A numpy model plays like `MaskablePPO.predict(..., deterministic=True)`: the
+highest scoring legal action.
+
+## Your own agent
+
+Write a file with a `shop(seat, rng)` function and pass it to the server:
+
+```python
+"""Buys the first pet it can afford."""
+def shop(seat, rng):
+    for a in np.flatnonzero(seat.mask()):
+        name, args = E.ACTIONS[a]
+        if name == "buy_pet":
+            seat.act(int(a))
+            return
+```
+
+```bash
+python -m gui.server --agent my_agent.py
+```
+
+`seat.player` is the `sapai.player.Player`, `seat.mask()` the legal action mask,
+`seat.obs()` the model observation and `seat.act(a)` applies an action from
+`sapai.rl.env.ACTIONS`. `E` (`sapai.rl.env`) and `np` are available in the file.
+Return before ending the turn; the match ends it for you.
