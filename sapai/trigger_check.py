@@ -52,9 +52,61 @@ def trigger_of(name):
 ################################################################################
 
 
+def due_for(pet_obj, attr, args, kwargs):
+    """
+    Whether this call means pet_obj's ability is due: its trigger situation
+    has really happened (it fainted, a friend fainted, it was hurt and lived,
+    a friend was summoned, ...). Abilities that are due but do not fire are
+    what the check looks for.
+    """
+    if attr not in TRACKED:
+        return False
+    ability = pet_obj.ability
+    by = ability.get("triggeredBy", {}).get("kind")
+    trigger = args[0] if args else kwargs.get("trigger")
+    alive = pet_obj._health > 0
+    if attr == "faint_trigger":
+        oteam = kwargs.get("oteam", args[2] if len(args) > 2 else None)
+        if by == "Self":
+            return trigger is pet_obj
+        return trigger is not pet_obj and alive and pet_obj.team is not oteam
+    if attr == "friend_summoned_trigger":
+        return trigger is not pet_obj and alive
+    if attr == "hurt_trigger":
+        return alive
+    if attr == "after_attack_trigger":
+        team = pet_obj.team
+        if not alive or not team.check_friend(pet_obj):
+            return False
+        if by == "Self":
+            return team.index(pet_obj) == 0
+        ahead = team.get_ahead(pet_obj, n=1)
+        return len(ahead) > 0 and team.index(ahead[0]) == 0
+    if attr == "friend_hurt_trigger":
+        return alive and trigger is not pet_obj and trigger._health > 0
+    return True
+
+
+### Triggers whose situations due_for can recognise; for the others (shop
+###   situations) the situation itself guarantees the trigger is due
+TRACKED = {
+    "faint_trigger",
+    "friend_summoned_trigger",
+    "hurt_trigger",
+    "after_attack_trigger",
+    "before_attack_trigger",
+    "sob_trigger",
+    "knockout_trigger",
+    "friend_hurt_trigger",
+}
+
+
 @contextlib.contextmanager
 def watch():
-    """Record the names of pets whose ability fires, as (pet, method)"""
+    """
+    Record the names of pets whose ability fires, as (pet, method), and the
+    abilities that were due, as (pet, "due:" + method)
+    """
     fired = []
     originals = {}
     for attr in dir(Pet):
@@ -64,6 +116,8 @@ def watch():
         originals[attr] = original
 
         def wrapped(self, *args, _original=original, _attr=attr, **kwargs):
+            if self.name != "pet-none" and due_for(self, _attr, args, kwargs):
+                fired.append((self.name, "due:" + _attr))
             result = _original(self, *args, **kwargs)
             activated = result[0] if isinstance(result, tuple) else bool(result)
             if activated:
@@ -71,11 +125,40 @@ def watch():
             return result
 
         setattr(Pet, attr, wrapped)
+
+    ### Tiger: the ability of the pet ahead runs again; tiger_func returns
+    ###   [first targets, repeated targets] when it does
+    import sapai.pets as pets_module
+
+    original_tiger = pets_module.tiger_func
+
+    def tiger_wrapped(func, te_fainted, *args):
+        apet = args[0]
+        team = apet.team
+        if team is not None and team.battle:
+            if team.check_friend(apet):
+                behind = team.get_behind(apet, n=1)
+            else:
+                behind = [x for x in list(team)[args[1][1] + 1 :] if not x.empty][:1]
+            if (
+                behind
+                and behind[0].pet.name == "pet-tiger"
+                and behind[0].pet.health > 0
+            ):
+                fired.append((apet.name, "due:tiger_repeat"))
+        result = original_tiger(func, te_fainted, *args)
+        targets = result[0]
+        if len(targets) == 2 and all(isinstance(t, list) for t in targets):
+            fired.append((args[0].name, "tiger_repeat"))
+        return result
+
+    pets_module.tiger_func = tiger_wrapped
     try:
         yield fired
     finally:
         for attr, original in originals.items():
             setattr(Pet, attr, original)
+        pets_module.tiger_func = original_tiger
 
 
 def pet(name, attack=None, health=None, level=1):
@@ -95,7 +178,15 @@ def pet(name, attack=None, health=None, level=1):
 
 
 def fired_for(fired, name, method=None):
-    return any(n == name and (method is None or m == method) for n, m in fired)
+    """(whether name's ability fired, whether it was due)"""
+    did = any(n == name and (method is None or m == method) for n, m in fired)
+    if method is None or (method not in TRACKED and method != "tiger_repeat"):
+        return did, True
+    due = [m for n, m in fired if n == name and m == "due:" + method]
+    if method == "friend_hurt_trigger":
+        ### Wolverine fires on every 4th friend hurt
+        return did, len(due) >= 4
+    return did, len(due) > 0
 
 
 def shop_sell(p, q, q_ahead):
@@ -238,6 +329,91 @@ def battle_summoned(p, q, q_ahead, seed=0):
     )
 
 
+def battle_wolverine(p, q, q_ahead, seed=0):
+    """q is hurt every round (at the front, or second by Chili splash)"""
+    if q_ahead:
+        team, enemy = [pet(q, 1, 12), pet(p, 1, 40)], "Pig 1/50"
+    else:
+        team, enemy = [pet(p, 1, 40), pet(q, 1, 12)], "Pig 1/50 Chili"
+    return battle_fired(Team(team), make_team([enemy]), p, "friend_hurt_trigger", seed)
+
+
+################################################################################
+#### Chains: the trigger comes from another pet's ability, with a third pet r
+#### in front of them or behind them
+################################################################################
+
+
+def chain(team_for, enemy, method):
+    def run(p, r, r_ahead, seed=0):
+        team = team_for(p, r, r_ahead)
+        if team is None:
+            return None
+        return battle_fired(Team(team), make_team(enemy), p, method, seed)
+
+    run.battle = True
+    return run
+
+
+def with_r(pets, r, r_ahead):
+    return [r] + pets if r_ahead else pets + [r]
+
+
+def hedgehog_then(p_health):
+    """A Hedgehog faints at the front and deals 2 damage to p behind it"""
+
+    def team_for(p, r, r_ahead):
+        if r == "pet-hedgehog":
+            return None
+        pair = [pet("pet-hedgehog", 1, 1), pet(p, 1, p_health)]
+        return with_r(pair, pet(r, 1, 40), r_ahead)
+
+    return team_for
+
+
+def shot_by_dolphin(p_health):
+    """An enemy Dolphin shoots p (the lowest health pet) at start of battle"""
+
+    def team_for(p, r, r_ahead):
+        return with_r([pet(p, 1, p_health)], pet(r, 1, 40), r_ahead)
+
+    return team_for
+
+
+def sheep_then(p, r, r_ahead):
+    """A Sheep faints at the front and summons two Rams"""
+    if r == "pet-sheep":
+        return None
+    return with_r([pet("pet-sheep", 1, 1), pet(p, 1, 40)], pet(r, 1, 40), r_ahead)
+
+
+def tiger_team(front=None, p_stats=(2, 20)):
+    """Tiger directly behind p (and front ahead of p, if given)"""
+
+    def team_for(p, r, r_ahead):
+        if r == "pet-tiger" or r == front:
+            return None
+        group = [pet(p, *p_stats), pet("pet-tiger", 1, 40)]
+        if front is not None:
+            group = [pet(front, 1, 1)] + group
+        return with_r(group, pet(r, 1, 40), r_ahead)
+
+    return team_for
+
+
+TIGER = {
+    ("StartOfBattle", "Self"): (tiger_team(), ["Pig 1/50", "Pig 1/50"]),
+    ("Faint", "Self"): (tiger_team(p_stats=(1, 1)), ["Pig 5/50"]),
+    ("Faint", "EachFriend"): (tiger_team("pet-fish", (1, 40)), ["Pig 5/50"]),
+    ("Faint", "FriendAhead"): (tiger_team("pet-fish", (1, 40)), ["Pig 5/50"]),
+    ("Hurt", "Self"): (tiger_team(p_stats=(1, 30)), ["Pig 1/50"]),
+    ("BeforeAttack", "Self"): (tiger_team(p_stats=(1, 40)), ["Pig 1/50"]),
+    ("AfterAttack", "Self"): (tiger_team(p_stats=(1, 40)), ["Pig 1/50"]),
+    ("AfterAttack", "FriendAhead"): (tiger_team("pet-fish", (1, 40)), ["Pig 1/50"]),
+    ("KnockOut", "Self"): (tiger_team(p_stats=(10, 40)), ["Fish 1/1", "Fish 1/1"]),
+    ("Summoned", "EachFriend"): (tiger_team("pet-cricket", (1, 40)), ["Pig 5/50"]),
+}
+
 SITUATIONS = {
     ("Sell", "Self"): [("sold", shop_sell)],
     ("Buy", "Self"): [("bought", shop_buy)],
@@ -258,10 +434,29 @@ SITUATIONS = {
     ("Faint", "Self"): [
         ("faints at the front", battle_faint_front),
         ("faints with a friend", battle_faint_together),
+        (
+            "knocked out by Hedgehog's faint",
+            chain(hedgehog_then(1), ["Pig 5/50"], "faint_trigger"),
+        ),
+        (
+            "knocked out by an enemy Dolphin",
+            chain(shot_by_dolphin(2), ["Dolphin 1/50"], "faint_trigger"),
+        ),
     ],
     ("Faint", "EachFriend"): [("friend faints", battle_friend_faints)],
     ("Faint", "FriendAhead"): [("friend ahead faints", battle_friend_faints)],
-    ("Hurt", "Self"): [("hurt", battle_hurt)],
+    ("Hurt", "Self"): [
+        ("hurt", battle_hurt),
+        (
+            "hurt by Hedgehog's faint",
+            chain(hedgehog_then(30), ["Pig 5/50"], "hurt_trigger"),
+        ),
+        (
+            "hurt by an enemy Dolphin",
+            chain(shot_by_dolphin(30), ["Dolphin 1/50"], "hurt_trigger"),
+        ),
+    ],
+    ("FriendHurt", "EachFriend"): [("friend hurt", battle_wolverine)],
     ("BeforeAttack", "Self"): [
         ("before attacking", battle_attack("before_attack_trigger"))
     ],
@@ -272,7 +467,13 @@ SITUATIONS = {
         ("friend ahead attacks", battle_attack("after_attack_trigger"))
     ],
     ("KnockOut", "Self"): [("knocks out", battle_knockout)],
-    ("Summoned", "EachFriend"): [("friend summoned", battle_summoned)],
+    ("Summoned", "EachFriend"): [
+        ("friend summoned", battle_summoned),
+        (
+            "Rams summoned by Sheep",
+            chain(sheep_then, ["Pig 5/50"], "friend_summoned_trigger"),
+        ),
+    ],
 }
 
 BATTLE = {
@@ -283,17 +484,26 @@ BATTLE = {
     battle_hurt,
     battle_knockout,
     battle_summoned,
+    battle_wolverine,
 }
+
+for _key, (_team_for, _enemy) in TIGER.items():
+    SITUATIONS.setdefault(_key, []).append(
+        ("repeated by Tiger behind it", chain(_team_for, _enemy, "tiger_repeat"))
+    )
 
 
 def rate(situation, p, q, q_ahead):
-    """Share of seeds on which p's ability fired, or None if not applicable"""
+    """
+    Share of the seeds where p's ability was due on which it fired, None if
+    the situation does not apply or never happened, or an error message
+    """
     is_battle = (
         situation in BATTLE
-        or getattr(situation, "__name__", "") == "run"
-        and ("battle" in situation.__qualname__)
+        or getattr(situation, "battle", False)
+        or "battle" in getattr(situation, "__qualname__", "")
     )
-    results = []
+    due_seeds = fired_seeds = 0
     for seed in SEEDS:
         np.random.seed(seed)
         try:
@@ -306,8 +516,13 @@ def rate(situation, p, q, q_ahead):
             return f"error: {type(e).__name__}: {str(e)[:60]}"
         if r is None:
             return None
-        results.append(bool(r))
-    return sum(results) / len(results)
+        did, due = r if isinstance(r, tuple) else (bool(r), True)
+        if due:
+            due_seeds += 1
+            fired_seeds += bool(did)
+    if due_seeds == 0:
+        return None
+    return fired_seeds / due_seeds
 
 
 ### Pets that really stop another pet's ability: Whale swallows the friend
@@ -331,7 +546,11 @@ def run(pets=None, others=None):
         for label, situation in SITUATIONS.get(trigger_of(p), []):
             for q_ahead in (True, False):
                 base = rate(situation, p, FILLER, q_ahead)
-                if not isinstance(base, float) or base == 0:
+                if base is None:
+                    ### The filler arrangement does not apply (for example
+                    ###   no friend ahead); the other pets are still checked
+                    base = 1.0
+                elif not isinstance(base, float) or base == 0:
                     problems.append((p, label, FILLER, q_ahead, base, base))
                     continue
                 for q in others or PETS:
