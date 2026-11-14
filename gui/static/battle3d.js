@@ -39,6 +39,12 @@ window.Battle3D = (() => {
   let pets = [[], []];       // current standees per side, front first
   let tweens = [], fx = [];
   let shake = 0, camBase = null, mounted = false, lastFrame = null;
+  // camera director: eases toward a focus point and zoom, then back to the wide shot
+  const cam = { x: 0, zoom: 1, tx: 0, tzoom: 1, until: 0 };
+  function focus(x, zoom, holdMs) {
+    if (reduce.matches) return;
+    cam.tx = Math.max(-5, Math.min(5, x)); cam.tzoom = zoom; cam.until = performance.now() + holdMs;
+  }
 
   // ------------------------------------------------------------- textures
   function roundRect(g, x, y, w, h, r) {
@@ -94,6 +100,19 @@ window.Battle3D = (() => {
     g.lineWidth = 14; g.strokeStyle = "rgba(255,255,255,.95)"; g.strokeText(str, 160, 64);
     g.fillStyle = color; g.fillText(str, 160, 64);
     const t = new T.CanvasTexture(c); t.encoding = T.sRGBEncoding; return t;
+  }
+  let backTex = null;
+  function backTexture() {
+    if (backTex) return backTex;
+    const c = document.createElement("canvas"); c.width = 400; c.height = 520;
+    const g = c.getContext("2d");
+    g.fillStyle = "#b88a5a"; g.fillRect(0, 0, 400, 520);
+    for (let y = 0; y < 520; y += 6) { g.fillStyle = `rgba(90,60,30,${0.05 + Math.random() * 0.05})`; g.fillRect(0, y, 400, 2); }
+    g.strokeStyle = "rgba(255,240,215,.55)"; g.lineWidth = 10; roundRect(g, 30, 30, 340, 460, 30); g.stroke();
+    g.font = '170px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+    g.textAlign = "center"; g.textBaseline = "middle"; g.globalAlpha = 0.55; g.fillText("🐾", 200, 250);
+    backTex = new T.CanvasTexture(c); backTex.encoding = T.sRGBEncoding;
+    return backTex;
   }
   let glowTex = null;
   function glowTexture() {
@@ -168,13 +187,15 @@ window.Battle3D = (() => {
   // ------------------------------------------------------------- standees
   function makeStandee(p, side) {
     const g = new T.Group();
+    const flip = new T.Group(); // turns the card around (summons start face down)
     const lean = new T.Group(); // tips over on faint
-    g.add(lean);
+    g.add(flip); flip.add(lean);
     const W = 1.05, H = 1.37, D = 0.05;
     // the printed face is unlit so the art keeps its real colors; the cardboard edges are lit
     const faceMat = new T.MeshBasicMaterial({ map: cardTexture(p, side === 0) });
     const cardboard = new T.MeshStandardMaterial({ color: 0xb88a5a, roughness: 0.95 });
-    const card = new T.Mesh(new T.BoxGeometry(W, H, D), [cardboard, cardboard, cardboard, cardboard, faceMat, cardboard]);
+    const backMat = new T.MeshStandardMaterial({ map: backTexture(), roughness: 0.95 });
+    const card = new T.Mesh(new T.BoxGeometry(W, H, D), [cardboard, cardboard, cardboard, cardboard, faceMat, backMat]);
     card.position.y = H / 2 + 0.02; card.castShadow = true;
     lean.add(card);
     const stand = new T.Mesh(new T.BoxGeometry(0.34, 0.9, 0.03), cardboard);
@@ -187,7 +208,7 @@ window.Battle3D = (() => {
     glow.scale.set(2.4, 2.4, 1); glow.position.set(0, 0.75, -0.1);
     g.add(glow);
     g.rotation.y = side === 0 ? 0.32 : -0.32;
-    g.userData = { p: { ...p }, side, lean, card, faceMat, stats, glow, dead: false };
+    g.userData = { p: { ...p }, side, flip, lean, card, faceMat, stats, glow, dead: false, phase: Math.random() * 6.28 };
     return g;
   }
   function setStats(s, p) {
@@ -200,7 +221,7 @@ window.Battle3D = (() => {
   function disposeStandee(s) {
     root.remove(s);
     s.traverse((o) => {
-      if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { if (m.map && m.map !== glowTex) m.map.dispose(); m.dispose(); });
+      if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { if (m.map && m.map !== glowTex && m.map !== backTex) m.map.dispose(); m.dispose(); });
       if (o.geometry) o.geometry.dispose();
     });
   }
@@ -300,9 +321,13 @@ window.Battle3D = (() => {
           s.position.set(slotX(side, k), 0, 0);
           root.add(s);
           if (animate) {
+            const u = s.userData;
             s.scale.setScalar(0.01);
-            tween(ms * 0.35, ms * 0.45, (t) => s.scale.setScalar(Math.max(0.01, ease.back(t))));
-            setTimeout(() => burst(midPos(s), 0xffe27a, 18, 0.05, 0.18), ms * 0.35);
+            u.flip.rotation.y = Math.PI; u.stats.material.opacity = 0;
+            tween(ms * 0.3, ms * 0.35, (t) => s.scale.setScalar(Math.max(0.01, ease.back(t))));
+            tween(ms * 0.6, ms * 0.45, (t) => { u.flip.rotation.y = Math.PI * (1 - ease.inOut(t)); u.stats.material.opacity = t; },
+              () => burst(midPos(s), 0xffe27a, 22, 0.06, 0.2));
+            focus(slotX(side, k), 0.88, ms * 1.2);
           } else if (!prev) {
             // lineup: drop in from above
             s.position.y = 3 + k * 0.4;
@@ -358,6 +383,7 @@ window.Battle3D = (() => {
       // front pets lunge into each other
       const a = pets[0][0], b = pets[1][0];
       const ax = slotX(0, 0), bx = slotX(1, 0);
+      focus(0, 0.8, ms * 0.85);
       tween(0, impactAt, (t) => { const e = ease.inOut(t); a.position.x = ax + (-0.5 - ax) * e; b.position.x = bx + (0.5 - bx) * e; a.position.y = b.position.y = Math.sin(t * Math.PI) * 0.35; },
         () => {
           shake = 0.16;
@@ -369,6 +395,17 @@ window.Battle3D = (() => {
       // abilities: the acting pet glows, an orb flies to each target
       const hit = [new Set(), new Set()];
       let delay = 0;
+      const xs = [];
+      events.forEach((ev) => {
+        if (ev.kind === "Fainted" || ev.kind === "Attack") return;
+        const src = find(ev.side, ev.src) || find(1 - ev.side, ev.src);
+        if (src) xs.push(src.position.x);
+        (ev.targets || []).forEach((name) => { const t = find(0, name) || find(1, name); if (t) xs.push(t.position.x); });
+      });
+      if (xs.length) {
+        const lo = Math.min(...xs), hi = Math.max(...xs);
+        focus((lo + hi) / 2, Math.min(1, Math.max(0.78, 0.7 + (hi - lo) / 14)), ms * 1.1);
+      }
       events.forEach((ev) => {
         if (ev.kind === "Fainted" || ev.kind === "Attack") return;
         const src = find(ev.side, ev.src) || find(1 - ev.side, ev.src);
@@ -427,11 +464,19 @@ window.Battle3D = (() => {
       if (k >= 1) { root.remove(f.obj); if (f.kind === "text") f.obj.material.map.dispose(); f.obj.material.dispose(); fx.splice(i, 1); }
     }
     if (root.clouds && !reduce.matches) root.clouds.forEach((c) => { c.position.x += c.userData.v * 0.01; if (c.position.x > 30) c.position.x = -30; });
+    // idle: standees sway a little so the field never looks frozen
+    if (!reduce.matches) for (const side of [0, 1]) pets[side].forEach((s) => {
+      const u = s.userData;
+      if (!u.dead) u.lean.position.y = Math.sin(now / 700 + u.phase) * 0.025;
+    });
     if (camBase) {
-      if (shake > 0.001 && !reduce.matches) {
-        camera.position.set(camBase.x + (Math.random() - 0.5) * shake, camBase.y + (Math.random() - 0.5) * shake, camBase.z);
-        shake *= 0.86;
-      } else camera.position.copy(camBase);
+      if (now > cam.until) { cam.tx = 0; cam.tzoom = 1; }
+      cam.x += (cam.tx - cam.x) * 0.07; cam.zoom += (cam.tzoom - cam.zoom) * 0.07;
+      const sx = shake > 0.001 && !reduce.matches ? (Math.random() - 0.5) * shake : 0;
+      const sy = shake > 0.001 && !reduce.matches ? (Math.random() - 0.5) * shake : 0;
+      shake *= 0.86;
+      camera.position.set(camBase.x + cam.x * 0.75 + sx, 0.9 + (camBase.y - 0.9) * cam.zoom + sy, camBase.z * cam.zoom);
+      camera.lookAt(cam.x, 0.85, 0);
     }
     renderer.render(scene, camera);
   }
@@ -452,6 +497,7 @@ window.Battle3D = (() => {
     root = new T.Group();
     buildScene();
     pets = [[], []]; tweens = []; fx = [];
+    Object.assign(cam, { x: 0, zoom: 1, tx: 0, tzoom: 1, until: 0 });
     frameCamera();
     ro = new ResizeObserver(frameCamera); ro.observe(el);
     mounted = true;
@@ -461,7 +507,7 @@ window.Battle3D = (() => {
     mounted = false;
     cancelAnimationFrame(raf); raf = 0;
     if (ro) ro.disconnect();
-    if (scene) scene.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { if (m.map && m.map !== glowTex) m.map.dispose(); m.dispose(); }); });
+    if (scene) scene.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { if (m.map && m.map !== glowTex && m.map !== backTex) m.map.dispose(); m.dispose(); }); });
     scene = null; pets = [[], []]; tweens = []; fx = []; lastFrame = null;
   }
   // Rebuild from scratch, e.g. when a new battle starts or the theme changes

@@ -45,7 +45,8 @@ cardboard standees on a small 3D meadow, and every replay step is animated
 from the step's events: front pets lunge and collide on attacks, an ability
 makes its pet glow and sends an orb to each target, damage flashes red with a
 number, buffs sparkle, fainted pets tip over and sink away, and summons pop
-up. It follows the same step controls and battle speed as the 2D view. It uses
+up face down and flip over. The camera pushes in on each attack and ability and
+eases back to the wide shot, and the standees sway a little between actions. It follows the same step controls and battle speed as the 2D view. It uses
 Three.js r128, loaded from cdnjs the first time you open the 3D view, so it
 needs an internet connection then; everything else works offline.
 
