@@ -241,7 +241,7 @@ class Battle:
         # idx = np.array([idx[x] for x in sort_idx])
         sort_idx = np.arange(0, len(attack))
         attack = np.array(attack)
-        health = np.array(attack)
+        health = np.array(health)
         teams = np.array(teams)
         idx = np.array(idx)
 
@@ -287,9 +287,10 @@ class Battle:
                 if temph < sorted_health[iter_idx]:
                     raise Exception("That's impossible. Sorting issue.")
 
-            ### Dereference temp_sort_idx and store in sort_idx
+            ### Dereference temp_sort_idx and store in sort_idx. Ties are in a
+            ###   random order instead of always team 0 first.
             end_idx = start_idx + len(temp_idx)
-            sort_idx[start_idx:end_idx] = temp_idx
+            sort_idx[start_idx:end_idx] = temp_idx[temp_sort_idx]
             start_idx = end_idx
 
         ### Finish sorting by max attack
@@ -454,28 +455,6 @@ def check_summon_triggers(
     return len(targets)
 
 
-def check_self_summoned_triggers(teams, pet_priority, phase_dict):
-    """
-    Currently only butterfly
-
-    """
-
-    phase_list = phase_dict["phase_start"]
-    pp = pet_priority
-    for team_idx, pet_idx in pp:
-        p = teams[team_idx][pet_idx].pet
-        if p.health <= 0:
-            continue
-        if p.ability["trigger"] != "Summoned":
-            continue
-        if p.ability["triggeredBy"]["kind"] != "Self":
-            continue
-
-        func = get_effect_function(p)
-        target = func(p, [0, pet_idx], teams, te=p)
-        append_phase_list(phase_list, p, team_idx, pet_idx, True, target, [target])
-
-
 def check_status_triggers(phase_list, p, team_idx, pet_idx, teams):
     if p.status not in ["status-honey-bee", "status-extra-life"]:
         return
@@ -501,8 +480,6 @@ def battle_phase_start(battle_obj, phase, teams, pet_priority, phase_dict):
             phase_list, p, team_idx, pet_idx, activated, targets, possible
         )
 
-    check_self_summoned_triggers(teams, pet_priority, phase_dict)
-
     return phase_list
 
 
@@ -518,18 +495,25 @@ def battle_phase_hurt_and_faint(battle_obj, phase, teams, pet_priority, phase_di
             if p.name == "pet-none":
                 continue
             if p.health <= 0:
-                fainted_list.append([team_idx, pet_idx])
+                fainted_list.append([team_idx, pet_idx, p])
                 if p.status != "none":
                     status_list.append([p, team_idx, pet_idx])
 
         ### Check every fainted pet
         faint_targets_list = []
-        for team_idx, pet_idx in fainted_list:
+        for team_idx, pet_idx, fainted_pet in fainted_list:
             fteam, oteam = get_teams([team_idx, pet_idx], teams)
-            fainted_pet = fteam[pet_idx].pet
-            ### Check for all pets that trigger off this fainted pet (including self)
-            for te_team_idx, te_pet_idx in pp:
-                other_pet = teams[te_team_idx][te_pet_idx].pet
+            ### Record every faint before the abilities it triggers
+            phase_list.append(
+                ("Fainted", (team_idx, pet_idx), (fainted_pet.__repr__()), [""])
+            )
+            ### Pets that may trigger off this fainted pet (including itself).
+            ###   Taken before any trigger runs, because a trigger can remove
+            ###   the fainted pet from the team before its own ability runs.
+            responders = [(t, i, teams[t][i].pet) for t, i in pp]
+            for te_team_idx, te_pet_idx, other_pet in responders:
+                if other_pet.name == "pet-none":
+                    continue
                 te_idx = [te_team_idx, te_pet_idx]
                 activated, targets, possible = other_pet.faint_trigger(
                     fainted_pet, te_idx, oteam
@@ -537,7 +521,7 @@ def battle_phase_hurt_and_faint(battle_obj, phase, teams, pet_priority, phase_di
                 if activated:
                     faint_targets_list.append(
                         [
-                            fainted_pet,
+                            other_pet,
                             te_team_idx,
                             te_pet_idx,
                             activated,
@@ -559,14 +543,10 @@ def battle_phase_hurt_and_faint(battle_obj, phase, teams, pet_priority, phase_di
             ###   Check to see if it should be removed now.
             if teams[team_idx].check_friend(fainted_pet):
                 teams[team_idx].remove(fainted_pet)
-                ### Add this info to phase list
-                phase_list.append(
-                    ("Fainted", (team_idx, pet_idx), (fainted_pet.__repr__()), [""])
-                )
 
-        ### If pet was summoned, then need to check for summon triggers
+        ### If a pet's faint ability summoned pets, check for summon triggers
         for (
-            fainted_pet,
+            activating_pet,
             team_idx,
             pet_idx,
             activated,
@@ -576,7 +556,7 @@ def battle_phase_hurt_and_faint(battle_obj, phase, teams, pet_priority, phase_di
             fteam, _ = get_teams([team_idx, pet_idx], teams)
             check_summon_triggers(
                 phase_list,
-                fainted_pet,
+                activating_pet,
                 team_idx,
                 pet_idx,
                 fteam,
@@ -596,6 +576,21 @@ def battle_phase_hurt_and_faint(battle_obj, phase, teams, pet_priority, phase_di
                 append_phase_list(
                     phase_list, p, team_idx, pet_idx, activated, targets, possible
                 )
+                ### Friends of the hurt pet may trigger off of it
+                for friend_idx, friend_slot in enumerate(fteam):
+                    friend = friend_slot.pet
+                    if friend.name == "pet-none":
+                        continue
+                    activated, targets, possible = friend.friend_hurt_trigger(p, oteam)
+                    append_phase_list(
+                        phase_list,
+                        friend,
+                        team_idx,
+                        friend_idx,
+                        activated,
+                        targets,
+                        possible,
+                    )
 
         battle_obj.pet_priority = battle_obj.update_pet_priority(
             battle_obj.t0, battle_obj.t1
@@ -702,9 +697,10 @@ def battle_phase_attack_after(battle_obj, phase, teams, pet_priority, phase_dict
     t1_pidx = attack_history[0][1][1]
 
     for team_idx, pet_idx in pp:
-        ### Check if current pet is directly behind the pet that just attacked
-        test_idx = [t0_pidx, t1_pidx][team_idx] + 1
-        if pet_idx != test_idx:
+        ### Check if current pet is the pet that just attacked or directly
+        ###   behind the pet that just attacked
+        attack_idx = [t0_pidx, t1_pidx][team_idx]
+        if pet_idx not in [attack_idx, attack_idx + 1]:
             continue
 
         ### If it is, then the after_attack ability can be activated
@@ -730,11 +726,15 @@ def battle_phase_knockout(battle_obj, phase, teams, pet_priority, phase_dict):
     phase_dict["phase_attack"] = phase_dict["phase_attack"][0:-1]
 
     for apet, team_idx in knockout_list:
-        if apet.health > 0:
+        fteam, _ = get_teams([team_idx, 0], teams)
+        if apet.health > 0 and fteam.check_friend(apet):
             ### Need to loop to handle Rhino
             fteam, oteam = get_teams([team_idx, 0], teams)
             current_length = 0
             while True:
+                ### Rhino may faint from an effect of the pet it knocked out
+                if apet.health <= 0 or not fteam.check_friend(apet):
+                    break
                 pet_idx = fteam.index(apet)
                 activated, targets, possible = apet.knockout_trigger(oteam)
                 append_phase_list(
@@ -784,12 +784,24 @@ def battle_phase_attack(battle_obj, phase, teams, pet_priority, phase_dict):
     p0 = teams[0][aidx[0][1]].pet
     p1 = teams[1][aidx[1][1]].pet
 
+    before = [str(p0), str(p1)]
+
     #### Implement food
     p0a, p1a = get_attack(p0, p1)
 
     teams[0][aidx[0][1]].pet.hurt(p1a)
     teams[1][aidx[1][1]].pet.hurt(p0a)
-    phase_list.append(["Attack", (aidx[0]), str(p0), [str(p1)]])
+    ### The last entry records stats before the attack and the damage each
+    ###   pet took, for readable battle logs
+    phase_list.append(
+        [
+            "Attack",
+            (aidx[0]),
+            str(p0),
+            [str(p1)],
+            {"before": before, "damage": [int(p1a), int(p0a)]},
+        ]
+    )
 
     ### Keep track of knockouts for rhino and hippo by:
     ###   (attacking_pet, team_idx)
@@ -808,9 +820,18 @@ def battle_phase_attack(battle_obj, phase, teams, pet_priority, phase_dict):
         p0._until_end_of_battle_attack_buff = 0
         if len(nidx[1]) != 0:
             pn1 = teams[1][nidx[1][1]].pet
+            before = [str(pn1)]
             p0a, p1a = get_attack(p0, pn1)
             pn1.hurt(p0a)
-            phase_list.append(["splash", (aidx[0]), (str(p0)), [str(pn1)]])
+            phase_list.append(
+                [
+                    "splash",
+                    (aidx[0]),
+                    (str(p0)),
+                    [str(pn1)],
+                    {"before": before, "damage": [int(p0a)]},
+                ]
+            )
 
             if pn1.health <= 0:
                 knockout_list.append((p0, 0))
@@ -827,9 +848,18 @@ def battle_phase_attack(battle_obj, phase, teams, pet_priority, phase_dict):
         p1._until_end_of_battle_attack_buff = 0
         if len(nidx[0]) != 0:
             pn0 = teams[0][nidx[0][1]].pet
+            before = [str(pn0)]
             p0a, p1a = get_attack(pn0, p1)
             pn0.hurt(p1a)
-            phase_list.append(["splash", (aidx[1]), (str(p1)), [str(pn0)]])
+            phase_list.append(
+                [
+                    "splash",
+                    (aidx[1]),
+                    (str(p1)),
+                    [str(pn0)],
+                    {"before": before, "damage": [int(p1a)]},
+                ]
+            )
 
             if pn0.health <= 0:
                 knockout_list.append((p1, 1))

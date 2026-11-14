@@ -48,6 +48,19 @@ class TestState(unittest.TestCase):
         actual = Shop.from_state(expected.state)
         self.assertEqual(expected.state, actual.state)
 
+    def test_shop_state_after_buying(self):
+        ### Bought slots must stay empty, not be refilled and rerolled
+        player = Player()
+        player.buy_pet(0)
+        player.buy_pet(0)
+        actual = Player.from_state(player.state)
+        self.assertEqual(len(actual.shop), len(player.shop))
+        self.assertEqual(actual.shop.state, player.shop.state)
+        self.assertEqual(actual.state, player.state)
+        ### The restored shop still follows the rules on the next turn
+        actual.start_turn()
+        self.assertEqual(len(actual.shop), 4)
+
     def test_compress_player(self):
         expected = Player()
         compressed = compress(expected, minimal=True)

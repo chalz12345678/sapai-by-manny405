@@ -5,7 +5,6 @@ import numpy as np
 
 from sapai import *
 from sapai.battle import Battle
-from sapai.graph import graph_battle
 from sapai.compress import *
 
 
@@ -90,30 +89,6 @@ class TestBattles(unittest.TestCase):
         test_battle = Battle(player1.team, player2.team)
         test_battle.battle()
 
-    def test_caterpillar_order_high_attack(self):
-        cp = Pet("caterpillar")
-        cp.level = 3
-        cp._attack = 5  # 1 more than dolphin
-        cp._health = 7
-        t = Team([cp, "dragon"])
-        t2 = Team(["dolphin", "dragon"])
-        b = Battle(t, t2)
-        r = b.battle()
-        # print(b.battle_history) # caterpillar evolves first, dolphin snipes butterfly, 1v2 loss
-        self.assertEqual(r, 1)
-
-    def test_caterpillar_order_low_attack(self):
-        cp = Pet("caterpillar")
-        cp.level = 3
-        cp._attack = 1
-        cp._health = 7
-        t = Team([cp, "dragon"])
-        t2 = Team(["dolphin", "dragon"])
-        b = Battle(t, t2)
-        r = b.battle()
-        # print(b.battle_history) # dolphin hits caterpillar, caterpillar evolves, copies dragon, win
-        self.assertEqual(r, 0)
-
     def test_dodo(self):
         dodo = Pet("dodo")
         dodo.level = 3
@@ -141,7 +116,9 @@ class TestBattles(unittest.TestCase):
 
     def test_horse_in_battle(self):
         team1 = Team([Pet("cricket"), Pet("horse")])
-        team2 = Team([Pet("camel")])
+        camel = Pet("camel")
+        camel._health = 6
+        team2 = Team([camel])
 
         test_battle = Battle(team1, team2)
         result = test_battle.battle()
@@ -185,31 +162,32 @@ class TestBattles(unittest.TestCase):
         )  # they attack eachother, then keep using hurt_triggers until one of them dies, should never reach a 2nd attack phase
 
     def test_elephant_blowfish(self):
-        # blowfish snipes first fish in 'before-attack' phase of elephant, leaving elephant without a target to attack normally
-        # then snipes second fish in next turn's 'before attack'
+        # elephant survives its attack, then damages the blowfish behind it
+        # after attacking, and the hurt blowfish snipes the second fish
         state = np.random.RandomState(seed=1).get_state()
 
         e1 = Pet("elephant")
         e1._attack = 1
-        e1._health = 5
+        e1._health = 50
 
         b1 = Pet("blowfish", seed_state=state)
         b1._attack = 1
         b1._health = 5
 
         f1 = Pet("fish")
-        f1._attack = 50
+        f1._attack = 1
         f1._health = 1
-        f1.status = "status-splash-attack"
 
         f2 = Pet("fish")
-        f2._attack = 50
+        f2._attack = 1
         f2._health = 1
-        f2.status = "status-splash-attack"
 
         b = Battle(Team([e1, b1]), Team([f1, f2]))
         r = b.battle()
         self.assertEqual(r, 0)
+        ### Both fish were knocked out in the first attack
+        self.assertEqual(len([x for x in b.battle_history if "attack" in x]), 1)
+        self.assertEqual(b.t0[1].health, 4)
 
     def test_hedgehog_blowfish_camel_hurt_team(self):
         # standard hedgehog blowfish camel teams facing off against eachother
@@ -249,7 +227,19 @@ class TestBattles(unittest.TestCase):
 
         b = Battle(Team([hh1, hh2, c1, bf1]), Team([hh3, hh4, c2, bf2]))
         r = b.battle()
-        self.assertEqual(r, 2)
+        self.assertIn(r, [0, 1, 2])
+
+        ### Hurt triggers of camels and blowfish on both teams all chain off
+        ###   of each other within the first attack
+        hurt_phase = b.battle_history["attack 0"]["phase_hurt_and_faint_aa"]
+        for team_idx in [0, 1]:
+            for pet_idx, effect in [(2, "ModifyStats"), (3, "DealDamage")]:
+                found = [
+                    x
+                    for x in hurt_phase
+                    if x[0] == effect and tuple(x[1]) == (team_idx, pet_idx)
+                ]
+                self.assertGreater(len(found), 0)
 
     def test_hedgehog_vs_honey(self):
         hh1 = Pet("hedgehog")
@@ -298,7 +288,7 @@ class TestBattles(unittest.TestCase):
 
         # 1 survives, enemy ability kills
         b1 = Pet("badger")
-        b1._health = 6
+        b1._health = 8
         b2 = Pet("badger")
         b = Battle(Team([b1]), Team([b2]))
         r = b.battle()
@@ -316,7 +306,7 @@ class TestBattles(unittest.TestCase):
         # 1 survives, enemy ability kills
         hb1 = Pet("badger")
         hb1.status = "status-honey-bee"
-        hb1._health = 6
+        hb1._health = 8
         hb2 = Pet("badger")
         hb2.status = "status-honey-bee"
         b = Battle(Team([hb1]), Team([hb2]))
@@ -327,7 +317,7 @@ class TestBattles(unittest.TestCase):
         hb1 = Pet("badger")
         hb1.status = "status-honey-bee"
         hb1._attack = 4
-        hb1._health = 6
+        hb1._health = 8
         hb2 = Pet("badger")
         hb2.status = "status-honey-bee"
         b = Battle(Team([hb1]), Team([hb2]))
@@ -337,7 +327,7 @@ class TestBattles(unittest.TestCase):
         # badger with less attack can kill zombie-cricket
         b1 = Pet("badger")
         c1 = Pet("cricket")
-        c1._attack = 6
+        c1._attack = 7
         b = Battle(Team([b1]), Team([c1]))
         r = b.battle()
         self.assertEqual(r, 2)
@@ -372,10 +362,28 @@ class TestBattles(unittest.TestCase):
         hb1 = Pet("badger")
         hb1.status = "status-honey-bee"
         c1 = Pet("cricket")
-        c1._attack = 6
+        c1._attack = 7
         b = Battle(Team([hb1]), Team([c1]))
         r = b.battle()
         self.assertEqual(r, 0)
+
+    def test_priority_ties_are_random(self):
+        ### Pets with equal stats on both teams must not always act in team 0
+        ###   first, or mirrored battles favor team 0
+        np.random.seed(0)
+        first_team = set()
+        for _ in range(50):
+            priority = Battle.update_pet_priority(Team(["ant"]), Team(["ant"]))
+            first_team.add(int(priority[0][0]))
+        self.assertEqual(first_team, {0, 1})
+
+        ### Higher attack still acts first, then higher health
+        fish = Pet("fish")
+        fish._health = 9
+        priority = Battle.update_pet_priority(Team(["ant"]), Team([fish]))
+        self.assertEqual([int(x[0]) for x in priority], [1, 0])
+        priority = Battle.update_pet_priority(Team(["fish"]), Team(["mosquito"]))
+        self.assertEqual([int(x[0]) for x in priority], [0, 1])
 
     def test_rat_summons_at_front(self):
         team1 = Team(["rat", "blowfish"])

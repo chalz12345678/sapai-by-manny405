@@ -40,8 +40,8 @@ class TestPlayer(unittest.TestCase):
 
     def test_buy_combine_behavior2(self):
         player = Player(
-            shop=["ant", "octopus", "octopus", "apple"],
-            team=["octopus", "ant"],
+            shop=["ant", "dragon", "dragon", "apple"],
+            team=["dragon", "ant"],
             pack=self.pack,
         )
         player.buy_combine(player.shop[1], player.team[0])
@@ -65,7 +65,7 @@ class TestPlayer(unittest.TestCase):
     def test_start_of_turn_behavior(self):
         player = Player(
             shop=["ant", "fish", "fish", "pear"],
-            team=["dromedary", "swan", "caterpillar", "squirrel"],
+            team=["giraffe", "swan", "worm", "squirrel"],
             pack=self.pack,
         )
         player.team[0]._pet.level = 2
@@ -95,10 +95,10 @@ class TestPlayer(unittest.TestCase):
         )
         player.buy_food(player.shop[-1], player.team[0])
 
-    def test_deer_microbe_shark(self):
+    def test_deer_spider_hedgehog_shark(self):
         player = Player(
             shop=["ant", "fish", "fish", "food-sleeping-pill"],
-            team=["deer", "microbe", "eagle", "shark"],
+            team=["deer", "spider", "hedgehog", "shark"],
             pack=self.pack,
         )
         player.buy_food(player.shop[-1], player.team[2])
