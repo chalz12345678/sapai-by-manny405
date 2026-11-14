@@ -520,13 +520,16 @@ class Player:
         if pet1.name != pet2.name:
             raise Exception(f"Attempted combine for pets {pet1.name} and {pet2.name}")
 
+        ### Remove pet2 from the team first. combine_pet_stats fires pet1's
+        ###   Level-up ability, and that ability must not be able to target
+        ###   pet2: with pet2 still on the team, a Fish could spend one of its
+        ###   two "+1/+1 to random friends" on the copy being merged away.
+        idx = self.team.index(pet2)
+        self.team[idx] = TeamSlot()
+
         levelup = Player.combine_pet_stats(pet1, pet2)
         if levelup:
             self.shop.levelup()
-
-        ### Remove pet2 from team
-        idx = self.team.index(pet2)
-        self.team[idx] = TeamSlot()
 
         return pet1, pet2
 

@@ -252,3 +252,132 @@ def gold_check(expected, before, after):
         return f"check: gold {sign(actual)}, matches the rules", True
     return (f"check: gold {sign(actual)}, the basic rule says {sign(expected)}"
             " (the difference should come from an ability listed here)", False)
+
+
+# ------------------------------------------------------------ effect capture
+# Every pet ability that fires during the shop phase is recorded with the
+# stat changes it caused, so the log can say "Fish's Level-up ability gave Ant
+# +1/+1" instead of only showing that Ant's stats changed.
+
+from sapai.pets import Pet  # noqa: E402
+
+TRIGGER_NAMES = {
+    "sot_trigger": "Start of turn", "cat_trigger": "Food bought (Cat)", "sell_trigger": "Sell",
+    "eats_shop_food_trigger": "Eats food", "buy_food_trigger": "Food bought",
+    "buy_friend_trigger": "Buy", "friend_summoned_trigger": "Friend summoned",
+    "levelup_trigger": "Level-up", "eot_trigger": "End turn", "faint_trigger": "Faint",
+    "hurt_trigger": "Hurt", "friend_hurt_trigger": "Friend hurt", "knockout_trigger": "Knock out",
+}
+
+_capture = {"events": None}
+
+
+def start_capture():
+    _capture["events"] = []
+
+
+def stop_capture():
+    out, _capture["events"] = _capture["events"] or [], None
+    return out
+
+
+def _pets_in_reach(pet):
+    seen, out = set(), []
+    team = getattr(pet, "team", None)
+    shop = getattr(pet, "shop", None)
+    groups = []
+    if team is not None and hasattr(team, "slots"):
+        groups.append(("team", [s.pet for s in team.slots if not s.empty]))
+    if shop is not None and hasattr(shop, "slots"):
+        groups.append(("shop", [s.obj for s in shop.slots if s.slot_type in ("pet", "levelup") and not s.empty]))
+    for where, pets in groups:
+        for p in pets:
+            if id(p) in seen or getattr(p, "name", "pet-none") == "pet-none":
+                continue
+            seen.add(id(p))
+            out.append((where, p))
+    return out
+
+
+def _stat_map(pet):
+    m = {}
+    for where, p in _pets_in_reach(pet):
+        try:
+            m[id(p)] = (where, p, int(p.attack), int(p.health), _perk(p.status), int(p.level))
+        except Exception:
+            pass
+    return m
+
+
+def _wrap(method_name):
+    original = getattr(Pet, method_name)
+
+    def wrapped(self, *args, **kwargs):
+        events = _capture["events"]
+        if events is None or getattr(self, "name", "pet-none") == "pet-none":
+            return original(self, *args, **kwargs)
+        level = int(self.level)
+        before = _stat_map(self)
+        result = original(self, *args, **kwargs)
+        try:
+            activated = bool(result and result[0])
+        except Exception:
+            activated = False
+        if not activated:
+            return result
+        ab_level = max(1, level - 1) if method_name == "levelup_trigger" else level
+        desc = (data["pets"].get(self.name, {}).get(f"level{ab_level}Ability") or {}).get("description", "")
+        source = ""
+        if getattr(self, "override_ability", False):
+            ### A perk (Honey, Mushroom) runs by temporarily replacing the ability
+            try:
+                desc = self.ability.get("description", desc)
+            except Exception:
+                pass
+            perk = next((v.get("name") for v in data["statuses"].values()
+                         if (v.get("ability") or {}).get("description") == desc), None)
+            source = f"{perk} perk" if perk else "perk"
+        after = _stat_map(self)
+        changes = []
+        for key, (where, p, a, h, perk, lv) in after.items():
+            old = before.get(key)
+            if old is None:
+                changes.append(f"{_short(p.name)} {a}/{h} appeared on the {where}")
+                continue
+            _, _, a0, h0, perk0, _ = old
+            bits = []
+            if (a0, h0) != (a, h):
+                bits.append(f"{a0}/{h0} → {a}/{h} ({a - a0:+d}/{h - h0:+d})")
+            if perk0 != perk:
+                bits.append(f"perk {perk0 or 'none'} → {perk or 'none'}")
+            if bits:
+                shop = " (shop)" if where == "shop" else ""
+                changes.append(f"{_short(p.name)}{shop} " + ", ".join(bits))
+        for key, (where, p, *_rest) in before.items():
+            if key not in after and p is not self and method_name != "sell_trigger":
+                changes.append(f"{_short(p.name)} left the {where}")
+        events.append({"pet": _short(self.name), "level": ab_level, "source": source,
+                       "trigger": TRIGGER_NAMES.get(method_name, method_name),
+                       "text": desc, "changes": changes})
+        return result
+
+    wrapped.__wrapped__ = original
+    setattr(Pet, method_name, wrapped)
+
+
+for _name in TRIGGER_NAMES:
+    if hasattr(Pet, _name) and not hasattr(getattr(Pet, _name), "__wrapped__"):
+        _wrap(_name)
+
+
+def effect_lines(events):
+    """Log lines for captured ability activations."""
+    out = []
+    for e in events:
+        who = f"{e['pet']}'s {e['source']}" if e.get("source") else f"{e['pet']} (L{e['level']})"
+        head = f"effect: {who}: {e['text'] or e['trigger'] + ' ability'}"
+        if e["changes"]:
+            out.append(head + " → " + "; ".join(e["changes"]))
+        else:
+            out.append(head + " → no visible change (no valid target, or it changes gold or the shop)")
+    return out

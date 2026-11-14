@@ -280,13 +280,15 @@ class Seat:
         text = describe_action(self.player, a)
         name, args = E.ACTIONS[a]
         before = audit.snapshot(self.player)
+        audit.start_capture()
         try:
             E.apply_action(self.player, a)
         finally:
+            effects = audit.stop_capture()
             self.actions += 1
             self.log.append(text)
             if self.recorder:
-                self.recorder(self, text, before, audit.snapshot(self.player), name, args)
+                self.recorder(self, text, before, audit.snapshot(self.player), name, args, effects)
         return text
 
 
@@ -310,18 +312,25 @@ def _greedy(seat, rng):
             break
         before = audit.snapshot(p)
         n = len(p.action_history)
-        if bot.take_action():
+        audit.start_capture()
+        try:
+            acted = bot.take_action()
+            if not acted and p.gold >= 1 and rng.random() < 0.5:
+                p.roll()
+                acted = "roll"
+        finally:
+            effects = audit.stop_capture()
+        if acted is True:
             entry = p.action_history[n] if len(p.action_history) > n else ("acted", [])
             text, name = _history_text(entry), str(entry[0])
             args = _greedy_args(entry, before)
-        elif p.gold >= 1 and rng.random() < 0.5:
-            p.roll()
+        elif acted == "roll":
             text, name, args = "rolled", "roll", ()
         else:
             break
         seat.log.append(text)
         if seat.recorder:
-            seat.recorder(seat, text, before, audit.snapshot(p), name, args)
+            seat.recorder(seat, text, before, audit.snapshot(p), name, args, effects)
     p.team.move_forward()
 
 
@@ -469,9 +478,21 @@ def agents_json():
 
 # ------------------------------------------------------------------ battle
 def _snap(b, label, lines=()):
-    return {"label": label, "lines": list(lines),
-            "teams": [[pet_dict(s.pet) for s in t if not s.empty and s.pet.health > 0]
-                      for t in (b.t0, b.t1)]}
+    """Board snapshot. A pet at 0 health stays on the board, marked dead,
+    until the engine's faint phase removes it, so the hit that killed it
+    shows."""
+    teams = []
+    for t in (b.t0, b.t1):
+        row = []
+        for s in t:
+            if s.empty:
+                continue
+            d = pet_dict(s.pet)
+            if s.pet.health <= 0:
+                d["dead"] = True
+            row.append(d)
+        teams.append(row)
+    return {"label": label, "lines": list(lines), "teams": teams}
 
 
 def _rename(line, names):
@@ -498,18 +519,51 @@ def _lines(entries_by_phase, names):
     return out
 
 
+PHASE_LABELS = {
+    "phase_move_start": "pets move up", "phase_start": "start of battle abilities",
+    "phase_hurt_and_faint": "hurt and faint effects", "phase_move_end": "pets move up",
+    "phase_attack_before": "before-attack abilities", "phase_hurt_and_faint_ab": "hurt and faint effects",
+    "phase_attack": "the front pets attack", "phase_attack_after": "after-attack abilities",
+    "phase_hurt_and_faint_aa": "hurt and faint effects", "phase_knockout": "knock-out abilities",
+    "phase_hurt_and_faint_k": "hurt and faint effects",
+}
+
+
 def replay_battle(t0, t1, names=("You", "Opponent")):
+    """Run a battle and snapshot the board after every engine phase that did
+    something, so the replay can step through each action. The engine's own
+    battle_phase is wrapped for the duration of this call, nothing is
+    reimplemented, so the replay follows the real rules exactly."""
+    import sapai.battle as battle_mod
+
     b = Battle(t0, t1)
     frames = [_snap(b, "Lineup")]
-    b.start()
-    frames.append(_snap(b, "Start of battle", _lines(b.battle_history.get("start", {}), names)))
-    for i in range(200):
-        b.pet_priority = b.update_pet_priority(b.t0, b.t1)
-        more = b.attack(i)
-        frames.append(_snap(b, f"Attack {i + 1}",
-                            _lines(b.battle_history.get(f"attack {i}", {}), names)))
-        if not more:
-            break
+    frames[0]["phase"] = "lineup"
+    where = {"round": "Start of battle"}
+    original = battle_mod.battle_phase
+
+    def recording_phase(battle_obj, phase, teams, pet_priority, phase_dict):
+        before = len(phase_dict.get(phase, []))
+        out = original(battle_obj, phase, teams, pet_priority, phase_dict)
+        if battle_obj is b:
+            entries = phase_dict.get(phase, [])[before:]
+            lines = _lines({phase: entries}, names) if not phase.startswith("phase_move") else []
+            f = _snap(b, f"{where['round']} · {PHASE_LABELS.get(phase, phase)}", lines)
+            f["phase"] = phase
+            if lines or f["teams"] != frames[-1]["teams"]:
+                frames.append(f)
+        return out
+
+    battle_mod.battle_phase = recording_phase
+    try:
+        b.start()
+        for i in range(200):
+            where["round"] = f"Attack {i + 1}"
+            b.pet_priority = b.update_pet_priority(b.t0, b.t1)
+            if not b.attack(i):
+                break
+    finally:
+        battle_mod.battle_phase = original
     return frames, int(b.check_battle_result())
 
 
@@ -541,17 +595,21 @@ class Match:
                             "title": title, "lines": list(lines), "warn": list(warn),
                             "ok": ok})
 
-    def _record_action(self, seat, text, before, after, name, args):
+    def _record_action(self, seat, text, before, after, name, args, effects=None):
         i = self.seats.index(seat)
         lines = audit.diff(before, after, roll=(name == "roll"))
         if not lines:
             lines = ["nothing changed"]
         exp, notes = audit.expectations(name, list(args), before)
         check, ok = audit.gold_check(exp, before, after)
-        lines += notes + audit.ability_notes(name, before, after, args) + [check]
+        fx = audit.effect_lines(effects or [])
+        lines += notes + fx
+        if not fx:
+            lines += audit.ability_notes(name, before, after, args)
+        lines.append(check)
         self._event("action", i, text, lines, audit.violations(after), ok)
 
-    def _record_phase(self, kind, title, before, phase):
+    def _record_phase(self, kind, title, before, phase, effects=None):
         for i, s in enumerate(self.seats):
             after = audit.snapshot(s.player)
             lines = audit.diff(before[i], after, roll=(kind == "start"))
@@ -561,8 +619,9 @@ class Match:
                 if any(l.startswith("team:") for l in lines):
                     lines.append("rule: bonuses that last 'until end of battle' wear off here; "
                                  "start of turn abilities, if any, are listed below")
-            notes = audit.ability_notes(phase, before[i], after)
-            if kind == "end" and lines == []:
+            fx = audit.effect_lines((effects or [[], []])[i])
+            notes = fx or audit.ability_notes(phase, before[i], after)
+            if kind == "end" and lines == [] and not fx:
                 continue
             self._event(kind, i, title, lines + notes, audit.violations(after))
 
@@ -640,10 +699,15 @@ class Match:
         logs = [list(s.log) for s in self.seats]
         turn = int(self.seats[0].player.turn)
         before = [audit.snapshot(s.player) for s in self.seats]
+        effects = []
         for s in self.seats:
-            s.player.end_turn()
+            audit.start_capture()
+            try:
+                s.player.end_turn()
+            finally:
+                effects.append(audit.stop_capture())
             s.player.team.move_forward()
-        self._record_phase("end", "end of turn effects", before, "end_turn")
+        self._record_phase("end", "end of turn effects", before, "end_turn", effects)
         try:
             frames, w = replay_battle(self.seats[0].player.team, self.seats[1].player.team,
                                       (self.label(0), self.label(1)))
@@ -687,11 +751,16 @@ class Match:
             self.over, self.result = True, "seat1"
         else:
             before = [audit.snapshot(s.player) for s in self.seats]
+            effects = []
             for s in self.seats:
-                s.player.start_turn(winner=(s.last_result != 1))
+                audit.start_capture()
+                try:
+                    s.player.start_turn(winner=(s.last_result != 1))
+                finally:
+                    effects.append(audit.stop_capture())
                 s.actions = 0
                 s.log = []
-            self._record_phase("start", f"turn {turn + 1} starts", before, "start_turn")
+            self._record_phase("start", f"turn {turn + 1} starts", before, "start_turn", effects)
         return {"frames": frames, "outcome": ["win", "loss", "draw"][w], "lives": lost,
                 "turn": turn, "shopLogs": logs}
 

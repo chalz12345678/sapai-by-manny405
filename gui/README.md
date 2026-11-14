@@ -29,6 +29,15 @@ leveling up, battle hits, faints and results. They are synthesized in the
 browser with the Web Audio API, so there are no audio files. Use the speaker
 button and volume slider at the top; the setting is remembered.
 
+## Battle replays
+
+Battles replay one engine phase at a time: start of battle abilities, each
+attack, hurt and faint effects, knock-outs, summons. A pet that takes a fatal
+hit stays on the board, greyed out, until it faints. Pick a **Battle speed**
+under the replay; **Step** waits for you, and ← / → (or ◀ / ▶) move one action
+back or forward. The replay wraps the engine's own phase function rather than
+reimplementing battles, so it follows the real rules.
+
 ## Talking to the model
 
 Press **Talk to the model** to ask the trained model about its play. The models
@@ -71,8 +80,10 @@ the page, or restarting the server, picks up where you left off.
 
 The **Game log** panel records every shop action, turn start, end of turn and
 battle: what changed (gold, team and shop stats, levels, perks), what the basic
-rules say should happen (gold costs, sell value, lives lost), and the abilities
-that can explain anything extra. Hard rule breaks such as more than 5 pets or
+rules say should happen (gold costs, sell value, lives lost), and every ability
+or perk that fired, with exactly whose stats it changed, for example
+`effect: Fish (L1): Level-up: Give two friends +1 attack and +1 health. → Ant
+2/2 → 3/3 (+1/+1); Otter 1/4 → 2/5 (+1/+1)`. Hard rule breaks such as more than 5 pets or
 negative gold are flagged in red. Use **Copy log** or **Download log** to share a
 game when reporting a bug.
 

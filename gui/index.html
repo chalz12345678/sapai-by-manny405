@@ -148,7 +148,7 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
 .card.sel { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .card.target { border-color: var(--accent); border-style: dashed; }
 .card.frozen { background: var(--freeze-soft); border-color: var(--freeze); }
-.card.off { opacity: .5; }
+.card.off { filter: grayscale(.85); opacity: .55; }
 .card { border-top: 3px solid var(--te, var(--line)); }
 .tier-1 { --te: var(--t1e); --tb: var(--t1); } .tier-2 { --te: var(--t2e); --tb: var(--t2); }
 .tier-3 { --te: var(--t3e); --tb: var(--t3); } .tier-4 { --te: var(--t4e); --tb: var(--t4); }
@@ -168,11 +168,16 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
   background: repeating-linear-gradient(135deg, rgba(255,255,255,.32) 0 2px, transparent 2px 10px), linear-gradient(180deg, rgba(120,180,255,.22), transparent 70%); }
 @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.09) translateY(-3px); } 100% { transform: scale(1); } }
-@keyframes deal { 0% { transform: perspective(500px) rotateY(85deg) translateY(10px); opacity: 0; } 100% { transform: none; opacity: 1; } }
+@keyframes deal { 0% { transform: perspective(500px) rotateY(88deg) translateY(10px); } 100% { transform: none; } }
 @keyframes shake { 0%, 100% { transform: none; } 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
 @keyframes hop { 0%, 100% { transform: none; } 45% { transform: translateY(-9px); } }
 @keyframes glow { 0% { box-shadow: 0 0 0 0 var(--gold); } 100% { box-shadow: 0 0 0 14px transparent; } }
 .pop { animation: pop .34s ease; }
+.card.dead { filter: grayscale(1); opacity: .5; }
+.card.dead::after { content: "💀"; position: absolute; top: 14px; left: 50%; transform: translateX(-50%); font-size: 26px; z-index: 3; }
+.field.inline { display: inline-flex; align-items: center; gap: 6px; }
+.field.inline label { white-space: nowrap; }
+.step-hint { flex-basis: 100%; }
 .deal { animation: deal .42s cubic-bezier(.2,.8,.3,1.2) both; animation-delay: calc(var(--i, 0) * 70ms); }
 .shake { animation: shake .36s ease; }
 .hop { animation: hop .4s ease; }
@@ -370,7 +375,7 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
       <button class="btn" id="stepBtn">Next round</button>
       <button class="btn" id="autoBtn" aria-pressed="false">Auto play</button>
       <div class="field"><label for="speed">Speed</label>
-        <select id="speed"><option value="1400">Slow</option><option value="800" selected>Normal</option><option value="350">Fast</option><option value="0">Results only</option></select></div>
+        <select id="speed"><option value="step">Step</option><option value="1400">Slow</option><option value="800" selected>Normal</option><option value="350">Fast</option><option value="0">Results only</option></select></div>
       <div class="field"><label for="seriesN">Series</label>
         <select id="seriesN"><option>10</option><option selected>25</option><option>50</option><option>100</option></select></div>
       <button class="btn" id="seriesBtn">Run series</button>
@@ -434,6 +439,9 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
       <button class="btn" id="bPlay">Pause</button>
       <button class="btn" id="bNext" aria-label="Next step">▶</button>
       <button class="btn" id="bSkip">Skip to end</button>
+      <div class="field inline"><label for="bspeed">Battle speed</label>
+        <select id="bspeed"><option value="step">Step (one action at a time)</option><option value="1400">Slow</option><option value="800" selected>Normal</option><option value="350">Fast</option><option value="0">Instant</option></select></div>
+      <span class="help step-hint" id="stepHint" hidden>Press ▶ or → for the next action, ◀ or ← to go back.</span>
       <span class="grow"></span>
       <span class="result" id="bResult"></span>
       <button class="btn primary" id="bClose">Back to shop</button>
@@ -733,16 +741,17 @@ function actionFx(name, args, before, after, c) {
   });
 
   // stat changes from abilities: show +x/+y on any other pet or shop item that changed
-  if (!["swap", "sell", "combine"].includes(name)) {
-    after.team.forEach((p, k) => {
-      if (k === target) return;
-      const old = before.team[k];
-      if (old && old.name === p.name) {
-        const t = statText(old, p);
-        if (t) setTimeout(() => FX.text(teamCard(k), t, { color: css("--accent"), size: 15, dy: -48 }), 380);
-      }
-    });
-  }
+  // match pets by name in team order: positions shift when a pet is sold or merged
+  const used = new Set();
+  const skip = new Set(name === "sell" ? [args[0]] : name === "combine" ? args : []);
+  after.team.forEach((p, k) => {
+    const j = before.team.findIndex((q, i) => !used.has(i) && !skip.has(i) && q.name === p.name);
+    if (j < 0) return;
+    used.add(j);
+    if (k === target) return;
+    const t = statText(before.team[j], p);
+    if (t) setTimeout(() => FX.text(teamCard(k), t, { color: css("--accent"), size: 15, dy: -48 }), 380);
+  });
   if (name !== "roll") {
     after.shop.forEach((x) => {
       const old = before.shop.find((y) => y.index === x.index && y.name === x.name);
@@ -1009,11 +1018,17 @@ function startBattle(b) {
   $("bResult").textContent = "";
   $("blog").innerHTML = "";
   if (speed() === 0) { S.frame = b.frames.length - 1; showFrame(true); finishBattle(); return; }
+  if (speed() < 0) S.playing = false;
   showFrame(false);
   tick();
   $("battle").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "nearest" });
 }
-function speed() { return S.mode === "watch" ? Number($("speed").value) : 800; }
+function speed() { const v = $("bspeed").value; return v === "step" ? -1 : Number(v); }
+function setSpeed(v) {
+  $("bspeed").value = v; $("speed").value = v;
+  try { localStorage.setItem("sapaiBattleSpeed", v); } catch (e) {}
+  $("stepHint").hidden = v !== "step";
+}
 function tick() {
   clearTimeout(S.timer);
   $("bPlay").textContent = S.playing ? "Pause" : "Play";
@@ -1023,7 +1038,7 @@ function tick() {
 }
 function frameSound(f, prev) {
   const count = (fr) => fr.teams[0].length + fr.teams[1].length;
-  if (f.label.startsWith("Attack")) SFX.play("hit");
+  if (f.phase === "phase_attack") SFX.play("hit");
   else if (f.lines.length) SFX.play("ability");
   if (prev && count(f) < count(prev)) setTimeout(() => SFX.play("faint"), 140);
 }
@@ -1032,7 +1047,7 @@ function showFrame(allLines) {
   if (!allLines && S.frame > (S.soundFrame ?? -1)) frameSound(f, prev);
   S.soundFrame = allLines ? b.frames.length : S.frame;
   $("frameLabel").textContent = `${f.label} · ${S.frame + 1}/${b.frames.length}`;
-  const attack = f.label.startsWith("Attack");
+  const attack = f.phase === "phase_attack";
   const lane = (team, prevTeam, left) => {
     if (!team.length) return `<span class="empty-lane">no pets left</span>`;
     const ordered = left ? [...team].reverse() : team;
@@ -1040,7 +1055,7 @@ function showFrame(allLines) {
       const idx = team.indexOf(p);
       const before = prevTeam && prevTeam[idx];
       const hurt = before && before.name === p.name && p.health < before.health;
-      let cls = (left ? "left-face " : "") + (hurt ? "hit " : "");
+      let cls = (left ? "left-face " : "") + (hurt ? "hit " : "") + (p.dead ? "dead " : "");
       if (attack && idx === 0) cls += left ? "lunge-r" : "lunge-l";
       return petCard(p, { cls, attrs: reg(p) + ` data-bi="${left ? 0 : 1}-${idx}"` });
     }).join("");
@@ -1404,8 +1419,28 @@ $("bPlay").onclick = () => {
   if (!S.playing && S.frame >= S.battle.frames.length - 1) { S.frame = 0; S.soundFrame = -1; showFrame(false); }
   S.playing = !S.playing; tick();
 };
-$("bPrev").onclick = () => { S.playing = false; tick(); if (S.frame > 0) { S.frame--; showFrame(false); } };
-$("bNext").onclick = () => { S.playing = false; tick(); if (S.frame < S.battle.frames.length - 1) { S.frame++; showFrame(false); } };
+$("bPrev").onclick = stepPrev;
+function stepNext() {
+  if (!S.battle) return;
+  S.playing = false; tick();
+  if (S.frame < S.battle.frames.length - 1) { S.frame++; showFrame(false); }
+  if (S.frame >= S.battle.frames.length - 1) finishBattle();
+}
+function stepPrev() {
+  if (!S.battle) return;
+  S.playing = false; tick();
+  if (S.frame > 0) { S.frame--; S.soundFrame = S.frame; showFrame(false); }
+}
+$("bNext").onclick = stepNext;
+$("bspeed").onchange = () => { setSpeed($("bspeed").value); if (speed() < 0) { S.playing = false; tick(); } };
+$("speed").onchange = () => setSpeed($("speed").value);
+try { const v = localStorage.getItem("sapaiBattleSpeed"); if (v && [...$("bspeed").options].some((o) => o.value === v)) setSpeed(v); } catch (e) {}
+document.addEventListener("keydown", (e) => {
+  if ($("battle").hidden || !S.battle || e.target.closest("input, select, textarea")) return;
+  if (e.key === "ArrowRight") { e.preventDefault(); stepNext(); }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); stepPrev(); }
+  else if (e.key === " " && !e.target.closest("button")) { e.preventDefault(); $("bPlay").click(); }
+});
 $("bSkip").onclick = () => { S.frame = S.battle.frames.length - 1; showFrame(true); finishBattle(); };
 document.addEventListener("click", (e) => {
   const c = e.target.closest("[data-k]");
