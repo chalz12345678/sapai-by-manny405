@@ -28,6 +28,7 @@ The game went from a terminal prompt to a 3D battle viewer in one long build ses
 
 | # | Step | What happened |
 | --- | --- | --- |
+| 26 | Charlie's final model | `token_22.5M` (rated 1475) merged from the models branch and exported for the GUI |
 | 25 | Replay catalog | Every game is kept with its full history in a Replays tab: list, search, rename, step through any turn |
 | 24 | Design doc | This file, after the first wins |
 | 23 | 3D polish | Camera follows attacks and abilities, summons flip over from a card back, standees sway |
@@ -109,7 +110,7 @@ The trained models learned under the old rules. The changes only matter in the s
 ## What the GUI does
 
 - **Play:** shop board with tap-to-buy, feed, stack, combine or swap, sell, freeze and roll; B, S, R, F, Enter and Esc shortcuts; End turn warns while gold is unspent.
-- **Opponents:** 8 trained models (token transformer and MLP, rated 1312 to 1470), the greedy bot, a random bot, and your own agent via `--agent my_agent.py`.
+- **Opponents:** 8 trained models (token transformer and MLP, rated 1312 to 1475; Charlie's final `token_22.5M` is the strongest and the default), the greedy bot, a random bot, and your own agent via `--agent my_agent.py`.
 - **Watch models:** any two agents, step through rounds or auto play; **Run series** plays 10 to 100 games and reports win rates.
 - **Battle replays:** one engine phase per step; speeds Step, Slow, Normal, Fast and Instant; ← and → to step; 2D lanes or a 3D view.
 - **3D view:** cardboard standees, attack lunges, ability orbs, damage numbers, faint topples, summons flipping over, a camera that follows the action.
