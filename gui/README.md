@@ -29,6 +29,16 @@ leveling up, battle hits, faints and results. They are synthesized in the
 browser with the Web Audio API, so there are no audio files. Use the speaker
 button and volume slider at the top; the setting is remembered.
 
+## Music and effects
+
+Two original tunes play live in the browser (Web Audio, no audio files): a calm
+shop theme and a faster battle theme, crossfading between them. The ♪ button
+and slider control music separately from sound effects. Shop clicks, purchases,
+sales, rolls, feeding, freezing and level ups have particle effects, and battles
+show damage numbers and faint puffs on a painted meadow backdrop (night sky in
+dark mode). All effects are drawn on canvas and turn off with the system's
+reduce-motion setting.
+
 ## Saved games
 
 Every game is saved to `gui/saves/<id>.json` after each move (the 100 most

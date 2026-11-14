@@ -85,6 +85,16 @@ class Handler(BaseHTTPRequestHandler):
         if self.path in ("/", "/index.html"):
             with open(os.path.join(HERE, "index.html"), "rb") as f:
                 return self._send(200, f.read(), "text/html; charset=utf-8")
+        if self.path.startswith("/static/"):
+            name = self.path[len("/static/"):].split("?")[0]
+            types = {".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8"}
+            ext = os.path.splitext(name)[1]
+            ok = name and all(c.isalnum() or c in "-_." for c in name) and ".." not in name
+            path = os.path.join(HERE, "static", name)
+            if ok and ext in types and os.path.isfile(path):
+                with open(path, "rb") as f:
+                    return self._send(200, f.read(), types[ext])
+            return self._send(404, json.dumps({"error": "Not found"}))
         if self.path == "/api/meta":
             return self._send(200, json.dumps(meta()))
         return self._send(404, json.dumps({"error": "Not found"}))

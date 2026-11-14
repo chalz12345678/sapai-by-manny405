@@ -33,6 +33,11 @@
   --f-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
   --f-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --art-hi: rgba(255,255,255,.55);
+  --sky-top: #9fd3f0; --sky-bottom: #e4f3f7; --sun: #ffd35c; --cloud: rgba(255,255,255,.9);
+  --hill-far: #a9d39a; --hill-near: #7fbf6e; --ground: #c9a46a;
+  --t1: #dcefd0; --t2: #d3ebf2; --t3: #e3dcf5; --t4: #f6e3c6; --t5: #f6d3dc; --t6: #f3e8a6;
+  --t1e: #6fae59; --t2e: #4b9bb5; --t3e: #8a73c9; --t4e: #c98a2c; --t5e: #c95574; --t6e: #b99a18;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -43,6 +48,10 @@
     --hp-soft: #3d1c19; --gold: #e5b93a; --freeze: #6fa8e6; --freeze-soft: #182a3e;
     --win: #4cc27a; --loss: #f06a5d; --draw: #9aa1a8;
     --shadow: 0 1px 0 rgba(0,0,0,.3), 0 2px 10px rgba(0,0,0,.25);
+    --art-hi: rgba(255,255,255,.07); --sky-top: #0d1630; --sky-bottom: #2a3354; --sun: #f3efd6; --cloud: rgba(170,180,210,.25);
+    --hill-far: #1f3a33; --hill-near: #1a2f29; --ground: #2b2418;
+    --t1: #1e3324; --t2: #18303a; --t3: #2a2340; --t4: #3a2c16; --t5: #3a1e28; --t6: #36310f;
+    --t1e: #6fbf5a; --t2e: #4fb1cf; --t3e: #a28be0; --t4e: #e0a347; --t5e: #e0708f; --t6e: #d9bd3a;
     color-scheme: dark;
   }
 }
@@ -53,6 +62,10 @@
   --hp-soft: #3d1c19; --gold: #e5b93a; --freeze: #6fa8e6; --freeze-soft: #182a3e;
   --win: #4cc27a; --loss: #f06a5d; --draw: #9aa1a8;
   --shadow: 0 1px 0 rgba(0,0,0,.3), 0 2px 10px rgba(0,0,0,.25);
+  --art-hi: rgba(255,255,255,.07); --sky-top: #0d1630; --sky-bottom: #2a3354; --sun: #f3efd6; --cloud: rgba(170,180,210,.25);
+  --hill-far: #1f3a33; --hill-near: #1a2f29; --ground: #2b2418;
+  --t1: #1e3324; --t2: #18303a; --t3: #2a2340; --t4: #3a2c16; --t5: #3a1e28; --t6: #36310f;
+  --t1e: #6fbf5a; --t2e: #4fb1cf; --t3e: #a28be0; --t4e: #e0a347; --t5e: #e0708f; --t6e: #d9bd3a;
   color-scheme: dark;
 }
 
@@ -79,7 +92,8 @@ header { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; }
 .brand small { color: var(--muted); font-size: 13px; }
 .sound { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
 .sound .icon { padding: 6px 10px; font-size: 15px; line-height: 1; }
-.sound input { width: 90px; accent-color: var(--accent); }
+.sound input { width: 80px; accent-color: var(--accent); }
+.sound .icon.off { opacity: .45; text-decoration: line-through; }
 .seg { display: inline-flex; background: var(--sunk); border-radius: 10px; padding: 3px; gap: 2px; }
 .seg button { border: 0; background: transparent; padding: 7px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; color: var(--muted); }
 .seg button[aria-pressed="true"] { background: var(--surface); color: var(--fg); box-shadow: var(--shadow); }
@@ -135,12 +149,40 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
 .card.target { border-color: var(--accent); border-style: dashed; }
 .card.frozen { background: var(--freeze-soft); border-color: var(--freeze); }
 .card.off { opacity: .5; }
-.card .emo { font-size: 38px; line-height: 1.1; }
+.card { border-top: 3px solid var(--te, var(--line)); }
+.tier-1 { --te: var(--t1e); --tb: var(--t1); } .tier-2 { --te: var(--t2e); --tb: var(--t2); }
+.tier-3 { --te: var(--t3e); --tb: var(--t3); } .tier-4 { --te: var(--t4e); --tb: var(--t4); }
+.tier-5 { --te: var(--t5e); --tb: var(--t5); } .tier-6 { --te: var(--t6e); --tb: var(--t6); }
+.tier-s { --te: var(--muted); --tb: var(--sunk); }
+.card.food-card { --te: var(--gold); }
+.art { position: relative; width: 64px; height: 58px; display: grid; place-items: center; border-radius: 50% 50% 44% 44%;
+  background: radial-gradient(circle at 50% 28%, var(--art-hi), transparent 62%), var(--tb, var(--sunk)); }
+.art::after { content: ""; position: absolute; bottom: 7px; left: 50%; width: 34px; height: 7px; margin-left: -17px; border-radius: 50%; background: rgba(0,0,0,.16); filter: blur(1px); }
+.art.plate { background: radial-gradient(circle at 50% 62%, var(--surface) 0 44%, var(--line) 45% 52%, transparent 53%), radial-gradient(circle at 50% 30%, var(--art-hi), transparent 60%), var(--sunk); }
+.art.plate::after { display: none; }
+.bob { position: relative; z-index: 1; display: inline-block; animation: bob 2.8s ease-in-out infinite; animation-delay: var(--d, 0s); }
+.card .emo { display: inline-block; font-size: 36px; line-height: 1.1; filter: drop-shadow(0 2px 1px rgba(0,0,0,.18)); }
+.card.lv2 .art { box-shadow: 0 0 0 2px var(--gold); }
+.card.lv3 .art { box-shadow: 0 0 0 3px var(--gold), 0 0 14px var(--gold); }
+.card.frozen::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 2;
+  background: repeating-linear-gradient(135deg, rgba(255,255,255,.32) 0 2px, transparent 2px 10px), linear-gradient(180deg, rgba(120,180,255,.22), transparent 70%); }
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.09) translateY(-3px); } 100% { transform: scale(1); } }
+@keyframes deal { 0% { transform: perspective(500px) rotateY(85deg) translateY(10px); opacity: 0; } 100% { transform: none; opacity: 1; } }
+@keyframes shake { 0%, 100% { transform: none; } 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
+@keyframes hop { 0%, 100% { transform: none; } 45% { transform: translateY(-9px); } }
+@keyframes glow { 0% { box-shadow: 0 0 0 0 var(--gold); } 100% { box-shadow: 0 0 0 14px transparent; } }
+.pop { animation: pop .34s ease; }
+.deal { animation: deal .42s cubic-bezier(.2,.8,.3,1.2) both; animation-delay: calc(var(--i, 0) * 70ms); }
+.shake { animation: shake .36s ease; }
+.hop { animation: hop .4s ease; }
+.glow { animation: glow .8s ease-out; }
 .card .nm { font-weight: 600; font-size: 12.5px; text-transform: capitalize; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stats { display: flex; gap: 4px; font: 700 13px/1 var(--f-mono); font-variant-numeric: tabular-nums; }
-.stat { border-radius: 6px; padding: 4px 6px; min-width: 28px; }
-.stat.a { background: var(--atk-soft); color: var(--atk); }
-.stat.h { background: var(--hp-soft); color: var(--hp); }
+.stat { padding: 4px 7px; min-width: 30px; position: relative; }
+.stat.a { background: var(--atk); color: #fff; clip-path: polygon(14% 0, 86% 0, 100% 50%, 86% 100%, 14% 100%, 0 50%); }
+.stat.h { background: var(--hp); color: #fff; border-radius: 999px; }
+.stat.h::before { content: "\2665"; font-size: 9px; margin-right: 2px; opacity: .85; }
 .lvl { display: flex; align-items: center; gap: 3px; font: 600 10px/1 var(--f-mono); color: var(--muted); }
 .lvl i { width: 6px; height: 6px; border-radius: 50%; background: var(--sunk); border: 1px solid var(--line); }
 .lvl i.on { background: var(--accent); border-color: var(--accent); }
@@ -162,6 +204,14 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
 .lane.right { justify-content: flex-start; }
 .lane .card { width: clamp(52px, 9vw, 96px); min-height: 108px; cursor: default; padding: 8px 4px 6px; flex: 0 1 auto; }
 .lane .card .emo { font-size: clamp(24px, 4vw, 34px); }
+.lane .art { width: clamp(44px, 7vw, 60px); height: clamp(40px, 6.5vw, 54px); }
+.stage { position: relative; border-radius: 12px; overflow: hidden; padding: 10px 10px 18px; display: grid; gap: 6px; }
+.stage .scene { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
+.stage > :not(.scene) { position: relative; z-index: 1; }
+.stage .arena-labels span { background: var(--surface); padding: 2px 8px; border-radius: 999px; justify-self: start; opacity: .92; }
+.stage .arena-labels span:last-child { justify-self: end; }
+.stage .vs { background: var(--surface); border-radius: 999px; padding: 6px 8px; box-shadow: var(--shadow); }
+.stage .empty-lane { background: var(--surface); padding: 4px 10px; border-radius: 999px; }
 .lane .card:hover { transform: none; }
 .lane .left-face .emo { transform: scaleX(-1); }
 .vs { font: 800 18px/1 var(--f-display); color: var(--muted); }
@@ -175,7 +225,7 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
 @keyframes hit { 0%,100% { transform: none; } 30% { transform: translateX(-3px); background: var(--hp-soft); } 60% { transform: translateX(3px); } }
 @keyframes lungeR { 50% { transform: translateX(10px); } }
 @keyframes lungeL { 50% { transform: translateX(-10px); } }
-@media (prefers-reduced-motion: reduce) { .hit, .lunge-r, .lunge-l { animation: none; } .card { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .hit, .lunge-r, .lunge-l, .bob, .pop, .deal, .shake, .hop, .glow { animation: none; } .card { transition: none; } }
 .frame-label { font: 700 14px var(--f-display); }
 .log { background: var(--sunk); border-radius: 10px; padding: 10px 12px; font-size: 12.5px; max-height: 160px; overflow: auto; display: grid; gap: 3px; }
 .log p { margin: 0; }
@@ -272,7 +322,9 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
     <div class="brand"><h1>sapai <span>arena</span></h1><small id="sub">loading agents…</small></div>
     <div class="sound" role="group" aria-label="Sound">
       <button class="btn icon" id="muteBtn" aria-pressed="false" title="Sound on or off">🔊</button>
-      <input type="range" id="vol" min="0" max="100" value="60" aria-label="Volume">
+      <input type="range" id="vol" min="0" max="100" value="60" aria-label="Sound effects volume">
+      <button class="btn icon" id="musicBtn" aria-pressed="true" title="Music on or off">♪</button>
+      <input type="range" id="mvol" min="0" max="100" value="35" aria-label="Music volume">
     </div>
     <div class="seg" role="group" aria-label="Mode">
       <button id="modePlay" aria-pressed="true">Play</button>
@@ -345,11 +397,14 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
       <h2 id="battleTitle">Battle</h2>
       <span class="frame-label" id="frameLabel"></span>
     </div>
-    <div class="arena-labels"><span id="lblL"></span><span id="lblR"></span></div>
-    <div class="arena">
-      <div class="lane left" id="laneL"></div>
-      <div class="vs">vs</div>
-      <div class="lane right" id="laneR"></div>
+    <div class="stage">
+      <canvas class="scene" id="scene" aria-hidden="true"></canvas>
+      <div class="arena-labels"><span id="lblL"></span><span id="lblR"></span></div>
+      <div class="arena">
+        <div class="lane left" id="laneL"></div>
+        <div class="vs">vs</div>
+        <div class="lane right" id="laneR"></div>
+      </div>
     </div>
     <div class="log" id="blog" aria-live="polite"></div>
     <div class="bar">
@@ -404,6 +459,8 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
 </div>
 <div class="toast" id="toast" hidden></div>
 
+<script src="/static/fx.js"></script>
+<script src="/static/music.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const S = { meta: null, mode: "play", id: null, st: null, sel: null, battle: null,
@@ -467,6 +524,9 @@ const SFX = (() => {
     src.start(t); src.stop(t + len + 0.02);
   }
   const sounds = {
+    select:  (i = 0) => { const f = [660, 740, 830, 880, 990, 1110, 1245][i % 7]; tone(f, 0, 0.07, "triangle", 0.22); tone(f * 1.5, 0.035, 0.09, "sine", 0.12); },
+    deselect:() => { tone(520, 0, 0.06, "triangle", 0.14); },
+    tick:    (i = 0) => { tone(900 + i * 90, 0, 0.04, "square", 0.06); noise(0, 0.03, 4000, 2500, 0.12, 2); },
     buy:     () => { tone(880, 0, 0.08, "square", 0.18); tone(1320, 0.06, 0.14, "square", 0.16); },
     sell:    () => { tone(1320, 0, 0.07, "triangle", 0.3); tone(1760, 0.05, 0.07, "triangle", 0.3); tone(2350, 0.1, 0.16, "triangle", 0.28); },
     roll:    () => { for (let i = 0; i < 5; i++) noise(i * 0.045, 0.05, 3000 - i * 300, 1500, 0.25, 3); },
@@ -488,7 +548,7 @@ const SFX = (() => {
     gameloss:() => { [392, 370, 349, 330, 262].forEach((f, i) => tone(f, i * 0.2, 0.3, "triangle", 0.26)); },
   };
   return {
-    play(name) { try { sounds[name] && sounds[name](); } catch (e) {} },
+    play(name, arg) { try { sounds[name] && sounds[name](arg); } catch (e) {} },
     get muted() { return muted; }, get volume() { return volume; },
     setMuted(v) { muted = v; persist(); ac(); }, setVolume(v) { volume = v; if (v > 0) muted = false; persist(); ac(); },
   };
@@ -532,43 +592,169 @@ async function act(name, args = []) {
   try {
     const before = me();
     if (name !== "end_turn") S.confirmEnd = false;
+    const fx = captureFx(name, args);
     const j = await api("/api/act", { id: S.id, name, args });
     S.sel = null;
     S.st = j.state;
     if (j.battle) { SFX.play("endturn"); startBattle(j.battle); }
     else actionSound(name, before, j.state.seats[0]);
     render();
-  } catch (e) { SFX.play("error"); toast(e.message); }
+    if (!j.battle) actionFx(name, args, before, j.state.seats[0], fx);
+  } catch (e) {
+    SFX.play("error"); toast(e.message);
+    const el = S.sel && document.querySelector(S.sel.type === "shop" ? `[data-shop="${S.sel.i}"]` : `[data-team="${S.sel.i}"]`);
+    FX.anim(el, "shake", 400);
+  }
   finally { S.busy = false; }
+}
+
+// ------------------------------------------------------- action effects
+const rectOf = (sel) => { const el = typeof sel === "string" ? document.querySelector(sel) : sel; return el ? el.getBoundingClientRect() : null; };
+function captureFx(name, args) {
+  const shopEl = (i) => rectOf(`[data-shop="${i}"]`), teamEl = (j) => rectOf(`[data-team="${j}"]`);
+  const c = { gold: rectOf(".m-gold") };
+  if (name.startsWith("buy") || name === "freeze") c.src = shopEl(args[0]);
+  if (name === "sell") c.src = teamEl(args[0]);
+  if (name === "swap" || name === "combine") c.pair = args.map(teamEl);
+  return c;
+}
+function statText(a, b) {
+  const da = b.attack - a.attack, dh = b.health - a.health;
+  if (!da && !dh) return "";
+  const f = (v) => (v > 0 ? "+" : "") + v;
+  return `${f(da)}/${f(dh)}`;
+}
+function actionFx(name, args, before, after, c) {
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const teamCard = (j) => document.querySelector(`[data-team="${j}"]`);
+  const goldEl = document.querySelector(".m-gold");
+  const dGold = after.gold - before.gold;
+  if (dGold < 0) FX.text(goldEl, `${dGold}`, { color: css("--gold"), size: 16, dy: -14 });
+
+  // which team pet the action was about, after the action
+  let target = null;
+  if (name === "buy_pet") target = after.team.length - 1;
+  if (name === "buy_combine" || name === "buy_food") target = args[1];
+  if (name === "combine") {
+    target = after.team.findIndex((p, k) => !before.team[k] || p.level > before.team[k].level || p.xp !== before.team[k].xp);
+  }
+
+  if (name === "buy_pet" && target != null) {
+    const el = teamCard(target);
+    if (c.src && el) FX.fly(c.src, el, { n: 4, kind: "sparkle" });
+    setTimeout(() => { FX.anim(teamCard(target), "pop", 360); FX.burst("sparkle", teamCard(target), { n: 14 }); }, 280);
+  }
+  if ((name === "buy_combine" || name === "combine") && target != null && target >= 0) {
+    const el = teamCard(target);
+    FX.anim(el, "hop", 420);
+    FX.burst("sparkle", el, { n: 16 });
+  }
+  if (name === "buy_food" && target != null) {
+    const el = teamCard(target);
+    if (c.src && el) FX.fly(c.src, el, { n: 3, kind: "crumbs" });
+    setTimeout(() => {
+      FX.burst("crumbs", teamCard(target)); FX.burst("hearts", teamCard(target), { up: true });
+      FX.anim(teamCard(target), "hop", 420);
+      const p0 = before.team[target], p1 = after.team[target];
+      if (p0 && p1 && p1.status && (!p0.status || p0.status.name !== p1.status.name))
+        FX.text(teamCard(target), `${p1.status.emoji} ${p1.status.name}!`, { color: css("--accent"), size: 17, dy: -50 });
+    }, 300);
+  }
+  if (name === "buy_food_untargeted") {
+    if (c.src) FX.burst("crumbs", c.src, { n: 18 });
+    document.querySelectorAll("#team [data-team]").forEach((el) => FX.burst("sparkle", el, { n: 6 }));
+  }
+  if (name === "sell" && c.src) {
+    FX.burst("poof", c.src);
+    FX.burst("coins", c.src, { up: true, n: 8 });
+    if (goldEl) FX.fly(c.src, goldEl, { n: Math.max(3, dGold * 2), onArrive: () => FX.anim(document.querySelector(".m-gold"), "pop", 360) });
+    if (dGold > 0) FX.text(goldEl, `+${dGold}`, { color: css("--gold"), size: 18, dy: -14 });
+  }
+  if (name === "freeze" && c.src) FX.burst("frost", c.src, { n: 22 });
+  if (name === "roll") {
+    document.querySelectorAll("#shop .card").forEach((el, i) => {
+      if (el.classList.contains("frozen")) return;
+      el.style.setProperty("--i", i);
+      FX.anim(el, "deal", 420 + i * 70);
+      setTimeout(() => SFX.play("tick", i), i * 70);
+    });
+  }
+  if (name === "swap") {
+    FX.anim(teamCard(args[0]), "hop", 420); FX.anim(teamCard(args[1]), "hop", 420);
+  }
+
+  // level ups
+  after.team.forEach((p, k) => {
+    const old = before.team[k];
+    const leveled = old && ((old.name === p.name && p.level > old.level) || (k === target && p.level > old.level));
+    if (!leveled) return;
+    setTimeout(() => {
+      const el = teamCard(k);
+      FX.burst("stars", el, { power: 1.2 });
+      FX.anim(el, "glow", 800);
+      FX.text(el, p.level >= 3 ? "MAX LEVEL!" : `Level ${p.level}!`, { color: css("--gold"), size: 22, dy: -56, max: 75 });
+    }, 200);
+  });
+
+  // stat changes from abilities: show +x/+y on any other pet or shop item that changed
+  if (!["swap", "sell", "combine"].includes(name)) {
+    after.team.forEach((p, k) => {
+      if (k === target) return;
+      const old = before.team[k];
+      if (old && old.name === p.name) {
+        const t = statText(old, p);
+        if (t) setTimeout(() => FX.text(teamCard(k), t, { color: css("--accent"), size: 15, dy: -48 }), 380);
+      }
+    });
+  }
+  if (name !== "roll") {
+    after.shop.forEach((x) => {
+      const old = before.shop.find((y) => y.index === x.index && y.name === x.name);
+      if (!old || x.kind === "food" || old.kind === "food") return;
+      const t = statText(old, x);
+      if (t) {
+        const el = document.querySelector(`[data-shop="${x.index}"]`);
+        setTimeout(() => { FX.text(el, t, { color: css("--accent"), size: 15, dy: -48 }); FX.burst("hearts", el, { n: 4, up: true }); }, 380);
+      }
+    });
+  }
+  if (name === "sell" && before.team[args[0]] && /Sell:/.test(before.team[args[0]].desc || ""))
+    setTimeout(() => SFX.play("ability"), 250);
 }
 
 // ---------------------------------------------------------------- render
 function esc(s) { return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
+function bobDelay(name) {
+  let h = 0;
+  for (const c of String(name)) h = (h * 31 + c.charCodeAt(0)) % 997;
+  return -((h % 28) / 10);
+}
 function petCard(p, opts = {}) {
   const lv = p.level || 1, xp = p.xp || 0;
   const need = lv === 1 ? 2 : lv === 2 ? 3 : 0;
   const dots = need ? Array.from({ length: need }, (_, i) => `<i class="${i < xp ? "on" : ""}"></i>`).join("") : "";
   const status = p.status ? `<span class="badge" title="${esc(p.status.name)}: ${esc(p.status.desc)}">${p.status.emoji}</span>` : "";
-  const cls = ["card", opts.cls || "", p.frozen ? "frozen" : ""].join(" ");
+  const tierCls = Number.isInteger(p.tier) ? "tier-" + p.tier : "tier-s";
+  const cls = ["card", tierCls, "lv" + lv, opts.cls || "", p.frozen ? "frozen" : ""].join(" ");
   const tip = `${p.name} ${p.attack}/${p.health} · level ${lv}${p.desc ? " · " + p.desc : ""}`;
   return `<div class="${cls}" ${opts.attrs || ""} title="${esc(tip)}">
     <span class="tier">${Number.isInteger(p.tier) ? "T" + p.tier : "★"}</span>
     ${opts.cost ? `<span class="cost">${opts.cost}g</span>` : ""}
     ${status}
-    <span class="emo" aria-hidden="true">${p.emoji}</span>
+    <span class="art"><span class="bob" style="--d:${bobDelay(p.name)}s"><span class="emo" aria-hidden="true">${p.emoji}</span></span></span>
     <span class="nm">${esc(p.name)}</span>
     <span class="stats"><span class="stat a" aria-label="attack">${p.attack}</span><span class="stat h" aria-label="health">${p.health}</span></span>
-    <span class="lvl">L${lv} ${dots}</span>
+    <span class="lvl">${lv >= 3 ? "MAX" : "Lv" + lv} ${dots}</span>
     ${p.frozen ? `<span class="ice">FROZEN</span>` : ""}
   </div>`;
 }
 function foodCard(f, opts = {}) {
-  const cls = ["card", opts.cls || "", f.frozen ? "frozen" : ""].join(" ");
+  const cls = ["card", "food-card", opts.cls || "", f.frozen ? "frozen" : ""].join(" ");
   const ftip = f.name + ": " + f.desc + (f.perk ? ` (${f.perk.name}: ${f.perk.desc})` : "");
   return `<div class="${cls}" ${opts.attrs || ""} title="${esc(ftip)}">
     <span class="cost">${f.cost}g</span>
-    <span class="emo" aria-hidden="true">${f.emoji}</span>
+    <span class="art plate"><span class="bob" style="--d:${bobDelay(f.name)}s"><span class="emo" aria-hidden="true">${f.emoji}</span></span></span>
     <span class="nm">${esc(f.name)}</span>
     <span class="food-desc">${f.perk ? `${f.perk.emoji} ${esc(f.perk.name)} perk: ${esc(f.perk.desc)}` : esc(f.desc)}</span>
     ${f.frozen ? `<span class="ice">FROZEN</span>` : ""}
@@ -754,9 +940,30 @@ function render() {
 }
 
 // ---------------------------------------------------------------- battle
+function battleFx(f, prev, prevRects) {
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  for (const side of [0, 1]) {
+    const now = f.teams[side], was = prev.teams[side];
+    now.forEach((p, idx) => {
+      const old = was[idx];
+      if (!old || old.name !== p.name) return;
+      const el = document.querySelector(`#battle [data-bi="${side}-${idx}"]`);
+      const dh = p.health - old.health, da = p.attack - old.attack;
+      if (dh < 0) { FX.text(el, `${dh}`, { color: css("--hp"), size: 22, dy: -40 }); FX.burst("hit", el); }
+      else if (dh > 0 || da > 0) { FX.text(el, statText(old, p), { color: css("--accent"), size: 16, dy: -40 }); FX.burst("sparkle", el, { n: 6 }); }
+    });
+    const lost = was.length - now.length;
+    for (let k = 0; k < lost; k++) {
+      const r = prevRects[`${side}-${k}`];
+      if (r) setTimeout(() => FX.burst("poof", r, { n: 18 }), 120);
+    }
+  }
+}
 function startBattle(b) {
   S.battle = b; S.frame = 0; S.playing = true; S.soundFrame = -1;
   $("battle").hidden = false;
+  FX.attachScene($("scene"));
+  if (speed() > 0) MUSIC.setMood("battle");
   $("lblL").textContent = S.st.seats[0].label;
   $("lblR").textContent = S.st.seats[1].label;
   $("battleTitle").textContent = `Turn ${b.turn} battle`;
@@ -797,11 +1004,14 @@ function showFrame(allLines) {
       const hurt = before && before.name === p.name && p.health < before.health;
       let cls = (left ? "left-face " : "") + (hurt ? "hit " : "");
       if (attack && idx === 0) cls += left ? "lunge-r" : "lunge-l";
-      return petCard(p, { cls, attrs: reg(p) });
+      return petCard(p, { cls, attrs: reg(p) + ` data-bi="${left ? 0 : 1}-${idx}"` });
     }).join("");
   };
+  const prevRects = {};
+  if (!allLines) document.querySelectorAll("#battle [data-bi]").forEach((el) => (prevRects[el.dataset.bi] = el.getBoundingClientRect()));
   $("laneL").innerHTML = lane(f.teams[0], prev && prev.teams[0], true);
   $("laneR").innerHTML = lane(f.teams[1], prev && prev.teams[1], false);
+  if (!allLines && prev) battleFx(f, prev, prevRects);
   const lines = allLines
     ? b.frames.flatMap((x) => (x.lines.length ? [`<p class="dim">${esc(x.label)}</p>`, ...x.lines.map((l) => `<p>${esc(l)}</p>`)] : []))
     : b.frames.slice(0, S.frame + 1).flatMap((x) => (x.lines.length ? [`<p class="dim">${esc(x.label)}</p>`, ...x.lines.map((l) => `<p>${esc(l)}</p>`)] : []));
@@ -819,6 +1029,10 @@ function finishBattle() {
   $("bResult").textContent = txt;
   $("bResult").className = "result " + o;
   const humanSide = S.st.seats[0].kind === "human";
+  const resEl = $("bResult");
+  if (o === "win" || (!humanSide && o !== "draw")) FX.burst("confetti", resEl, { up: true, n: S.st.over ? 120 : 50 });
+  if (S.st.over) setTimeout(() => FX.burst("confetti", $("over"), { up: true, n: 140, power: 1.3 }), 300);
+  if (!(S.auto && S.mode === "watch" && !S.st.over)) setTimeout(() => MUSIC.setMood("shop"), 1800);
   if (S.st.over) {
     const won = S.st.result === "seat0";
     setTimeout(() => SFX.play(!humanSide || won ? "gamewin" : "gameloss"), 250);
@@ -986,10 +1200,18 @@ function onTeam(j) {
   }
   S.sel = sel && sel.type === "team" && sel.i === j ? null : { type: "team", i: j };
   render();
+  selectFeedback(S.sel ? document.querySelector(`[data-team="${j}"]`) : null, j + 2);
 }
 function onShop(i) {
   S.sel = S.sel && S.sel.type === "shop" && S.sel.i === i ? null : { type: "shop", i };
   render();
+  selectFeedback(S.sel ? document.querySelector(`[data-shop="${i}"]`) : null, i);
+}
+function selectFeedback(el, i) {
+  if (!el) { SFX.play("deselect"); return; }
+  FX.anim(el, "pop", 360);
+  FX.burst("sparkle", el, { n: 9, power: 0.8 });
+  SFX.play("select", i);
 }
 function sellOrBuy() {
   const s = me(), sel = S.sel;
@@ -1046,6 +1268,15 @@ $("muteBtn").onclick = () => { SFX.setMuted(!SFX.muted); soundUI(); if (!SFX.mut
 $("vol").oninput = () => { SFX.setVolume(Number($("vol").value) / 100); soundUI(); };
 $("vol").onchange = () => SFX.play("buy");
 soundUI();
+function musicUI() {
+  $("musicBtn").setAttribute("aria-pressed", String(MUSIC.enabled));
+  $("musicBtn").classList.toggle("off", !MUSIC.enabled || MUSIC.volume === 0);
+  $("musicBtn").title = MUSIC.enabled ? "Music is on. Click to turn it off." : "Music is off. Click to turn it on.";
+  $("mvol").value = Math.round(MUSIC.volume * 100);
+}
+$("musicBtn").onclick = () => { MUSIC.setEnabled(!MUSIC.enabled); musicUI(); };
+$("mvol").oninput = () => { MUSIC.setVolume(Number($("mvol").value) / 100); musicUI(); };
+musicUI();
 $("logFilter").onchange = renderLog;
 $("logCopy").onclick = async () => {
   try { await navigator.clipboard.writeText(logText()); toast("Log copied."); }
@@ -1076,7 +1307,7 @@ document.addEventListener("keydown", (e) => {
 });
 $("sheetClose").onclick = () => ($("sheet").hidden = true);
 $("how").addEventListener("toggle", () => { try { localStorage.setItem("howOpen", $("how").open ? "1" : "0"); } catch (e) {} });
-$("bClose").onclick = () => { clearTimeout(S.timer); $("battle").hidden = true; };
+$("bClose").onclick = () => { clearTimeout(S.timer); $("battle").hidden = true; MUSIC.setMood("shop"); };
 $("modePlay").onclick = () => switchMode("play");
 $("modeWatch").onclick = () => switchMode("watch");
 $("opp").onchange = () => { $("oppDesc").textContent = agentDesc($("opp").value); };
