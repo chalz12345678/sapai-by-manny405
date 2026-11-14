@@ -49,7 +49,6 @@ class TestGui(unittest.TestCase):
         m.play_round()
         self.assertEqual(len(m.history), 1)
 
-
     def test_save_and_load(self):
         m = game.Match("human", "token_16.8M", seed=2)
         pet = next(x for x in m.state()["seats"][0]["shop"] if x["kind"] == "pet")
@@ -65,7 +64,9 @@ class TestGui(unittest.TestCase):
             m = game.Match("human", "greedy", seed=seed)
             shop = m.state()["seats"][0]["shop"]
             names = [x["name"] for x in shop]
-            if "duck" in names and any(x["kind"] == "pet" and x["name"] != "duck" for x in shop):
+            if "duck" in names and any(
+                x["kind"] == "pet" and x["name"] != "duck" for x in shop
+            ):
                 break
         duck = names.index("duck")
         other = next(x for x in shop if x["kind"] == "pet" and x["name"] != "duck")
@@ -78,7 +79,9 @@ class TestGui(unittest.TestCase):
         entry = m.events[-1]
         self.assertEqual(entry["title"], "sold duck")
         if any(x["kind"] == "pet" for x in m.state()["seats"][0]["shop"]):
-            self.assertTrue(any(l.startswith("shop:") and "→" in l for l in entry["lines"]))
+            self.assertTrue(
+                any(l.startswith("shop:") and "→" in l for l in entry["lines"])
+            )
         self.assertEqual(entry["warn"], [])
 
     def test_no_rule_problems_in_model_games(self):
@@ -87,7 +90,6 @@ class TestGui(unittest.TestCase):
             while not m.over and len(m.history) < 30:
                 m.play_round()
             self.assertEqual([e for e in m.events if e["warn"]], [])
-
 
     def test_chat_answers_from_model_numbers(self):
         from gui import chat
