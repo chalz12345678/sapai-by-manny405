@@ -32,7 +32,9 @@ class NumpyPolicy:
         self.n_heads = n_heads
         self.layout = layout  # dict of env constants, needed for token nets
         if self.kind == "token":
-            self.n_layers = len({k.split(".")[3] for k in self.w if ".encoder.layers." in k})
+            self.n_layers = len(
+                {k.split(".")[3] for k in self.w if ".encoder.layers." in k}
+            )
 
     # ---------------------------------------------------------------- MLP
     def _mlp_logits(self, obs):
@@ -73,42 +75,56 @@ class NumpyPolicy:
 
     def _token_logits(self, obs):
         c = self.layout
-        MT, MS, TT, ST, GT = c["MAX_TEAM"], c["MAX_SHOP"], c["TEAM_TOKEN"], c["SHOP_TOKEN"], c["GLOBAL_TOKEN"]
+        MT, MS, TT, ST, GT = (
+            c["MAX_TEAM"],
+            c["MAX_SHOP"],
+            c["TEAM_TOKEN"],
+            c["SHOP_TOKEN"],
+            c["GLOBAL_TOKEN"],
+        )
         team = obs[: MT * TT].reshape(MT, TT)
-        shop = obs[MT * TT: MT * TT + MS * ST].reshape(MS, ST)
+        shop = obs[MT * TT : MT * TT + MS * ST].reshape(MS, ST)
         glob = obs[-GT:]
         team_present = team[:, c["TEAM_PRESENT"]] > 0.5
         shop_present = shop[:, : c["N_SHOP_KINDS"]].sum(-1) > 0.5
-        x = np.concatenate([
-            self.L("global_in", glob)[None, :],
-            self.L("team_in", team) + self.g("team_pos"),
-            self.L("shop_in", shop) + self.g("shop_pos"),
-        ])
+        x = np.concatenate(
+            [
+                self.L("global_in", glob)[None, :],
+                self.L("team_in", team) + self.g("team_pos"),
+                self.L("shop_in", shop) + self.g("shop_pos"),
+            ]
+        )
         pad = np.concatenate([[False], ~team_present, ~shop_present])
         for i in range(self.n_layers):
             pre = f"encoder.layers.{i}."
-            x = x + self._attn(_ln(x, self.g(pre + "norm1.weight"), self.g(pre + "norm1.bias")), pad, i)
+            x = x + self._attn(
+                _ln(x, self.g(pre + "norm1.weight"), self.g(pre + "norm1.bias")), pad, i
+            )
             hdn = _ln(x, self.g(pre + "norm2.weight"), self.g(pre + "norm2.bias"))
             x = x + self.L(pre + "linear2", np.maximum(self.L(pre + "linear1", hdn), 0))
         x = _ln(x, self.g("norm.weight"), self.g("norm.bias"))
-        g, t, s = x[0], x[1:1 + MT], x[1 + MT:]
+        g, t, s = x[0], x[1 : 1 + MT], x[1 + MT :]
         pa, pb = np.array(c["PAIR_A"]), np.array(c["PAIR_B"])
-        return np.concatenate([
-            self.L("global_head", g),
-            self.L("buy_pet", s)[:, 0],
-            self._pair("buy_combine", s, t).reshape(-1),
-            self._pair("buy_food", s, t).reshape(-1),
-            self.L("buy_food_untargeted", s)[:, 0],
-            self.L("sell", t)[:, 0],
-            self.L("freeze", s)[:, 0],
-            self._pair("swap", t, t)[pa, pb],
-            self._pair("combine", t, t)[pa, pb],
-        ])
+        return np.concatenate(
+            [
+                self.L("global_head", g),
+                self.L("buy_pet", s)[:, 0],
+                self._pair("buy_combine", s, t).reshape(-1),
+                self._pair("buy_food", s, t).reshape(-1),
+                self.L("buy_food_untargeted", s)[:, 0],
+                self.L("sell", t)[:, 0],
+                self.L("freeze", s)[:, 0],
+                self._pair("swap", t, t)[pa, pb],
+                self._pair("combine", t, t)[pa, pb],
+            ]
+        )
 
     # -------------------------------------------------------------- public
     def logits(self, obs):
         obs = np.asarray(obs, dtype=np.float32)
-        return self._token_logits(obs) if self.kind == "token" else self._mlp_logits(obs)
+        return (
+            self._token_logits(obs) if self.kind == "token" else self._mlp_logits(obs)
+        )
 
     def value(self, obs):
         """The critic's estimate of future reward from this position: roughly
@@ -121,8 +137,12 @@ class NumpyPolicy:
                 h = np.tanh(_lin(w[P + "value.0.weight"], w[P + "value.0.bias"], obs))
                 h = np.tanh(_lin(w[P + "value.2.weight"], w[P + "value.2.bias"], h))
             else:
-                h = np.tanh(_lin(w[P + "value_net.0.weight"], w[P + "value_net.0.bias"], obs))
-                h = np.tanh(_lin(w[P + "value_net.2.weight"], w[P + "value_net.2.bias"], h))
+                h = np.tanh(
+                    _lin(w[P + "value_net.0.weight"], w[P + "value_net.0.bias"], obs)
+                )
+                h = np.tanh(
+                    _lin(w[P + "value_net.2.weight"], w[P + "value_net.2.bias"], h)
+                )
             return float(_lin(w["value_net.weight"], w["value_net.bias"], h)[0])
         except KeyError:
             return None

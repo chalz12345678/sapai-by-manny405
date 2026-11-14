@@ -25,7 +25,11 @@ INDEX = os.path.join(DIR, "index.json")
 
 
 def _valid(rid):
-    return isinstance(rid, str) and len(rid) == 32 and all(c in "0123456789abcdef" for c in rid)
+    return (
+        isinstance(rid, str)
+        and len(rid) == 32
+        and all(c in "0123456789abcdef" for c in rid)
+    )
 
 
 def _path(rid):
@@ -65,21 +69,37 @@ def summary(rid, match, previous=None):
     if match.over:
         winner = labels[0] if match.result == "seat0" else labels[1]
         status = "finished"
-        result = ("You won" if match.result == "seat0" else f"{labels[1]} won") if human else f"{winner} won"
+        result = (
+            ("You won" if match.result == "seat0" else f"{labels[1]} won")
+            if human
+            else f"{winner} won"
+        )
     else:
         status, result, winner = "unfinished", "Unfinished", None
     hist = match.history
     return {
         "id": rid,
-        "title": previous.get("title") or (f"You vs {labels[1]}" if human else f"{labels[0]} vs {labels[1]}"),
+        "title": previous.get("title")
+        or (f"You vs {labels[1]}" if human else f"{labels[0]} vs {labels[1]}"),
         "note": previous.get("note", ""),
         "mode": "play" if human else "watch",
-        "players": labels, "kinds": [a.kind, b.kind],
-        "created": match.created, "updated": _now(),
-        "status": status, "result": result, "winner": winner,
-        "turns": len(hist), "history": hist,
-        "score": [{"wins": s.wins, "lives": max(0, int(s.player.lives))} for s in match.seats],
-        "battles": {"win": hist.count("win"), "loss": hist.count("loss"), "draw": hist.count("draw")},
+        "players": labels,
+        "kinds": [a.kind, b.kind],
+        "created": match.created,
+        "updated": _now(),
+        "status": status,
+        "result": result,
+        "winner": winner,
+        "turns": len(hist),
+        "history": hist,
+        "score": [
+            {"wins": s.wins, "lives": max(0, int(s.player.lives))} for s in match.seats
+        ],
+        "battles": {
+            "win": hist.count("win"),
+            "loss": hist.count("loss"),
+            "draw": hist.count("draw"),
+        },
         "steps": True,
     }
 
@@ -90,7 +110,15 @@ def record(rid, match):
         return
     idx = _load_index()
     meta = summary(rid, match, idx.get(rid))
-    _write(rid, {"meta": meta, "rounds": match.rounds, "events": match.events, "chat": match.chat})
+    _write(
+        rid,
+        {
+            "meta": meta,
+            "rounds": match.rounds,
+            "events": match.events,
+            "chat": match.chat,
+        },
+    )
     idx[rid] = meta
     _save_index(idx)
 
@@ -160,15 +188,24 @@ def import_saves(saves_dir, from_save):
         rounds = []
         battles = [e for e in m.events if e.get("kind") == "battle"]
         for k, e in enumerate(battles):
-            rounds.append({"turn": k + 1, "outcome": m.history[k] if k < len(m.history) else "draw",
-                           "lines": e.get("lines", []), "frames": [], "shopLogs": [[], []],
-                           "thoughts": [[], []]})
+            rounds.append(
+                {
+                    "turn": k + 1,
+                    "outcome": m.history[k] if k < len(m.history) else "draw",
+                    "lines": e.get("lines", []),
+                    "frames": [],
+                    "shopLogs": [[], []],
+                    "thoughts": [[], []],
+                }
+            )
         m.rounds = rounds
         m.created = d.get("created") or _now()
         meta = summary(rid, m)
         meta["steps"] = False  # battles from the log only, no step-by-step frames
         meta["created"] = meta["updated"] = _mtime(path)
-        _write(rid, {"meta": meta, "rounds": rounds, "events": m.events, "chat": m.chat})
+        _write(
+            rid, {"meta": meta, "rounds": rounds, "events": m.events, "chat": m.chat}
+        )
         idx[rid] = meta
         added += 1
     if added:
@@ -177,4 +214,8 @@ def import_saves(saves_dir, from_save):
 
 
 def _mtime(path):
-    return datetime.datetime.fromtimestamp(os.path.getmtime(path)).astimezone().isoformat(timespec="seconds")
+    return (
+        datetime.datetime.fromtimestamp(os.path.getmtime(path))
+        .astimezone()
+        .isoformat(timespec="seconds")
+    )

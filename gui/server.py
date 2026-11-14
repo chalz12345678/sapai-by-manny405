@@ -40,16 +40,28 @@ def meta():
     agents = game.agent_list()
     order = {"model": 0, "bot": 1, "custom": 2}
     agents.sort(key=lambda a: (order.get(a["group"], 3), -(a.get("rating") or 0)))
-    return {"agents": agents, "actionStart": E.ACTION_START, "maxTeam": E.MAX_TEAM,
-            "pairs": E.PAIRS, "maxWins": game.MAX_WINS, "lives": game.START_LIVES,
-            "perks": [game._status(sid) for sid in game.data["statuses"]]}
+    return {
+        "agents": agents,
+        "actionStart": E.ACTION_START,
+        "maxTeam": E.MAX_TEAM,
+        "pairs": E.PAIRS,
+        "maxWins": game.MAX_WINS,
+        "lives": game.START_LIVES,
+        "perks": [game._status(sid) for sid in game.data["statuses"]],
+    }
 
 
 def series(a, b, n):
     """Play n full games between agents a and b and count the results."""
     n = max(1, min(int(n), 200))
-    out = {"games": n, "a": 0, "b": 0, "unfinished": 0, "rounds": 0,
-           "battles": [0, 0, 0]}
+    out = {
+        "games": n,
+        "a": 0,
+        "b": 0,
+        "unfinished": 0,
+        "rounds": 0,
+        "battles": [0, 0, 0],
+    }
     t = time.time()
     for _ in range(n):
         m = game.Match(a, b, seed=random.randrange(1 << 30))
@@ -86,10 +98,17 @@ class Handler(BaseHTTPRequestHandler):
             with open(os.path.join(HERE, "index.html"), "rb") as f:
                 return self._send(200, f.read(), "text/html; charset=utf-8")
         if self.path.startswith("/static/"):
-            name = self.path[len("/static/"):].split("?")[0]
-            types = {".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8"}
+            name = self.path[len("/static/") :].split("?")[0]
+            types = {
+                ".js": "text/javascript; charset=utf-8",
+                ".css": "text/css; charset=utf-8",
+            }
             ext = os.path.splitext(name)[1]
-            ok = name and all(c.isalnum() or c in "-_." for c in name) and ".." not in name
+            ok = (
+                name
+                and all(c.isalnum() or c in "-_." for c in name)
+                and ".." not in name
+            )
             path = os.path.join(HERE, "static", name)
             if ok and ext in types and os.path.isfile(path):
                 with open(path, "rb") as f:
@@ -126,7 +145,12 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/replay":
             return {"ok": True, "replay": replays.get(req.get("id", ""))}
         if path == "/api/replay/rename":
-            return {"ok": True, "meta": replays.rename(req.get("id", ""), req.get("title"), req.get("note"))}
+            return {
+                "ok": True,
+                "meta": replays.rename(
+                    req.get("id", ""), req.get("title"), req.get("note")
+                ),
+            }
         if path == "/api/replay/delete":
             replays.delete(req.get("id", ""))
             return {"ok": True}
@@ -190,7 +214,9 @@ def save(mid):
         with open(tmp, "w") as f:
             json.dump(MATCHES[mid].to_save(), f, default=str)
         os.replace(tmp, path)
-        saves = sorted(glob.glob(os.path.join(SAVE_DIR, "*.json")), key=os.path.getmtime)
+        saves = sorted(
+            glob.glob(os.path.join(SAVE_DIR, "*.json")), key=os.path.getmtime
+        )
         for old in saves[:-MAX_SAVES]:
             os.remove(old)
     except OSError as e:
@@ -209,7 +235,9 @@ def find(mid):
     m.rounds = replays.load_rounds(mid)
     for s in m.seats:
         if s.kind != "human" and s.kind not in game.AGENTS:
-            raise Exception(f"This saved game uses agent {s.kind}, which is not loaded.")
+            raise Exception(
+                f"This saved game uses agent {s.kind}, which is not loaded."
+            )
     if len(MATCHES) >= MAX_MATCHES:
         MATCHES.pop(next(iter(MATCHES)))
     MATCHES[mid] = m
@@ -220,8 +248,12 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="sapai GUI server")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8405)
-    ap.add_argument("--agent", action="append", default=[],
-                    help="Python file defining shop(seat, rng); can be repeated")
+    ap.add_argument(
+        "--agent",
+        action="append",
+        default=[],
+        help="Python file defining shop(seat, rng); can be repeated",
+    )
     args = ap.parse_args(argv)
     load_models()
     added = replays.import_saves(SAVE_DIR, game.Match.from_save)
