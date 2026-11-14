@@ -72,11 +72,14 @@ button:focus-visible, select:focus-visible, .card:focus-visible, .slot:focus-vis
 }
 
 /* ---------- header ---------- */
-header { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: space-between; }
+header { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; }
 .brand { display: flex; align-items: baseline; gap: 10px; }
 .brand h1 { font: 800 28px/1 var(--f-display); letter-spacing: -.02em; margin: 0; }
 .brand h1 span { color: var(--accent); }
 .brand small { color: var(--muted); font-size: 13px; }
+.sound { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+.sound .icon { padding: 6px 10px; font-size: 15px; line-height: 1; }
+.sound input { width: 90px; accent-color: var(--accent); }
 .seg { display: inline-flex; background: var(--sunk); border-radius: 10px; padding: 3px; gap: 2px; }
 .seg button { border: 0; background: transparent; padding: 7px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; color: var(--muted); }
 .seg button[aria-pressed="true"] { background: var(--surface); color: var(--fg); box-shadow: var(--shadow); }
@@ -91,6 +94,8 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
 .btn.big { padding: 11px 22px; font-size: 15px; }
+.btn.primary.unspent { background: var(--sunk); color: var(--muted); border-color: var(--line); }
+.btn.primary.unspent:hover { border-color: var(--muted); }
 .agent-desc { color: var(--muted); font-size: 13px; flex-basis: 100%; margin: 0; }
 
 /* ---------- scoreboard ---------- */
@@ -265,6 +270,10 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
 <div class="wrap">
   <header>
     <div class="brand"><h1>sapai <span>arena</span></h1><small id="sub">loading agents…</small></div>
+    <div class="sound" role="group" aria-label="Sound">
+      <button class="btn icon" id="muteBtn" aria-pressed="false" title="Sound on or off">🔊</button>
+      <input type="range" id="vol" min="0" max="100" value="60" aria-label="Volume">
+    </div>
     <div class="seg" role="group" aria-label="Mode">
       <button id="modePlay" aria-pressed="true">Play</button>
       <button id="modeWatch" aria-pressed="false">Watch models</button>
@@ -408,6 +417,97 @@ async function api(path, body) {
   if (!r.ok || j.ok === false) throw new Error(j.error || "Request failed");
   return j;
 }
+// ----------------------------------------------------------------- sound
+// All sounds are synthesized with Web Audio, no audio files.
+const SFX = (() => {
+  let ctx = null, master = null;
+  let muted = false, volume = 0.6;
+  try {
+    const v = JSON.parse(localStorage.getItem("sapaiSound") || "{}");
+    if (typeof v.muted === "boolean") muted = v.muted;
+    if (typeof v.volume === "number") volume = v.volume;
+  } catch (e) {}
+  const persist = () => { try { localStorage.setItem("sapaiSound", JSON.stringify({ muted, volume })); } catch (e) {} };
+  function ac() {
+    if (!ctx) {
+      const C = window.AudioContext || window.webkitAudioContext;
+      if (!C) return null;
+      ctx = new C();
+      master = ctx.createGain();
+      master.connect(ctx.destination);
+    }
+    if (ctx.state === "suspended") ctx.resume();
+    master.gain.value = muted ? 0 : volume * 0.5;
+    return ctx;
+  }
+  // one note: frequency (or [from, to] slide), start offset, length, wave, loudness
+  function tone(freq, at = 0, len = 0.12, type = "sine", gain = 0.5) {
+    const c = ac(); if (!c || muted || volume === 0) return;
+    const t = c.currentTime + at, o = c.createOscillator(), g = c.createGain();
+    o.type = type;
+    if (Array.isArray(freq)) { o.frequency.setValueAtTime(freq[0], t); o.frequency.exponentialRampToValueAtTime(freq[1], t + len); }
+    else o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + len + 0.02);
+  }
+  function noise(at = 0, len = 0.15, from = 2000, to = 400, gain = 0.4, q = 1) {
+    const c = ac(); if (!c || muted || volume === 0) return;
+    const t = c.currentTime + at, n = Math.max(1, Math.floor(c.sampleRate * len));
+    const buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+    const src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    src.buffer = buf; f.type = "bandpass"; f.Q.value = q;
+    f.frequency.setValueAtTime(from, t); f.frequency.exponentialRampToValueAtTime(to, t + len);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    src.connect(f); f.connect(g); g.connect(master);
+    src.start(t); src.stop(t + len + 0.02);
+  }
+  const sounds = {
+    buy:     () => { tone(880, 0, 0.08, "square", 0.18); tone(1320, 0.06, 0.14, "square", 0.16); },
+    sell:    () => { tone(1320, 0, 0.07, "triangle", 0.3); tone(1760, 0.05, 0.07, "triangle", 0.3); tone(2350, 0.1, 0.16, "triangle", 0.28); },
+    roll:    () => { for (let i = 0; i < 5; i++) noise(i * 0.045, 0.05, 3000 - i * 300, 1500, 0.25, 3); },
+    freeze:  () => { tone(2100, 0, 0.25, "sine", 0.22); tone(3150, 0.03, 0.3, "sine", 0.12); },
+    unfreeze:() => { tone([2600, 1200], 0, 0.18, "sine", 0.2); },
+    feed:    () => { noise(0, 0.06, 900, 500, 0.4, 2); noise(0.09, 0.06, 900, 500, 0.35, 2); tone(660, 0.16, 0.1, "triangle", 0.2); },
+    swap:    () => { noise(0, 0.12, 600, 2400, 0.22, 1.5); },
+    stack:   () => { tone(523, 0, 0.08, "triangle", 0.3); tone(784, 0.06, 0.12, "triangle", 0.3); },
+    levelup: () => { [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.07, 0.18, "triangle", 0.32)); tone(1568, 0.3, 0.3, "sine", 0.18); },
+    error:   () => { tone(180, 0, 0.12, "sawtooth", 0.15); tone(140, 0.1, 0.16, "sawtooth", 0.15); },
+    endturn: () => { noise(0, 0.35, 300, 2500, 0.25, 0.8); tone([220, 440], 0.05, 0.3, "sine", 0.15); },
+    ability: () => { tone([700, 1400], 0, 0.12, "sine", 0.2); tone(1800, 0.08, 0.1, "sine", 0.12); },
+    hit:     () => { noise(0, 0.12, 1200, 200, 0.5, 0.8); tone([160, 60], 0, 0.14, "sine", 0.5); },
+    faint:   () => { tone([520, 130], 0, 0.4, "triangle", 0.28); },
+    win:     () => { [523, 659, 784].forEach((f, i) => tone(f, i * 0.1, 0.2, "square", 0.14)); tone(1047, 0.3, 0.45, "square", 0.16); },
+    loss:    () => { [392, 349, 311].forEach((f, i) => tone(f, i * 0.16, 0.24, "triangle", 0.28)); tone(262, 0.48, 0.5, "triangle", 0.26); },
+    draw:    () => { tone(440, 0, 0.18, "triangle", 0.25); tone(440, 0.22, 0.18, "triangle", 0.25); },
+    gamewin: () => { [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, i * 0.11, 0.22, "square", 0.14)); },
+    gameloss:() => { [392, 370, 349, 330, 262].forEach((f, i) => tone(f, i * 0.2, 0.3, "triangle", 0.26)); },
+  };
+  return {
+    play(name) { try { sounds[name] && sounds[name](); } catch (e) {} },
+    get muted() { return muted; }, get volume() { return volume; },
+    setMuted(v) { muted = v; persist(); ac(); }, setVolume(v) { volume = v; if (v > 0) muted = false; persist(); ac(); },
+  };
+})();
+
+// Which sound a shop action makes, from what changed
+function actionSound(name, before, after) {
+  if (!before || !after) return;
+  const lv = (s) => s.team.reduce((n, p) => n + p.level, 0);
+  if (lv(after) > lv(before)) return SFX.play("levelup");
+  const map = { buy_pet: "buy", buy_combine: "stack", combine: "stack", buy_food: "feed",
+                buy_food_untargeted: "feed", sell: "sell", roll: "roll", swap: "swap" };
+  if (name === "freeze") {
+    const was = before.shop.filter((x) => x.frozen).length, now = after.shop.filter((x) => x.frozen).length;
+    return SFX.play(now > was ? "freeze" : "unfreeze");
+  }
+  if (map[name]) SFX.play(map[name]);
+}
+
 function toast(msg) {
   const t = $("toast"); t.textContent = msg; t.hidden = false;
   clearTimeout(toast._t); toast._t = setTimeout(() => (t.hidden = true), 2600);
@@ -430,12 +530,15 @@ async function act(name, args = []) {
   if (S.busy) return;
   S.busy = true;
   try {
+    const before = me();
+    if (name !== "end_turn") S.confirmEnd = false;
     const j = await api("/api/act", { id: S.id, name, args });
     S.sel = null;
     S.st = j.state;
-    if (j.battle) startBattle(j.battle);
+    if (j.battle) { SFX.play("endturn"); startBattle(j.battle); }
+    else actionSound(name, before, j.state.seats[0]);
     render();
-  } catch (e) { toast(e.message); }
+  } catch (e) { SFX.play("error"); toast(e.message); }
   finally { S.busy = false; }
 }
 
@@ -618,6 +721,10 @@ function renderPlay() {
   $("sellBtn").textContent = untargeted ? `Buy · ${selShop.cost} gold` : selTeam ? `Sell · +${selTeam.sell} gold` : "Sell";
   if (untargeted) $("sellBtn").disabled = !legal("buy_food_untargeted", [selShop.index]);
   $("endBtn").disabled = S.st.over;
+  const left = s.gold;
+  $("endBtn").classList.toggle("unspent", left > 0);
+  $("endBtn").textContent = left <= 0 ? "End turn" : S.confirmEnd ? "End turn anyway" : `End turn · ${left} gold left`;
+  $("endBtn").title = left > 0 ? "You still have gold. Unspent gold is lost when the turn ends." : "";
 }
 
 function renderWatch() {
@@ -648,7 +755,7 @@ function render() {
 
 // ---------------------------------------------------------------- battle
 function startBattle(b) {
-  S.battle = b; S.frame = 0; S.playing = true;
+  S.battle = b; S.frame = 0; S.playing = true; S.soundFrame = -1;
   $("battle").hidden = false;
   $("lblL").textContent = S.st.seats[0].label;
   $("lblR").textContent = S.st.seats[1].label;
@@ -669,8 +776,16 @@ function tick() {
   if (S.frame >= S.battle.frames.length - 1) { finishBattle(); return; }
   S.timer = setTimeout(() => { S.frame++; showFrame(false); tick(); }, Math.max(speed(), 250));
 }
+function frameSound(f, prev) {
+  const count = (fr) => fr.teams[0].length + fr.teams[1].length;
+  if (f.label.startsWith("Attack")) SFX.play("hit");
+  else if (f.lines.length) SFX.play("ability");
+  if (prev && count(f) < count(prev)) setTimeout(() => SFX.play("faint"), 140);
+}
 function showFrame(allLines) {
   const b = S.battle, f = b.frames[S.frame], prev = b.frames[S.frame - 1];
+  if (!allLines && S.frame > (S.soundFrame ?? -1)) frameSound(f, prev);
+  S.soundFrame = allLines ? b.frames.length : S.frame;
   $("frameLabel").textContent = `${f.label} · ${S.frame + 1}/${b.frames.length}`;
   const attack = f.label.startsWith("Attack");
   const lane = (team, prevTeam, left) => {
@@ -703,6 +818,13 @@ function finishBattle() {
     : `${o === "win" ? S.st.seats[0].label : S.st.seats[1].label} won`;
   $("bResult").textContent = txt;
   $("bResult").className = "result " + o;
+  const humanSide = S.st.seats[0].kind === "human";
+  if (S.st.over) {
+    const won = S.st.result === "seat0";
+    setTimeout(() => SFX.play(!humanSide || won ? "gamewin" : "gameloss"), 250);
+  } else {
+    SFX.play(o === "draw" ? "draw" : humanSide ? (o === "win" ? "win" : "loss") : "win");
+  }
   render();
   if (S.auto && S.mode === "watch" && !S.st.over) {
     S.timer = setTimeout(step, Math.max(speed(), 150) + 300);
@@ -822,6 +944,7 @@ async function step() {
   S.busy = true; render();
   try {
     const j = await api("/api/step", { id: S.id });
+    if (speed() > 0) SFX.play("endturn");
     S.st = j.state;
     S.busy = false;
     startBattle(j.battle);
@@ -891,7 +1014,20 @@ for (const [id, fn] of [["team", (el) => onTeam(Number(el.dataset.team))], ["sho
 $("rollBtn").onclick = () => act("roll");
 $("freezeBtn").onclick = () => S.sel && S.sel.type === "shop" && act("freeze", [S.sel.i]);
 $("sellBtn").onclick = sellOrBuy;
-$("endBtn").onclick = () => act("end_turn");
+function endTurn() {
+  const s = me();
+  if (!s) return;
+  if (s.gold > 0 && !S.confirmEnd) {
+    S.confirmEnd = true;
+    SFX.play("error");
+    toast(`You still have ${s.gold} gold, and unspent gold is lost. Press End turn again to end anyway.`);
+    render();
+    return;
+  }
+  S.confirmEnd = false;
+  act("end_turn");
+}
+$("endBtn").onclick = endTurn;
 $("newGame").onclick = newGame;
 $("newMatch").onclick = newMatch;
 $("stepBtn").onclick = () => { S.auto = false; step(); };
@@ -900,6 +1036,16 @@ $("autoBtn").onclick = () => {
   if (S.auto && S.st && !S.st.over && (!S.battle || !S.playing)) step();
 };
 $("seriesBtn").onclick = runSeries;
+function soundUI() {
+  $("muteBtn").textContent = SFX.muted || SFX.volume === 0 ? "🔇" : "🔊";
+  $("muteBtn").setAttribute("aria-pressed", String(SFX.muted));
+  $("muteBtn").title = SFX.muted ? "Sound is off. Click to turn it on." : "Sound is on. Click to mute.";
+  $("vol").value = Math.round(SFX.volume * 100);
+}
+$("muteBtn").onclick = () => { SFX.setMuted(!SFX.muted); soundUI(); if (!SFX.muted) SFX.play("buy"); };
+$("vol").oninput = () => { SFX.setVolume(Number($("vol").value) / 100); soundUI(); };
+$("vol").onchange = () => SFX.play("buy");
+soundUI();
 $("logFilter").onchange = renderLog;
 $("logCopy").onclick = async () => {
   try { await navigator.clipboard.writeText(logText()); toast("Log copied."); }
@@ -913,7 +1059,7 @@ $("logSave").onclick = () => {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };
 $("bPlay").onclick = () => {
-  if (!S.playing && S.frame >= S.battle.frames.length - 1) { S.frame = 0; showFrame(false); }
+  if (!S.playing && S.frame >= S.battle.frames.length - 1) { S.frame = 0; S.soundFrame = -1; showFrame(false); }
   S.playing = !S.playing; tick();
 };
 $("bPrev").onclick = () => { S.playing = false; tick(); if (S.frame > 0) { S.frame--; showFrame(false); } };
@@ -944,7 +1090,7 @@ document.addEventListener("keydown", (e) => {
   else if (k === "r") act("roll");
   else if (k === "f" && S.sel && S.sel.type === "shop") act("freeze", [S.sel.i]);
   else if (k === "s") sellOrBuy();
-  else if (e.key === "Enter" && !e.target.closest("[data-team],[data-shop],button")) act("end_turn");
+  else if (e.key === "Enter" && !e.target.closest("[data-team],[data-shop],button")) endTurn();
 });
 
 // ------------------------------------------------------------------- boot

@@ -22,6 +22,13 @@ sb3-contrib are not required to play.
 Agents: every model in `gui/models/` (the token transformer and MLP checkpoints
 with their benchmark ratings), the greedy bot and a random bot.
 
+## Sound
+
+Sound effects for buying, selling, rolling, freezing, feeding, stacking,
+leveling up, battle hits, faints and results. They are synthesized in the
+browser with the Web Audio API, so there are no audio files. Use the speaker
+button and volume slider at the top; the setting is remembered.
+
 ## Saved games
 
 Every game is saved to `gui/saves/<id>.json` after each move (the 100 most
