@@ -15,7 +15,9 @@ class TestReplays(unittest.TestCase):
         self.dir, self.index = replays.DIR, replays.INDEX
         replays.DIR = os.path.join(self.tmp, "replays")
         replays.INDEX = os.path.join(replays.DIR, "index.json")
-        game.load_model("token_16.8M", os.path.join(HERE, "..", "gui", "models", "token_16.8M.npz"))
+        game.load_model(
+            "token_16.8M", os.path.join(HERE, "..", "gui", "models", "token_16.8M.npz")
+        )
 
     def tearDown(self):
         replays.DIR, replays.INDEX = self.dir, self.index
@@ -33,7 +35,9 @@ class TestReplays(unittest.TestCase):
         doc = replays.get(rid)
         self.assertEqual(len(doc["rounds"]), 3)
         self.assertGreater(len(doc["rounds"][-1]["frames"]), 1)
-        self.assertTrue(doc["rounds"][0]["thoughts"][0])  # the model's reasoning is kept
+        self.assertTrue(
+            doc["rounds"][0]["thoughts"][0]
+        )  # the model's reasoning is kept
         self.assertEqual(len(replays.load_rounds(rid)), 3)
 
     def test_finished_game(self):
@@ -52,7 +56,9 @@ class TestReplays(unittest.TestCase):
         rid = "e" * 32
         m.do("end_turn")
         replays.record(rid, m)
-        self.assertEqual(replays.rename(rid, "First win", "vs greedy")["title"], "First win")
+        self.assertEqual(
+            replays.rename(rid, "First win", "vs greedy")["title"], "First win"
+        )
         self.assertEqual(replays.listing()[0]["note"], "vs greedy")
         replays.delete(rid)
         self.assertEqual(replays.listing(), [])

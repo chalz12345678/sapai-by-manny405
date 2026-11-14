@@ -376,9 +376,7 @@ def get_target(
 
     elif kind == "RandomLevel2And3Friends":
         ### Random friends (not self) that are level 2 or 3
-        keep_fidx = [
-            x for x in fidx if x != apet_idx[1] and fteam[x].pet.level > 1
-        ]
+        keep_fidx = [x for x in fidx if x != apet_idx[1] and fteam[x].pet.level > 1]
         if len(keep_fidx) == 0:
             return [], []
         n = min(n, len(keep_fidx))
@@ -714,8 +712,11 @@ def ModifyStats(apet, apet_idx, teams, te=None, te_idx=None, fixed_targets=None)
         "includingFuture" in apet.ability["effect"]["target"]
         and apet.ability["effect"]["target"]["includingFuture"] is True
     ):
-        shop = apet.shop if getattr(apet, "shop", None) is not None else (
-            target[0].shop if target else None)
+        shop = (
+            apet.shop
+            if getattr(apet, "shop", None) is not None
+            else (target[0].shop if target else None)
+        )
         if shop is not None:
             shop.shop_attack += attack_amount
             shop.shop_health += health_amount
