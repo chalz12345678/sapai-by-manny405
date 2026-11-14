@@ -200,6 +200,19 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
 .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .bar .grow { flex: 1 1 200px; min-width: 0; color: var(--muted); font-size: 13px; }
 .inspect { background: var(--sunk); border-radius: 10px; padding: 10px 12px; font-size: 13px; min-height: 40px; }
+/* The details box gets its own column so the board never moves when it changes */
+.board { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 16px; align-items: start; }
+.board-main { display: grid; gap: 12px; min-width: 0; grid-column: 1; grid-row: 1; }
+.board .inspect { grid-column: 2; grid-row: 1; position: sticky; top: calc(12px + env(safe-area-inset-top, 0px));
+  max-height: calc(100vh - 24px); overflow: auto; min-height: 220px; }
+.bar .grow { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#freezeBtn { min-width: 92px; } #sellBtn { min-width: 118px; }
+@media (max-width: 900px) {
+  .board { grid-template-columns: minmax(0, 1fr); }
+  .board .inspect { grid-column: 1; grid-row: 1; position: static; height: 150px; min-height: 0; max-height: none; }
+  .board-main { grid-row: 2; }
+  .bar .grow { flex-basis: 100%; order: 10; min-height: 1.45em; }
+}
 .inspect b { text-transform: capitalize; }
 
 /* ---------- battle ---------- */
@@ -449,10 +462,11 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
   </section>
 
   <div id="playArea">
-    <section class="panel" id="teamPanel" hidden>
+    <section class="panel board" id="teamPanel" hidden>
+      <aside class="inspect" id="inspect" aria-live="polite">Tap a shop pet, then tap an empty slot to buy it.</aside>
+      <div class="board-main">
       <div class="panel-head"><h2>Your team</h2><span class="front-note">front of the line →</span></div>
       <div class="row" id="team"></div>
-      <div class="inspect" id="inspect">Tap a shop pet, then tap an empty slot to buy it.</div>
       <div class="panel-head"><h2>Shop</h2><span class="note" id="shopNote"></span></div>
       <div class="row shop" id="shop"></div>
       <div class="bar">
@@ -463,6 +477,7 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
         <button class="btn primary big" id="endBtn">End turn</button>
       </div>
       <p class="help">Orange number = attack (damage dealt), red number = health. L = level, dots = experience toward the next level, T = tier, ★ = summoned pet. Shop pet → empty slot to buy, or onto the same pet to level it up. Food → a pet to feed it. Pet → another pet to swap them, or onto a copy to combine. Keys: <kbd>R</kbd> roll, <kbd>F</kbd> freeze, <kbd>S</kbd> sell, <kbd>Enter</kbd> end turn, <kbd>Esc</kbd> deselect.</p>
+      </div>
     </section>
   </div>
 
