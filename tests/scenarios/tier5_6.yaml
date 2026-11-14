@@ -1,0 +1,533 @@
+# Tier 5 and tier 6 battle abilities, worked out by hand from the ability
+# text and the standard rules. Front first. Filler pets with no battle
+# ability: Fish, Pig, Duck, Beaver (tier 1), Squirrel, Bison (tier 4).
+
+################################################################################
+#### Scorpion
+################################################################################
+
+- name: Scorpion's Peanut knocks out a big pet
+  source: 'Scorpion text "Summoned: Gain the Peanut perk (knocks out any pet it damages)"'
+  verified: false
+  team: [Scorpion 1/3 Peanut]
+  enemy: [Bison 40/40]
+  # Round 1: both take damage; Peanut knocks out the Bison.
+  result: draw
+  survivors: {team: [], enemy: []}
+
+# FIXED (was an engine mismatch): the Scorpion's "Summoned" ability fires when a FRIEND is
+# summoned (friend_summoned_trigger in sapai/pets.py never checks
+# triggeredBy Self), so the Zombie Cricket's summon gives the Scorpion Peanut
+# in place of its Garlic and the battle ends in a draw.
+- name: Scorpion does not gain Peanut when a friend is summoned
+  source: 'Scorpion text "Summoned: Gain the Peanut perk" (only when it is summoned itself)'
+  verified: false
+  team: [Cricket 1/1, Scorpion 1/3 L2 Garlic]
+  enemy: [Bison 5/50]
+  # Round 1: Cricket faints (Bison 5/49), Zombie Cricket 1/1 is summoned.
+  # Round 2: Zombie Cricket faints (Bison 5/48).
+  # Round 3: Scorpion keeps Garlic and takes 5-2 = 3: faints. Bison 5/47.
+  result: loss
+  survivors: {team: [], enemy: [Bison 5/47]}
+
+- name: Scorpion released by a Whale is summoned with Peanut
+  source: 'Scorpion text "Summoned: Gain the Peanut perk"; Whale text'
+  verified: false
+  team: [Scorpion 1/3 Garlic, Whale 3/7]
+  enemy: [Bison 5/50]
+  # Start: Whale swallows the Scorpion.
+  # Round 1: Whale 3/2, Bison 5/47. Round 2: Whale faints, Bison 5/44, and
+  # releases a level 1 Scorpion (1/3), which is summoned and gains Peanut.
+  # Round 3: Scorpion and Bison both faint.
+  result: draw
+  survivors: {team: [], enemy: []}
+
+################################################################################
+#### Crocodile
+################################################################################
+
+- name: Crocodile L1 hits the last enemy once
+  source: 'Crocodile text "Start of battle: Deal 8 damage to the last enemy. Triggers 1 time."'
+  verified: false
+  team: [Crocodile 8/4]
+  enemy: [Fish 2/3, Bison 4/8]
+  # Start: Bison takes 8 and faints. Round 1: Fish faints, Crocodile 8/2.
+  result: win
+  survivors: {team: [Crocodile 8/2], enemy: []}
+
+- name: Crocodile L2 second hit goes to the new last enemy
+  source: 'Crocodile text "Deal 8 damage to the last enemy. Triggers 2 times."'
+  verified: false
+  team: [Crocodile 8/4 L2]
+  enemy: [Fish 2/20, Bison 4/8, Squirrel 3/8]
+  # Start: Squirrel faints, then Bison (now the last enemy) faints.
+  # Round 1: Fish 2/12, Crocodile 8/2. Round 2: Fish 2/4, Crocodile faints.
+  result: loss
+  survivors: {team: [], enemy: [Fish 2/4]}
+
+- name: Crocodile L3 hits three times through Garlic
+  source: 'Crocodile text "Triggers 3 times."; Garlic "Take 2 less damage"'
+  verified: false
+  team: [Crocodile 8/4 L3]
+  enemy: [Bison 4/18 Garlic]
+  # Start: 3 hits of 8-2 = 6: Bison 18 -> 0, faints before any attack.
+  result: win
+  survivors: {team: [Crocodile 8/4 L3], enemy: []}
+
+- name: Tiger L2 behind Crocodile L1 repeats it as level 2
+  source: 'Tiger text "The friend ahead repeats its ability in battle as if it were level 2"'
+  verified: false
+  team: [Crocodile 8/4, Tiger 6/4 L2]
+  enemy: [Fish 2/10, Bison 4/8, Squirrel 3/8, Pig 4/8]
+  # Start: Crocodile hits Pig (faints); Tiger repeat as L2 hits Squirrel then
+  # Bison (both faint). Round 1: Fish 2/2, Crocodile 8/2. Round 2: both faint.
+  result: win
+  survivors: {team: [Tiger 6/4 L2], enemy: []}
+
+################################################################################
+#### Rhino
+################################################################################
+
+- name: Rhino L1 knock-out chain with double damage to tier 1
+  source: 'Rhino text "Knock out: Deal 4 damage to the first enemy. Double damage against tier 1 pets."'
+  verified: false
+  team: [Rhino 6/10]
+  enemy: [Pig 4/1, Fish 2/8, Squirrel 3/5]
+  # Round 1: Rhino knocks out Pig, Rhino 6/6. Knock out: 8 to Fish (tier 1),
+  # Fish faints. Knock out again: 4 to Squirrel (tier 4): 3/1, survives.
+  # Round 2: Squirrel faints, Rhino 6/3.
+  result: win
+  survivors: {team: [Rhino 6/3], enemy: []}
+
+- name: Rhino L3 deals 12, 24 against tier 1
+  source: 'Rhino text "Knock out: Deal 12 damage to the first enemy. Double damage against tier 1 pets."'
+  verified: false
+  team: [Rhino 6/10 L3]
+  enemy: [Pig 4/1, Squirrel 3/12, Fish 2/30]
+  # Round 1: Pig out, Rhino 6/6. 12 to Squirrel: faints. 24 to Fish: 2/6.
+  # Round 2: Fish faints, Rhino 6/4.
+  result: win
+  survivors: {team: [Rhino 6/4 L3], enemy: []}
+
+# FIXED (was an engine mismatch): battle_phase_knockout (sapai/battle.py) re-runs Rhino's
+# ability whenever phase_hurt_and_faint_k grew, and a Hurt ability (Gorilla
+# gaining Coconut) grows it too. Rhino then fires a second time without a
+# knock-out and strips the Gorilla's new Coconut, so the engine gives a draw.
+- name: Rhino only repeats on a knock-out, not when the target's Hurt ability fires
+  source: 'Rhino text "Knock out: ..."; Gorilla text "Hurt: Gain Coconut"'
+  verified: false
+  team: [Rhino 6/10]
+  enemy: [Pig 4/1, Gorilla 7/10]
+  # Round 1: Rhino knocks out Pig, Rhino 6/6. Knock out: 4 to Gorilla (7/6),
+  # which gains Coconut. No knock-out, so Rhino stops.
+  # Round 2: Coconut blocks Rhino's hit; Rhino takes 7 and faints.
+  result: loss
+  survivors: {team: [], enemy: [Gorilla 7/6]}
+
+- name: Tiger behind Rhino repeats the knock-out damage
+  source: 'Tiger text "repeats its ability in battle as if it were level 1"'
+  verified: false
+  team: [Rhino 6/10, Tiger 6/4]
+  enemy: [Pig 4/1, Squirrel 3/10, Bison 4/10]
+  # Round 1: Pig out, Rhino 6/6. 4 + 4 (Tiger) to Squirrel: 3/2.
+  # Round 2: Squirrel out, Rhino 6/3. 4 + 4 to Bison: 4/2.
+  # Round 3: Bison and Rhino both faint.
+  result: win
+  survivors: {team: [Tiger 6/4], enemy: []}
+
+################################################################################
+#### Armadillo
+################################################################################
+
+- name: Armadillo L1 gives every pet, itself included, +8 health
+  source: 'Armadillo text "Start of battle: Give all pets (friends and enemies) +8 health."'
+  verified: false
+  team: [Armadillo 4/8]
+  enemy: [Bison 4/4]
+  # Start: Armadillo 4/16, Bison 4/12. Rounds 1-3: Bison faints, Armadillo 4/4.
+  result: win
+  survivors: {team: [Armadillo 4/4], enemy: []}
+
+- name: Armadillo L2 gives +16 health to friends and enemies
+  source: 'Armadillo text "Give all pets (friends and enemies) +16 health."'
+  verified: false
+  team: [Armadillo 4/8 L2, Fish 2/3]
+  enemy: [Bison 10/2]
+  # Start: Armadillo 4/24, Fish 2/19, Bison 10/18.
+  # Rounds 1-3: Armadillo faints (24-30), Bison 10/6.
+  # Rounds 4-5: Fish faints (19-20), Bison 10/2.
+  result: loss
+  survivors: {team: [], enemy: [Bison 10/2]}
+
+# FIXED (was an engine mismatch): until-end-of-battle health (ModifyStats with
+# untilEndOfBattle in sapai/effects.py) is never capped; Pet.health in
+# sapai/pets.py only hides the extra. The hidden extra absorbs damage, so
+# Armadillo 4/30 +24 survives a 50 hit and Bison stays at 50.
+- name: Armadillo L3 health is capped at 50
+  source: 'Armadillo text "+24 health"; rules max_stat 50'
+  verified: false
+  team: [Armadillo 4/30 L3]
+  enemy: [Bison 50/40]
+  # Start: Armadillo 4/50 (capped from 54), Bison 50/50 (capped from 64).
+  # Round 1: Armadillo takes 50 and faints; Bison 50/46.
+  result: loss
+  survivors: {team: [], enemy: [Bison 50/46]}
+
+################################################################################
+#### Rooster
+################################################################################
+
+- name: Rooster L1 summons one Chick with half its attack
+  source: 'Rooster text "Faint: Summon one Chick with 50% of this pet''s attack and 1 health."'
+  verified: false
+  team: [Rooster 6/1]
+  enemy: [Bison 4/10]
+  # Round 1: Rooster faints, Bison 4/4; Chick 3/1. Round 2: Chick faints, Bison 4/1.
+  result: loss
+  survivors: {team: [], enemy: [Bison 4/1]}
+
+- name: Rooster L3 only summons as many Chicks as there is room for
+  source: 'Rooster text "Summon three Chicks"; max team size 5'
+  verified: false
+  team: [Rooster 6/1 L3, Fish 2/1, Pig 1/1, Duck 1/1]
+  enemy: [Bison 1/50]
+  # Round 1: Rooster faints, Bison 1/44. Room for two Chicks 3/1.
+  # Then Chick, Chick, Fish, Pig, Duck each faint: 3+3+2+1+1 = 10.
+  result: loss
+  survivors: {team: [], enemy: [Bison 1/34]}
+
+- name: Turkey buffs each Chick the Rooster summons
+  source: 'Rooster text "Summon two Chicks"; Turkey text "Friend summoned: Give it +3 attack and +1 health."'
+  verified: false
+  team: [Rooster 6/1 L2, Turkey 3/4]
+  enemy: [Bison 4/30]
+  # Round 1: Rooster faints, Bison 4/24; two Chicks 3/1 -> 6/2.
+  # Round 2: Chick faints, Bison 4/18. Round 3: Chick faints, Bison 4/12.
+  # Round 4: Turkey 3/0 faints, Bison 4/9.
+  result: loss
+  survivors: {team: [], enemy: [Bison 4/9]}
+
+################################################################################
+#### Shark
+################################################################################
+
+- name: Shark L1 gains +2/+2 for each friend that faints
+  source: 'Shark text "Friend faints: Gain +2 attack and +2 health."'
+  verified: false
+  team: [Fish 2/1, Pig 1/1, Shark 2/2]
+  enemy: [Bison 1/10]
+  # Round 1: Fish faints, Shark 4/4, Bison 1/8. Round 2: Pig faints, Shark
+  # 6/6, Bison 1/7. Round 3: Shark 6/5, Bison 1/1. Round 4: Bison faints, Shark 6/4.
+  result: win
+  survivors: {team: [Shark 6/4], enemy: []}
+
+- name: Shark L2 gains for every friend that faints in a Hedgehog chain
+  source: 'Shark text "Friend faints: Gain +4 attack and +4 health."'
+  verified: false
+  team: [Hedgehog 4/1, Fish 2/2, Shark 2/10 L2]
+  enemy: [Bison 1/50]
+  # Round 1: Hedgehog faints, Bison 1/46; Hedgehog deals 2 to all: Fish
+  # faints, Shark 2/8, Bison 1/44. Two friends fainted: Shark 10/16.
+  # Rounds 2-6: Bison takes 50 and faints; Shark takes 5: 10/11.
+  result: win
+  survivors: {team: [Shark 10/11 L2], enemy: []}
+
+################################################################################
+#### Turkey
+################################################################################
+
+- name: Turkey L1 buffs a summoned Zombie Cricket
+  source: 'Turkey text "Friend summoned: Give it +3 attack and +1 health."'
+  verified: false
+  team: [Cricket 1/1, Turkey 3/4]
+  enemy: [Bison 2/8]
+  # Round 1: Cricket faints, Bison 2/7; Zombie Cricket 1/1 -> 4/2.
+  # Round 2: Zombie Cricket faints, Bison 2/3. Round 3: Bison faints, Turkey 3/2.
+  result: win
+  survivors: {team: [Turkey 3/2], enemy: []}
+
+- name: Tiger behind Turkey L3 repeats the summon buff as level 1
+  source: 'Turkey text "+9 attack and +3 health"; Tiger text "as if it were level 1"'
+  verified: false
+  team: [Cricket 1/1, Turkey 3/4 L3, Tiger 6/4]
+  enemy: [Bison 1/30]
+  # Round 1: Cricket faints, Bison 1/29; Zombie Cricket 1/1 +9/+3 +3/+1 = 13/5.
+  # Rounds 2-4: Bison faints (29-39), Zombie Cricket 13/2.
+  result: win
+  survivors: {team: [Zombie Cricket 13/2, Turkey 3/4 L3, Tiger 6/4], enemy: []}
+
+################################################################################
+#### Leopard
+################################################################################
+
+- name: Leopard L1 deals half its attack to one enemy
+  source: 'Leopard text "Start of battle: Deal 50% of this pet''s attack as damage to one random enemy."'
+  verified: false
+  team: [Leopard 10/4]
+  enemy: [Bison 4/5]
+  result: win
+  survivors: {team: [Leopard 10/4], enemy: []}
+
+- name: Leopard L2 hits two enemies
+  source: 'Leopard text "... to two random enemies."'
+  verified: false
+  team: [Leopard 10/4 L2]
+  enemy: [Bison 4/5, Squirrel 3/5]
+  result: win
+  survivors: {team: [Leopard 10/4 L2], enemy: []}
+
+- name: Leopard L3 with fewer than three enemies hits each once
+  source: 'Leopard text "... to three random enemies."'
+  verified: false
+  team: [Leopard 10/4 L3]
+  enemy: [Bison 4/5, Squirrel 3/6]
+  # Start: Bison faints, Squirrel 3/1. Round 1: Squirrel faints, Leopard 10/1.
+  result: win
+  survivors: {team: [Leopard 10/1 L3], enemy: []}
+
+################################################################################
+#### Boar
+################################################################################
+
+- name: Boar L1 gains +4/+2 before it attacks
+  source: 'Boar text "Before attack: Gain +4 attack and +2 health."'
+  verified: false
+  team: [Boar 10/6]
+  enemy: [Bison 15/20]
+  # Round 1: Boar 14/8 attacks: Bison 15/6, Boar faints.
+  result: loss
+  survivors: {team: [], enemy: [Bison 15/6]}
+
+- name: Boar L2 gains before every attack
+  source: 'Boar text "Before attack: Gain +8 attack and +4 health."'
+  verified: false
+  team: [Boar 10/6 L2]
+  enemy: [Bison 5/40]
+  # Round 1: Boar 18/10, Bison 5/22, Boar 18/5.
+  # Round 2: Boar 26/9, Bison faints, Boar 26/4.
+  result: win
+  survivors: {team: [Boar 26/4 L2], enemy: []}
+
+- name: Boar behind the front pet does not gain
+  source: 'Boar text "Before attack" (only the attacking pet)'
+  verified: false
+  team: [Fish 2/3, Boar 10/6]
+  enemy: [Bison 4/7]
+  # Round 1: Fish faints, Bison 4/5. Round 2: Boar 14/8, Bison faints, Boar 14/4.
+  result: win
+  survivors: {team: [Boar 14/4], enemy: []}
+
+- name: Tiger behind Boar repeats the before-attack gain
+  source: 'Tiger text "repeats its ability in battle as if it were level 1"'
+  verified: false
+  team: [Boar 10/6, Tiger 6/4]
+  enemy: [Bison 4/30]
+  # Round 1: Boar 14/8 then 18/10; Bison 4/12, Boar 18/6.
+  # Round 2: Boar 26/10; Bison faints, Boar 26/6.
+  result: win
+  survivors: {team: [Boar 26/6, Tiger 6/4], enemy: []}
+
+- name: Boar L3 stats stop at 50
+  source: 'Boar text "+12 attack and +6 health"; rules max_stat 50'
+  verified: false
+  team: [Boar 48/6 L3]
+  enemy: [Bison 1/50]
+  # Round 1: Boar 50/12, Bison faints, Boar 50/11.
+  result: win
+  survivors: {team: [Boar 50/11 L3], enemy: []}
+
+################################################################################
+#### Tiger
+################################################################################
+
+- name: Tiger L2 behind Mammoth repeats its faint buff as level 2
+  source: 'Tiger text "as if it were level 2"; Mammoth text "Faint: Give all friends +2 attack and +2 health."'
+  verified: false
+  team: [Mammoth 4/1, Tiger 6/4 L2, Fish 2/3]
+  enemy: [Bison 4/5]
+  # Round 1: Mammoth faints, Bison 4/1. +2/+2 then +4/+4: Tiger 12/10, Fish 8/9.
+  # Round 2: Bison faints, Tiger 12/6.
+  result: win
+  survivors: {team: [Tiger 12/6 L2, Fish 8/9], enemy: []}
+
+- name: Tiger L1 behind Mammoth L3 repeats it as level 1, not level 3
+  source: 'Tiger text "as if it were level 1"'
+  verified: false
+  team: [Mammoth 4/1 L3, Tiger 6/4]
+  enemy: [Bison 4/5]
+  # Round 1: Mammoth faints, Bison 4/1. +6/+6 then +2/+2: Tiger 14/12.
+  # Round 2: Bison faints, Tiger 14/8.
+  result: win
+  survivors: {team: [Tiger 14/8], enemy: []}
+
+- name: Tiger behind Snake repeats the snake shot
+  source: 'Tiger text; Snake text "Friend ahead attacks: Deal 5 damage to one random enemy."'
+  verified: false
+  team: [Fish 2/50, Snake 8/3, Tiger 6/4]
+  enemy: [Bison 4/12]
+  # Round 1: Bison 12 - 2 - 5 - 5 = 0, faints. Fish 2/46.
+  result: win
+  survivors: {team: [Fish 2/46, Snake 8/3, Tiger 6/4], enemy: []}
+
+################################################################################
+#### Wolverine
+################################################################################
+
+- name: Wolverine L1 removes 3 health from all enemies on the 4th friend hurt
+  source: 'Wolverine text "Friend hurt: Every 4 times, remove 3 health from all enemies."'
+  verified: false
+  team: [Fish 1/50, Wolverine 5/7]
+  enemy: [Pig 1/1, Pig 1/1, Pig 1/1, Pig 1/1, Pig 10/4]
+  # Rounds 1-4: Fish is hurt each round (1/46) and knocks out a Pig. The 4th
+  # hurt: Pig 10/4 -> 10/1. Round 5: Pig faints, Fish 1/36.
+  result: win
+  survivors: {team: [Fish 1/36, Wolverine 5/7], enemy: []}
+
+- name: Wolverine L3 removes 9 health
+  source: 'Wolverine text "Every 4 times, remove 9 health from all enemies."'
+  verified: false
+  team: [Fish 1/50, Wolverine 5/7 L3]
+  enemy: [Pig 1/1, Pig 1/1, Pig 1/1, Pig 1/1, Pig 10/10]
+  result: win
+  survivors: {team: [Fish 1/36, Wolverine 5/7 L3], enemy: []}
+
+################################################################################
+#### Gorilla
+################################################################################
+
+- name: Gorilla L1 gains Coconut once
+  source: 'Gorilla text "Hurt: Gain Coconut. Works 1 time per battle."'
+  verified: false
+  team: [Gorilla 7/10]
+  enemy: [Bison 4/20]
+  # Round 1: Gorilla 7/6 + Coconut, Bison 4/13. Round 2: Coconut blocks,
+  # Bison 4/6. Round 3: Gorilla 7/2 (no more Coconut), Bison faints.
+  result: win
+  survivors: {team: [Gorilla 7/2], enemy: []}
+
+# FIXED (was an engine mismatch): a hit fully blocked by Coconut still calls Pet.hurt(0)
+# (get_attack/battle_phase_attack in sapai/battle.py), which counts as being
+# hurt, so Gorilla L2 spends its second use on the blocked hit and re-gains
+# Coconut at once. Engine: Gorilla never takes damage until both uses are
+# gone, ending with Squirrel 1/8.
+- name: Gorilla L2 is not hurt by a hit its Coconut blocks
+  source: 'Gorilla text "Hurt: Gain Coconut. Works 2 times per battle."; Coconut "Ignore all damage from one hit"'
+  verified: false
+  team: [Gorilla 7/10 L2]
+  enemy: [Bison 4/20, Squirrel 1/50]
+  # Round 1: Gorilla 7/6 + Coconut (use 1), Bison 4/13.
+  # Round 2: Coconut blocks (no damage, not hurt), Bison 4/6.
+  # Round 3: Gorilla 7/2 + Coconut (use 2), Bison faints.
+  # Round 4: Coconut blocks, Squirrel 1/43. Round 5: Gorilla 7/1, Squirrel
+  # 1/36. Round 6: Gorilla faints, Squirrel 1/29.
+  result: loss
+  survivors: {team: [], enemy: [Squirrel 1/29]}
+
+################################################################################
+#### Mammoth
+################################################################################
+
+- name: Mammoth L1 gives all friends +2/+2 when it faints
+  source: 'Mammoth text "Faint: Give all friends +2 attack and +2 health."'
+  verified: false
+  team: [Mammoth 4/1, Fish 2/3, Pig 1/1]
+  enemy: [Bison 4/10]
+  # Round 1: Mammoth faints, Bison 4/6; Fish 4/5, Pig 3/3.
+  # Round 2: Fish 4/1, Bison 4/2. Round 3: both faint.
+  result: win
+  survivors: {team: [Pig 3/3], enemy: []}
+
+- name: Mammoth L3 buff stops at 50
+  source: 'Mammoth text "+6 attack and +6 health"; rules max_stat 50'
+  verified: false
+  team: [Mammoth 4/1 L3, Fish 48/48]
+  enemy: [Bison 1/50]
+  # Round 1: Mammoth faints, Bison 1/46; Fish 50/50. Round 2: Bison faints, Fish 50/49.
+  result: win
+  survivors: {team: [Fish 50/49], enemy: []}
+
+################################################################################
+#### Snake
+################################################################################
+
+- name: Snake L1 shoots after the friend ahead attacks
+  source: 'Snake text "Friend ahead attacks: Deal 5 damage to one random enemy."'
+  verified: false
+  team: [Fish 2/50, Snake 8/3]
+  enemy: [Bison 4/12]
+  # Round 1: Bison 4/5, Fish 2/46. Round 2: Bison faints, Fish 2/42.
+  result: win
+  survivors: {team: [Fish 2/42, Snake 8/3], enemy: []}
+
+- name: Snake L2 does not shoot an enemy that was knocked out by the attack
+  source: 'Snake text "Deal 10 damage to one random enemy."'
+  verified: false
+  team: [Fish 2/50, Snake 8/3 L2]
+  enemy: [Bison 4/2, Squirrel 3/10]
+  # Round 1: Fish knocks out Bison; the only enemy left is Squirrel: faints.
+  result: win
+  survivors: {team: [Fish 2/46, Snake 8/3 L2], enemy: []}
+
+- name: Snake L3 deals 15
+  source: 'Snake text "Deal 15 damage to one random enemy."'
+  verified: false
+  team: [Fish 2/50, Snake 8/3 L3]
+  enemy: [Bison 4/17]
+  result: win
+  survivors: {team: [Fish 2/46, Snake 8/3 L3], enemy: []}
+
+# FIXED (was an engine mismatch): after_attack_trigger (sapai/pets.py) does not check that a
+# FriendAhead pet is still alive, so a Snake knocked out by Chili splash in the
+# same attack still deals its 5 damage (engine: Fish 10/42).
+- name: Snake knocked out by Chili splash does not shoot
+  source: 'Snake text "Friend ahead attacks"; Chili "5 damage to the enemy behind the target"'
+  verified: false
+  team: [Fish 10/50, Snake 8/3]
+  enemy: [Bison 4/22 Chili]
+  # Round 1: Bison 4/12, Fish 10/46, Snake takes 5 and faints.
+  # Round 2: Bison 4/2, Fish 10/42. Round 3: Bison faints, Fish 10/38.
+  result: win
+  survivors: {team: [Fish 10/38], enemy: []}
+
+################################################################################
+#### Fly
+################################################################################
+
+- name: Fly L1 summons a 4/4 Zombie Fly, but not for a fainted Zombie Fly
+  source: 'Fly text "Friend faints: Summon one 4/4 Zombie Fly in its place. Works 3 times per turn."'
+  verified: false
+  team: [Fish 2/1, Fly 4/4]
+  enemy: [Bison 1/20]
+  # Round 1: Fish faints, Bison 1/18; Zombie Fly 4/4 in front.
+  # Rounds 2-5: Zombie Fly faints, Bison 1/2. Round 6: Bison faints, Fly 4/3.
+  result: win
+  survivors: {team: [Fly 4/3], enemy: []}
+
+- name: Fly works only 3 times
+  source: 'Fly text "Works 3 times per turn."'
+  verified: false
+  team: [Fish 2/1, Pig 1/1, Duck 1/1, Beaver 1/1, Fly 4/4]
+  enemy: [Bison 4/50]
+  # Each pet faints to one hit. Fish, Pig and Duck each get a Zombie Fly 4/4;
+  # Beaver does not. Damage: 2+4+1+4+1+4+1+4 = 21.
+  result: loss
+  survivors: {team: [], enemy: [Bison 4/29]}
+
+- name: Fly L2 summons an 8/8 Zombie Fly
+  source: 'Fly text "Summon one 8/8 Zombie Fly"'
+  verified: false
+  team: [Fish 2/1, Fly 4/4 L2]
+  enemy: [Bison 4/9]
+  # Round 1: Fish faints, Bison 4/7. Round 2: Bison faints, Zombie Fly 8/4.
+  result: win
+  survivors: {team: [Zombie Fly 8/4, Fly 4/4 L2], enemy: []}
+
+- name: Fly summons the Zombie Fly in the fainted friend's place
+  source: 'Fly text "in its place"'
+  verified: false
+  team: [Fish 2/50, Pig 4/1, Fly 4/4]
+  enemy: [Hedgehog 1/1]
+  # Round 1: Hedgehog faints (Fish 2/49) and deals 2 to all: Fish 2/47, Pig
+  # faints, Fly 4/2. Zombie Fly 4/4 goes where Pig was.
+  result: win
+  survivors: {team: [Fish 2/47, Zombie Fly 4/4, Fly 4/2], enemy: []}

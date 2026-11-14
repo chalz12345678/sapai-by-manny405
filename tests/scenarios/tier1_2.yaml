@@ -1,0 +1,522 @@
+# Tier 1 and tier 2 pet abilities, worked out by hand from the ability text
+# in data/turtle_pack.yaml. Front of the team first; stats as the game shows
+# them at the start of the battle. Pig and Fish have no battle ability, so
+# they are used as plain stat sticks.
+
+################################################################################
+# Ant: "Faint: Give one random friend +1/+2/+3 attack and health"
+################################################################################
+
+- name: Ant L1 gives its only friend +1/+1
+  source: 'Ant text "Faint: Give one random friend +1 attack and +1 health"'
+  verified: false
+  team: [Ant 2/1, Fish 2/4]
+  enemy: [Pig 2/6]
+  # R1: Ant faints, Pig 2/4; Fish 3/5. R2: Fish 3/3, Pig 2/1.
+  # R3: Fish 3/1, Pig faints.
+  result: win
+  survivors: {team: [Fish 3/1], enemy: []}
+
+- name: Ant L2 gives its only friend +2/+2
+  source: 'Ant text "Faint: Give one random friend +2 attack and +2 health"'
+  verified: false
+  team: [Ant 1/1 L2, Fish 2/2]
+  enemy: [Pig 1/1, Pig 3/3]
+  # R1: Ant and Pig faint; Fish 4/4. R2: Fish 4/1, Pig faints.
+  result: win
+  survivors: {team: [Fish 4/1], enemy: []}
+
+- name: Ant L3 gives +3/+3 but stats stop at 50
+  source: 'Ant text "Faint: Give one random friend +3 attack and +3 health"; max stat 50'
+  verified: false
+  team: [Ant 1/1 L3, Fish 49/49]
+  enemy: [Pig 1/1]
+  # R1: Ant and Pig faint; Fish 52/52 capped to 50/50.
+  result: win
+  survivors: {team: [Fish 50/50], enemy: []}
+
+- name: Ant does not buff enemies
+  source: 'Ant text "Give one random friend"'
+  verified: false
+  team: [Ant 2/1]
+  enemy: [Pig 2/3]
+  # R1: Ant faints with no friend to buff; Pig 2/1.
+  result: loss
+  survivors: {team: [], enemy: [Pig 2/1]}
+
+################################################################################
+# Cricket: "Faint: Summon one 1/1 / 2/2 / 3/3 Cricket"
+################################################################################
+
+- name: Cricket L1 summons a 1/1
+  source: 'Cricket text "Faint: Summon one 1/1 Cricket"'
+  verified: false
+  team: [Cricket 1/1]
+  enemy: [Pig 1/3]
+  # R1: Cricket faints, Pig 1/2; Zombie Cricket 1/1. R2: it faints, Pig 1/1.
+  result: loss
+  survivors: {team: [], enemy: [Pig 1/1]}
+
+- name: Cricket L2 summons a 2/2
+  source: 'Cricket text "Faint: Summon one 2/2 Cricket"'
+  verified: false
+  team: [Cricket 1/1 L2]
+  enemy: [Pig 1/3]
+  # R1: Pig 1/2; Zombie Cricket 2/2. R2: Zombie Cricket 2/1, Pig faints.
+  result: win
+  survivors: {team: [Zombie Cricket 2/1], enemy: []}
+
+- name: Cricket L3 summons a 3/3
+  source: 'Cricket text "Faint: Summon one 3/3 Cricket"'
+  verified: false
+  team: [Cricket 1/1 L3]
+  enemy: [Pig 1/3, Pig 2/2]
+  # R1: Pig 1/2; Zombie Cricket 3/3. R2: ZC 3/2, Pig faints.
+  # R3: ZC and Pig 2/2 both faint.
+  result: draw
+  survivors: {team: [], enemy: []}
+
+- name: Cricket summons in its own place, ahead of the friends behind it
+  source: 'Cricket text "Faint: Summon one 1/1 Cricket"; summons take the fainted pet''s place'
+  verified: false
+  team: [Cricket 1/1, Fish 1/5]
+  enemy: [Pig 1/1, Pig 3/1]
+  # R1: Cricket and Pig 1/1 faint; Zombie Cricket 1/1 in front of Fish.
+  # R2: ZC and Pig 3/1 both faint. Fish is untouched.
+  result: win
+  survivors: {team: [Fish 1/5], enemy: []}
+
+################################################################################
+# Horse: "Friend summoned: Give it +1/+2/+3 attack until end of battle"
+################################################################################
+
+- name: Horse L1 gives a summoned Zombie Cricket +1 attack
+  source: 'Horse text "Friend summoned: Give it +1 attack until end of battle"'
+  verified: false
+  team: [Cricket 1/1, Horse 1/1]
+  enemy: [Pig 1/1, Pig 2/3]
+  # R1: Cricket and Pig 1/1 faint; Zombie Cricket 1/1 +1 = 2/1.
+  # R2: ZC faints, Pig 2/1. R3: Horse and Pig both faint.
+  result: draw
+  survivors: {team: [], enemy: []}
+
+- name: Horse L2 gives a summoned Zombie Cricket +2 attack
+  source: 'Horse text "Friend summoned: Give it +2 attack until end of battle"'
+  verified: false
+  team: [Cricket 1/1, Horse 1/1 L2]
+  enemy: [Pig 1/1, Pig 1/4]
+  # R1: ZC 3/1. R2: ZC faints, Pig 1/1. R3: Horse and Pig both faint.
+  result: draw
+  survivors: {team: [], enemy: []}
+
+- name: Horse L3 gives a summoned Zombie Cricket +3 attack
+  source: 'Horse text "Friend summoned: Give it +3 attack until end of battle"'
+  verified: false
+  team: [Cricket 1/1, Horse 1/1 L3]
+  enemy: [Pig 1/1, Pig 1/4]
+  # R1: ZC 4/1. R2: ZC and Pig 1/4 both faint.
+  result: win
+  survivors: {team: [Horse 1/1 L3], enemy: []}
+
+# FIXED (was an engine mismatch): the engine never runs friend-summoned abilities of the team
+# a pet is summoned onto when the summoner is on the other team
+# (sapai/battle.py check_summon_triggers returns early for team "Enemy"), so
+# the enemy Horse does not buff the Dirty Rat. In the engine Fish trades with
+# the Pig and only the Horse survives.
+- name: Horse buffs a Dirty Rat that the opponent's Rat summons onto its team
+  source: 'Horse text "Friend summoned: Give it +1 attack"; Rat text "Summon ... at the front of the opponent''s team"'
+  verified: false
+  team: [Rat 1/1, Fish 2/3]
+  enemy: [Pig 1/5, Horse 1/1]
+  # R1: Rat faints, Pig 1/4; Dirty Rat 1/1 joins the enemy front and their
+  # Horse makes it 2/1. R2: Fish 2/1, Dirty Rat faints.
+  # R3: Fish faints, Pig 1/2.
+  result: loss
+  survivors: {team: [], enemy: [Pig 1/2, Horse 1/1]}
+
+################################################################################
+# Mosquito: "Start of battle: Deal 1 damage to one/two/three random enemies"
+################################################################################
+
+- name: Mosquito L1 hits the only enemy
+  source: 'Mosquito text "Start of battle: Deal 1 damage to one random enemy"'
+  verified: false
+  team: [Mosquito 2/2]
+  enemy: [Pig 2/3]
+  # Start: Pig 2/2. R1: both faint.
+  result: draw
+  survivors: {team: [], enemy: []}
+
+- name: Mosquito L2 hits two enemies
+  source: 'Mosquito text "Start of battle: Deal 1 damage to two random enemies"'
+  verified: false
+  team: [Mosquito 1/5 L2]
+  enemy: [Pig 1/1, Pig 1/1]
+  # Start: both Pigs faint.
+  result: win
+  survivors: {team: [Mosquito 1/5 L2], enemy: []}
+
+- name: Mosquito L3 hits three enemies
+  source: 'Mosquito text "Start of battle: Deal 1 damage to three random enemies"'
+  verified: false
+  team: [Mosquito 1/5 L3]
+  enemy: [Pig 1/1, Pig 1/1, Pig 1/1]
+  result: win
+  survivors: {team: [Mosquito 1/5 L3], enemy: []}
+
+- name: Mosquito L3 with only two enemies hits both
+  source: 'Mosquito text "Deal 1 damage to three random enemies"'
+  verified: false
+  team: [Mosquito 1/5 L3]
+  enemy: [Pig 1/2, Pig 1/1]
+  # Start: Pig 1/1, other Pig faints. R1: Mosquito 1/4, Pig faints.
+  result: win
+  survivors: {team: [Mosquito 1/4 L3], enemy: []}
+
+- name: Mosquito damage on Garlic is still 1
+  source: 'Mosquito text; Garlic text "Take 2 less damage (minimum 1)"'
+  verified: false
+  team: [Mosquito 1/3]
+  enemy: [Pig 1/1 Garlic]
+  result: win
+  survivors: {team: [Mosquito 1/3], enemy: []}
+
+- name: Mosquito damage is blocked by Coconut, which is then used up
+  source: 'Mosquito text; Coconut text "Ignore all damage from one hit, once"'
+  verified: false
+  team: [Mosquito 1/3]
+  enemy: [Pig 1/1 Coconut]
+  # Start: blocked, Coconut gone. R1: Mosquito 1/2, Pig faints.
+  result: win
+  survivors: {team: [Mosquito 1/2], enemy: []}
+
+- name: Mosquito knocking out a Hedgehog sets off its faint damage
+  source: 'Mosquito text; Hedgehog text "Faint: Deal 2 damage to all pets"'
+  verified: false
+  team: [Mosquito 1/3]
+  enemy: [Hedgehog 1/1]
+  # Start: Hedgehog faints and deals 2 to Mosquito (1/1).
+  result: win
+  survivors: {team: [Mosquito 1/1], enemy: []}
+
+################################################################################
+# Crab: "Start of battle: Copy 25%/50%/75% of health from the most healthy
+# friend". "Copy" is read as: the Crab's health becomes that amount.
+################################################################################
+
+- name: Crab L1 copies 25% of the healthiest friend's health
+  source: 'Crab text "Start of battle: Copy 25% of health from the most healthy friend"'
+  verified: false
+  team: [Crab 3/1, Fish 1/8]
+  enemy: [Pig 1/2]
+  # Start: Crab health = 25% of 8 = 2. R1: Crab 3/1, Pig faints.
+  result: win
+  survivors: {team: [Crab 3/1, Fish 1/8], enemy: []}
+
+- name: Crab L2 copies 50% of the healthiest friend's health
+  source: 'Crab text "Start of battle: Copy 50% of health from the most healthy friend"'
+  verified: false
+  team: [Crab 3/1 L2, Fish 1/8, Fish 1/4]
+  enemy: [Pig 1/2]
+  # Start: Crab health = 50% of 8 = 4. R1: Crab 3/3, Pig faints.
+  result: win
+  survivors: {team: [Crab 3/3 L2, Fish 1/8, Fish 1/4], enemy: []}
+
+- name: Crab L3 copies 75% of the healthiest friend's health
+  source: 'Crab text "Start of battle: Copy 75% of health from the most healthy friend"'
+  verified: false
+  team: [Crab 3/1 L3, Fish 1/8]
+  enemy: [Pig 1/2]
+  # Start: Crab health = 75% of 8 = 6. R1: Crab 3/5, Pig faints.
+  result: win
+  survivors: {team: [Crab 3/5 L3, Fish 1/8], enemy: []}
+
+# FIXED (was an engine mismatch): the engine counts the Crab itself as its "most healthy
+# friend" (HighestHealthFriend in sapai/effects.py get_target does not leave
+# out the activating pet), so it copies 25% of its own 12 health (3/3, then
+# 3/2 after round 1).
+- name: Crab copies a friend, not itself, even when it is the healthiest
+  source: 'Crab text "Copy 25% of health from the most healthy friend"'
+  verified: false
+  team: [Crab 3/12, Fish 1/8]
+  enemy: [Pig 1/2]
+  # Start: Crab health = 25% of 8 = 2. R1: Crab 3/1, Pig faints.
+  result: win
+  survivors: {team: [Crab 3/1, Fish 1/8], enemy: []}
+
+# FIXED (was an engine mismatch): same cause as above. With no friend the engine copies 25%
+# of the Crab's own health (12 -> 3).
+- name: Crab with no friends keeps its health
+  source: 'Crab text "Copy 25% of health from the most healthy friend"'
+  verified: false
+  team: [Crab 3/12]
+  enemy: [Pig 1/2]
+  # Start: nothing to copy. R1: Crab 3/11, Pig faints.
+  result: win
+  survivors: {team: [Crab 3/11], enemy: []}
+
+################################################################################
+# Flamingo: "Faint: Give the two nearest friends behind +1/+2/+3 attack and
+# health"
+################################################################################
+
+- name: Flamingo L1 buffs only the two nearest friends behind
+  source: 'Flamingo text "Faint: Give the two nearest friends behind +1 attack and +1 health"'
+  verified: false
+  team: [Flamingo 1/1, Fish 1/1, Fish 1/1, Fish 1/1]
+  enemy: [Pig 1/1, Pig 2/7]
+  # R1: Flamingo and Pig 1/1 faint; Fish 2/2, Fish 2/2, Fish 1/1.
+  # R2: Fish faints, Pig 2/5. R3: Fish faints, Pig 2/3.
+  # R4: Fish 1/1 faints, Pig 2/2.
+  result: loss
+  survivors: {team: [], enemy: [Pig 2/2]}
+
+- name: Flamingo L2 gives +2/+2
+  source: 'Flamingo text "Faint: Give the two nearest friends behind +2 attack and +2 health"'
+  verified: false
+  team: [Flamingo 1/1 L2, Fish 1/1]
+  enemy: [Pig 1/1, Pig 3/3]
+  # R1: Fish 3/3. R2: both faint.
+  result: draw
+  survivors: {team: [], enemy: []}
+
+- name: Flamingo L3 gives +3/+3
+  source: 'Flamingo text "Faint: Give the two nearest friends behind +3 attack and +3 health"'
+  verified: false
+  team: [Flamingo 1/1 L3, Fish 1/1]
+  enemy: [Pig 1/1, Pig 4/4]
+  # R1: Fish 4/4. R2: both faint.
+  result: draw
+  survivors: {team: [], enemy: []}
+
+################################################################################
+# Hedgehog: "Faint: Deal 2/4/6 damage to all pets (friends and enemies)"
+################################################################################
+
+- name: Hedgehog L1 deals 2 to every pet
+  source: 'Hedgehog text "Faint: Deal 2 damage to all pets (friends and enemies)"'
+  verified: false
+  team: [Hedgehog 1/1, Fish 1/3]
+  enemy: [Pig 1/1, Pig 1/3]
+  # R1: Hedgehog and Pig faint; Fish 1/1, Pig 1/1. R2: both faint.
+  result: draw
+  survivors: {team: [], enemy: []}
+
+- name: Hedgehog L2 deals 4 to every pet
+  source: 'Hedgehog text "Faint: Deal 4 damage to all pets (friends and enemies)"'
+  verified: false
+  team: [Hedgehog 1/1 L2, Fish 1/5]
+  enemy: [Pig 1/1, Pig 1/4, Pig 1/6]
+  # R1: Fish 1/1, Pig 1/4 faints, Pig 1/2. R2: Fish faints, Pig 1/1.
+  result: loss
+  survivors: {team: [], enemy: [Pig 1/1]}
+
+- name: Hedgehog L3 deals 6 to every pet
+  source: 'Hedgehog text "Faint: Deal 6 damage to all pets (friends and enemies)"'
+  verified: false
+  team: [Hedgehog 1/1 L3, Fish 1/7]
+  enemy: [Pig 1/1, Pig 1/6, Pig 1/7]
+  # R1: Fish 1/1, Pig 1/6 faints, Pig 1/1. R2: both faint.
+  result: draw
+  survivors: {team: [], enemy: []}
+
+- name: Hedgehog damage on Garlic is reduced to 1
+  source: 'Hedgehog text; Garlic text "Take 2 less damage (minimum 1)"'
+  verified: false
+  team: [Hedgehog 1/1, Fish 1/2 Garlic]
+  enemy: [Pig 1/1, Pig 1/3 Garlic]
+  # R1: Fish 1/1, Pig 1/2. R2: each takes 1 (minimum): Fish faints, Pig 1/1.
+  result: loss
+  survivors: {team: [], enemy: [Pig 1/1 Garlic]}
+
+- name: Hedgehog knocking out another Hedgehog chains the damage
+  source: 'Hedgehog text "Faint: Deal 2 damage to all pets"'
+  verified: false
+  team: [Hedgehog 1/1, Hedgehog 1/2, Fish 1/9]
+  enemy: [Pig 1/1, Pig 1/9]
+  # R1: first Hedgehog and Pig 1/1 faint: 2 to all, second Hedgehog faints,
+  # Fish 1/7, Pig 1/7; then 2 more to all: Fish 1/5, Pig 1/5. Then five even
+  # rounds.
+  result: draw
+  survivors: {team: [], enemy: []}
+
+- name: Hedgehog knocking out a friendly Ant lets the Ant buff a survivor
+  source: 'Hedgehog text "Deal 2 damage to all pets (friends and enemies)"; Ant text'
+  verified: false
+  team: [Hedgehog 1/1, Ant 1/2, Fish 1/5]
+  enemy: [Pig 1/1, Pig 1/9]
+  # R1: Hedgehog and Pig 1/1 faint: Ant faints, Fish 1/3, Pig 1/7. Ant gives
+  # Fish +1/+1 (2/4). Fish and Pig then both faint in round 5.
+  result: draw
+  survivors: {team: [], enemy: []}
+
+################################################################################
+# Kangaroo: "Friend ahead attacks: Gain +1/+2/+3 attack and health"
+################################################################################
+
+- name: Kangaroo L1 gains every time the friend ahead attacks
+  source: 'Kangaroo text "Friend ahead attacks: Gain +1 attack and +1 health"'
+  verified: false
+  team: [Fish 1/9, Kangaroo 1/1]
+  enemy: [Pig 1/3]
+  # Three attacks: Fish 1/6, Pig faints; Kangaroo 4/4.
+  result: win
+  survivors: {team: [Fish 1/6, Kangaroo 4/4], enemy: []}
+
+- name: Kangaroo L2 gains +2/+2 per attack
+  source: 'Kangaroo text "Friend ahead attacks: Gain +2 attack and +2 health"'
+  verified: false
+  team: [Fish 1/9, Kangaroo 1/1 L2]
+  enemy: [Pig 1/3]
+  result: win
+  survivors: {team: [Fish 1/6, Kangaroo 7/7 L2], enemy: []}
+
+- name: Kangaroo L3 gains +3/+3 per attack
+  source: 'Kangaroo text "Friend ahead attacks: Gain +3 attack and +3 health"'
+  verified: false
+  team: [Fish 1/9, Kangaroo 1/1 L3]
+  enemy: [Pig 1/3]
+  result: win
+  survivors: {team: [Fish 1/6, Kangaroo 10/10 L3], enemy: []}
+
+- name: Kangaroo gains even when the friend ahead faints in that attack
+  source: 'Kangaroo text "Friend ahead attacks"'
+  verified: false
+  team: [Fish 1/1, Kangaroo 1/1]
+  enemy: [Pig 1/2]
+  # R1: Fish faints, Pig 1/1; Kangaroo 2/2. R2: Kangaroo 2/1, Pig faints.
+  result: win
+  survivors: {team: [Kangaroo 2/1], enemy: []}
+
+- name: Kangaroo does not gain from its own attacks
+  source: 'Kangaroo text "Friend ahead attacks"'
+  verified: false
+  team: [Kangaroo 1/3]
+  enemy: [Pig 1/2]
+  result: win
+  survivors: {team: [Kangaroo 1/1], enemy: []}
+
+# FIXED (was an engine mismatch): Kangaroo's after-attack ability runs even though the Chili
+# splash already took it to 0 health (sapai/pets.py after_attack_trigger only
+# checks health for triggeredBy Self, not FriendAhead), so it comes back as
+# 2/1 and the battle ends in a draw.
+- name: Kangaroo knocked out by the same attack does not gain
+  source: 'Kangaroo text "Friend ahead attacks: Gain +1 attack and +1 health"; Chili text "deal 5 damage to the enemy behind the target"'
+  verified: false
+  team: [Fish 1/1, Kangaroo 1/5]
+  enemy: [Pig 1/2 Chili]
+  # R1: Fish faints, Pig 1/1; the splash takes Kangaroo to 0 and it faints.
+  result: loss
+  survivors: {team: [], enemy: [Pig 1/1 Chili]}
+
+################################################################################
+# Peacock: "Hurt: Gain +3/+6/+9 attack"
+################################################################################
+
+- name: Peacock L1 gains +3 attack every time it is hurt
+  source: 'Peacock text "Hurt: Gain +3 attack"'
+  verified: false
+  team: [Peacock 1/5]
+  enemy: [Pig 1/3]
+  # R1: Peacock 1/4 -> 4/4, Pig 1/2. R2: Peacock 4/3 -> 7/3, Pig faints.
+  result: win
+  survivors: {team: [Peacock 7/3], enemy: []}
+
+- name: Peacock L2 gains +6 attack
+  source: 'Peacock text "Hurt: Gain +6 attack"'
+  verified: false
+  team: [Peacock 1/5 L2]
+  enemy: [Pig 1/3]
+  result: win
+  survivors: {team: [Peacock 13/3 L2], enemy: []}
+
+- name: Peacock L3 gains +9 attack
+  source: 'Peacock text "Hurt: Gain +9 attack"'
+  verified: false
+  team: [Peacock 1/5 L3]
+  enemy: [Pig 1/3]
+  result: win
+  survivors: {team: [Peacock 19/3 L3], enemy: []}
+
+- name: Peacock attack stops at 50
+  source: 'Peacock text "Hurt: Gain +3 attack"; max stat 50'
+  verified: false
+  team: [Peacock 49/5]
+  enemy: [Pig 1/50]
+  # R1: Peacock 49/4 -> 50/4, Pig 1/1. R2: Peacock 50/3, Pig faints.
+  result: win
+  survivors: {team: [Peacock 50/3], enemy: []}
+
+- name: Peacock hurt by a Hedgehog's faint damage gains attack
+  source: 'Peacock text "Hurt: Gain +3 attack"; Hedgehog text'
+  verified: false
+  team: [Hedgehog 1/1, Peacock 1/5]
+  enemy: [Pig 1/1, Pig 3/9]
+  # R1: Hedgehog and Pig faint; Peacock 1/3 -> 4/3, Pig 3/7.
+  # R2: Peacock faints, Pig 3/3.
+  result: loss
+  survivors: {team: [], enemy: [Pig 3/3]}
+
+# FIXED (was an engine mismatch): a hit fully blocked by Coconut still counts as being hurt
+# (sapai/pets.py Pet.hurt increments _hurt even when the damage is 0), so the
+# engine's Peacock gains +3 in round 1 too and ends 7/4.
+- name: Peacock whose hit is blocked by Coconut is not hurt
+  source: 'Peacock text "Hurt: Gain +3 attack"; Coconut text "Ignore all damage from one hit, once"'
+  verified: false
+  team: [Peacock 1/5 Coconut]
+  enemy: [Pig 1/2]
+  # R1: no damage (Coconut used up), Pig 1/1. R2: Peacock 1/4 -> 4/4, Pig faints.
+  result: win
+  survivors: {team: [Peacock 4/4], enemy: []}
+
+################################################################################
+# Rat: "Faint: Summon one/two/three 1/1 Dirty Rats at the front of the
+# opponent's team"
+################################################################################
+
+- name: Rat L1 puts a Dirty Rat at the front of the enemy team
+  source: 'Rat text "Faint: Summon one 1/1 Dirty Rat at the front of the opponent''s team"'
+  verified: false
+  team: [Rat 1/1]
+  enemy: [Pig 1/3]
+  result: loss
+  survivors: {team: [], enemy: [Dirty Rat 1/1, Pig 1/2]}
+
+- name: Rat L2 summons two Dirty Rats
+  source: 'Rat text "Faint: Summon two 1/1 Dirty Rats at the front of the opponent''s team"'
+  verified: false
+  team: [Rat 1/1 L2]
+  enemy: [Pig 1/3]
+  result: loss
+  survivors: {team: [], enemy: [Dirty Rat 1/1, Dirty Rat 1/1, Pig 1/2]}
+
+- name: Rat L3 summons only as many Dirty Rats as there is room for
+  source: 'Rat text "Faint: Summon three 1/1 Dirty Rats"; team size 5'
+  verified: false
+  team: [Rat 1/1 L3]
+  enemy: [Pig 1/3, Pig 1/1, Pig 1/1]
+  result: loss
+  survivors: {team: [], enemy: [Dirty Rat 1/1, Dirty Rat 1/1, Pig 1/2, Pig 1/1, Pig 1/1]}
+
+- name: Dirty Rat in front blocks the attack on the next enemy
+  source: 'Rat text "at the front of the opponent''s team"'
+  verified: false
+  team: [Rat 1/1, Fish 1/2]
+  enemy: [Pig 1/3]
+  # R1: Rat faints, Pig 1/2; Dirty Rat in front. R2: Fish 1/1, Dirty Rat
+  # faints. R3: Fish faints, Pig 1/1.
+  result: loss
+  survivors: {team: [], enemy: [Pig 1/1]}
+
+# Was an engine mismatch (random, depending on which faint ran first) until
+# sapai/effects.py SummonPet started clearing enemies that fainted at the
+# same time before summoning; runs 20 seeds to catch the order dependence.
+- name: Rat summons into the room left by the enemy that faints with it
+  source: 'Rat text "Summon one 1/1 Dirty Rat at the front of the opponent''s team"'
+  verified: false
+  team: [Rat 1/1]
+  enemy: [Pig 1/1, Pig 1/2, Pig 1/2, Pig 1/2, Pig 1/2]
+  # R1: Rat and the front Pig faint; the Dirty Rat takes the free place.
+  result: loss
+  survivors: {team: [], enemy: [Dirty Rat 1/1, Pig 1/2, Pig 1/2, Pig 1/2, Pig 1/2]}
+  runs: 20

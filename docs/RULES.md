@@ -94,9 +94,27 @@ Nothing is ✅ yet: confirming rules in the game is the next step (see
 ## 6. Pets and foods
 
 Every pet's and food's ability is listed with its text and effect in
-`data/turtle_pack.yaml`. Each one is being checked against its text, tier by
-tier (`tests/scenarios/tier*.yaml`, `tests/test_audit_tier*.py`); mismatches
-are fixed or listed below.
+`data/turtle_pack.yaml`. All 60 pets were checked against their text at every
+level (`tests/scenarios/tier*.yaml`, 153 battles; `tests/test_audit_tier*.py`,
+88 shop tests). These general rules came out of that:
+
+| # | Rule | Status | Test |
+|---|---|---|---|
+| 6.1 | "Friend" never means the pet itself (Crab, Monkey, Bison's level 3 friend) | 📖 text | `tier1_2.yaml`, `test_audit_tier3_4.py`, `test_audit_tier5_6.py` |
+| 6.2 | "This pet's attack" is the attack shown, without perk bonuses such as Meat Bone (Dodo, Badger, Rooster, Leopard) | 📖 text | `tier3_4.yaml` |
+| 6.3 | A hit fully blocked by Coconut or Melon does not hurt the pet, so Hurt abilities do not fire | 🤔 assumed | `tier1_2.yaml`, `tier5_6.yaml` |
+| 6.4 | A pet knocked out in an attack does not use its "friend ahead attacks" ability (Kangaroo, Snake) | 🤔 assumed | `tier1_2.yaml`, `tier5_6.yaml` |
+| 6.5 | "Friend faints" abilities ignore enemies fainting (Fly) | 📖 text | `regressions.yaml` |
+| 6.6 | "Friend ahead faints" means the friend ahead when it fainted, even if other faint abilities run first (Ox) | 🤔 assumed | `tier3_4.yaml` |
+| 6.7 | A pet summoned onto the enemy team (Rat's Dirty Rat) is a friend of the enemy's pets (Horse buffs it) | 🤔 assumed | `tier1_2.yaml` |
+| 6.8 | A pet swallowed by Whale leaves the team without fainting and without its start of battle ability | 📖 text | `tier3_4.yaml` |
+| 6.9 | Rhino repeats only when its damage knocks a pet out | 📖 text | `tier5_6.yaml` |
+| 6.10 | A copied ability (Parrot) lasts until the end of the battle | 📖 text | `test_audit_tier3_4.py` |
+| 6.11 | Cat's double effect and its uses apply only to food that gives attack or health | 📖 text | `test_audit_tier5_6.py` |
+| 6.12 | "Summoned: gain Peanut" is about the Scorpion itself, not friends being summoned | 📖 text | `tier5_6.yaml` |
+| 6.13 | Temporary buffs are capped too: stat plus buff is at most 50 | 🤔 assumed | `tier5_6.yaml` |
+| 6.14 | Skunk removes a share of the health shown, temporary buffs included, leaving at least 1 | 🤔 assumed | `test_audit_tier3_4.py` |
+| 6.15 | Shop abilities that stock food (Worm, Pigeon) do nothing once the shop has 7 slots, so from turn 9 they stock nothing | ❓ open (Q8) | `test_audit_tier1_2.py::TestLateGameStock` (expected failure) |
 
 ## Open questions
 
@@ -118,3 +136,25 @@ behaviour is in brackets.
   perk; on a tie the perk of the pet being kept)
 - **Q7. Ability order ties.** With equal attack, is the order by health, or
   random? (health, then random)
+- **Q8. Shop size.** Is the shop limited to 7 slots? From turn 9 the shop
+  has 5 pets and 2 foods, so with that limit Worm's Apple and Pigeon's Bread
+  Crumbs never appear. (7 slots; two tests mark this as an expected failure)
+- **Q9. Rounding.** How do halves round (50% of 5 attack for Dodo, Badger,
+  Rooster, Leopard; Crab's 25%; Skunk)? (down, minimum 1)
+- **Q10. Same-moment faints.** When pets faint together, do Shark, Fly, Ant
+  and Flamingo count or target the others that fainted at that moment?
+  (handled in order of attack)
+- **Q11. Hurt that knocks out.** Does a hit that makes a pet faint still set
+  off its Hurt ability (Camel, Blowfish, Peacock)? Does Wolverine count it?
+  (no)
+- **Q12. Start of battle knock-outs.** Does a pet knocked out by a faster
+  start-of-battle ability still use its own? (yes)
+- **Q13. Per-turn limits.** Are uses "per turn" (Fly, Ox, Dragon, Cat)
+  shared between the shop and that turn's battle? (yes)
+- **Q14. Smaller cases.**
+  - Whale's released pet stats (base, +2/+2 at level 2, +5/+5 at level 3).
+  - Is Canned Food "food that gives attack or health" for Cat? (yes)
+  - Do summoned pets count as tier 1 for Rhino? (no)
+  - Does a perk's attack bonus count for ability order? (yes)
+  - Does buying count as "summoned" for Horse? (yes) Does buying to merge? (no)
+  - Do Worm's and Pigeon's foods stay after a roll? (no)

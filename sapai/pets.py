@@ -93,6 +93,19 @@ class Pet:
         )
 
     @property
+    def attack_stat(self):
+        """
+        Attack as the game shows it, without perk bonuses such as Meat Bone or
+        Steak (those only add damage to attacks). Abilities that use "this
+        pet's attack" (Dodo, Badger, Rooster, Leopard) use this.
+        """
+        if self._attack == "none":
+            return 0
+        return min(
+            self._attack + self._until_end_of_battle_attack_buff, RULES["max_stat"]
+        )
+
+    @property
     def health(self):
         if self._health == "none":
             return self._health
@@ -119,7 +132,10 @@ class Pet:
 
     def hurt(self, value):
         self._health -= value
-        self._hurt += 1
+        ### A hit that a perk blocks completely (Coconut, Melon) does not
+        ###   hurt the pet, so Hurt abilities (Peacock, Gorilla...) don't fire
+        if value > 0:
+            self._hurt += 1
 
     def set_ability(self, ability_dict):
         self.override_ability = True
@@ -236,6 +252,12 @@ class Pet:
 
         if type(trigger).__name__ != "Food":
             raise Exception("Must input purchased food as trigger for cat")
+
+        ### Only food that gives attack or health: a perk-only food (Honey,
+        ###   Garlic...) is not doubled and does not use up one of the Cat's
+        ###   uses this turn
+        if not (trigger.attack or trigger.health):
+            return activated, targets, possible
 
         if "maxTriggers" in self.ability:
             if self.ability_counter >= self.ability["maxTriggers"]:
@@ -424,6 +446,12 @@ class Pet:
             ### Do not activate for summoning self
             return activated, targets, possible
 
+        ### "Summoned" about the pet itself (Scorpion gaining Peanut) is not
+        ###   a reaction to friends; the perk comes with the pet when it is
+        ###   created (its "status" in the data)
+        if self.ability["triggeredBy"]["kind"] == "Self":
+            return activated, targets, possible
+
         if "maxTriggers" in self.ability:
             if self.ability_counter >= self.ability["maxTriggers"]:
                 return activated, targets, possible
@@ -501,7 +529,8 @@ class Pet:
         ### Check for bison
         elif self.ability["trigger"] == "EndOfTurnWithLvl3Friend":
             if self.team is not None:
-                if not self.team.check_lvl3():
+                ### A level 3 friend: the Bison itself does not count
+                if not self.team.check_lvl3(exclude=self):
                     return activated, targets, possible
             else:
                 return activated, targets, possible
@@ -565,10 +594,14 @@ class Pet:
             ### A pet that has fainted itself does not trigger off of friends
             if self._health <= 0:
                 return activated, targets, possible
-            pet_ahead = self.team.get_ahead(self, n=1)
-            if len(pet_ahead) == 0:
-                return activated, targets, possible
-            pet_ahead = pet_ahead[0]
+            ### In battle, the friend ahead when the faint happened (set by
+            ###   the battle's faint phase); otherwise the friend ahead now
+            pet_ahead = getattr(self, "_ahead_at_faint", None)
+            if pet_ahead is None:
+                pet_ahead = self.team.get_ahead(self, n=1)
+                if len(pet_ahead) == 0:
+                    return activated, targets, possible
+                pet_ahead = pet_ahead[0]
             if trigger != pet_ahead:
                 return activated, targets, possible
         elif self.ability["triggeredBy"]["kind"] == "EachFriend":
@@ -717,6 +750,10 @@ class Pet:
             if len(slot_ahead) == 0:
                 return activated, targets, possible
             if self.team.index(slot_ahead[0]) != 0:
+                return activated, targets, possible
+            ### A pet knocked out in the same attack (for example by Chili
+            ###   splash) does not use its ability (Kangaroo, Snake)
+            if self._health <= 0:
                 return activated, targets, possible
         else:
             raise Exception(

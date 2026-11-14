@@ -188,6 +188,10 @@ def get_target(
             if temp_slot.pet.health > 0:
                 oidx.append(iter_idx)
 
+    ### Friends other than the pet using the ability ("friend" never means
+    ###   the pet itself)
+    other_fidx = [i for i in fidx if fteam[i].pet is not apet]
+
     if kind == "AdjacentAnimals":
         all_pets = []
         fpet_slot_idx = []
@@ -454,13 +458,19 @@ def get_target(
         return ret_pets, all_possible
 
     elif kind == "RightMostFriend":
-        return [fteam[fidx[0]].pet], [[fteam[fidx[0]].pet]]
+        ### The front-most friend (Monkey)
+        if len(other_fidx) == 0:
+            return [], []
+        return [fteam[other_fidx[0]].pet], [[fteam[other_fidx[0]].pet]]
 
     elif kind == "Self":
         return [apet], [[apet]]
 
     elif kind == "StrongestFriend":
         stat_list = []
+        fidx = other_fidx
+        if len(fidx) == 0:
+            return [], []
         for temp_idx in fidx:
             temp_stats = fteam[temp_idx].pet.attack + fteam[temp_idx].pet.health
             stat_list.append(temp_stats)
@@ -469,17 +479,19 @@ def get_target(
         max_idx = np.where(stat_list == max_stats)[0]
         all_possible = []
         for temp_idx in max_idx:
-            all_possible.append(fteam[temp_idx].pet)
+            all_possible.append(fteam[fidx[temp_idx]].pet)
         if len(all_possible) == 0:
             return [], []
         choice = apet.rs.choice(max_idx, (1,), replace=False)[0]
         ### Update internal state of random generator
         apet.seed_state = apet.rs.get_state()
-        ret_pets = [fteam[choice].pet]
+        ret_pets = [fteam[fidx[choice]].pet]
         return ret_pets, all_possible
 
     elif kind == "HighestHealthFriend":
+        ### The healthiest friend (Crab), never the pet itself
         health_list = []
+        fidx = other_fidx
         for temp_idx in fidx:
             health_list.append(fteam[temp_idx].pet.health)
         if len(health_list) == 0:
@@ -570,7 +582,7 @@ def DealDamage(apet, apet_idx, teams, te=None, te_idx=None, fixed_targets=None):
     if type(health_amount) == dict:
         if "attackDamagePercent" in health_amount:
             health_amount = int(
-                apet.attack * health_amount["attackDamagePercent"] * 0.01
+                apet.attack_stat * health_amount["attackDamagePercent"] * 0.01
             )
         else:
             raise Exception()
@@ -686,7 +698,7 @@ def ModifyStats(apet, apet_idx, teams, te=None, te_idx=None, fixed_targets=None)
         if type(apet.ability["effect"]["amount"]) == dict:
             if "attackPercent" in apet.ability["effect"]["amount"]:
                 attack_amount = int(
-                    apet.attack
+                    apet.attack_stat
                     * apet.ability["effect"]["amount"]["attackPercent"]
                     * 0.01
                 )
@@ -704,6 +716,16 @@ def ModifyStats(apet, apet_idx, teams, te=None, te_idx=None, fixed_targets=None)
             target_pet._health += health_amount
         target_pet._attack = min([target_pet._attack, RULES["max_stat"]])
         target_pet._health = min([target_pet._health, RULES["max_stat"]])
+        ### Buffs until the end of battle are capped too, so stat + buff is
+        ###   at most the maximum (Armadillo used to push hidden health past 50)
+        target_pet._until_end_of_battle_attack_buff = min(
+            target_pet._until_end_of_battle_attack_buff,
+            RULES["max_stat"] - target_pet._attack,
+        )
+        target_pet._until_end_of_battle_health_buff = min(
+            target_pet._until_end_of_battle_health_buff,
+            RULES["max_stat"] - target_pet._health,
+        )
 
     ### "Current and future shop pets": the bonus for future pets is added
     ###   once, not once per current shop pet
@@ -762,10 +784,12 @@ def ReduceHealth(apet, apet_idx, teams, te=None, te_idx=None, fixed_targets=None
     per = apet.ability["effect"]["percentage"] * 0.01
     for temp_pet in target:
         if temp_pet.health > 0:
-            temp_pet._health = temp_pet.health - int(np.round(temp_pet.health * per))
-            if temp_pet._health == 0:
-                ### Floor health of 1
-                temp_pet._health = 1
+            ### Remove a share of the health the pet has now, temporary buffs
+            ###   included (Bread, Dog), but keep the buff out of the stored
+            ###   stat so it is not counted twice. At least 1 health is left.
+            removed = int(np.round(temp_pet.health * per))
+            left = max(1, temp_pet.health - removed)
+            temp_pet._health = left - temp_pet._until_end_of_battle_health_buff
     return target, possible
 
 
@@ -999,7 +1023,7 @@ def SummonPet(apet, apet_idx, teams, te=None, te_idx=None, fixed_targets=None):
             spet.level = apet.ability["effect"]["withLevel"]
         if "withAttackPercent" in apet.ability["effect"]:
             percent = apet.ability["effect"]["withAttackPercent"]
-            spet._attack = max(int(apet.attack * percent * 0.01), 1)
+            spet._attack = max(int(apet.attack_stat * percent * 0.01), 1)
 
         target.append(spet)
 
@@ -1133,9 +1157,13 @@ def Swallow(apet, apet_idx, teams, te=None, te_idx=None, fixed_targets=None):
             },
         }
         apet.set_ability(summon_dict)
-        temp_target._health = -1
+        ### Swallowed, not fainted: it leaves the team without its faint
+        ###   ability firing, and does not use its start of battle ability.
+        ###   The slot stays empty until the team moves up, so the order
+        ###   the remaining start of battle abilities go in is unchanged.
+        if fteam.check_friend(temp_target):
+            fteam.remove(temp_target)
 
-    fteam.move_forward()
     return target, possible
 
 
@@ -1183,7 +1211,7 @@ def TransferStats(apet, apet_idx, teams, te=None, te_idx=None, fixed_targets=Non
             #### dodo is only from_self and it is additive, not copy, unlike
             #### what the database says
             if copy_attack:
-                entry._attack += max(int(apet.attack * percentage), 1)
+                entry._attack += max(int(apet.attack_stat * percentage), 1)
             if copy_health:
                 raise Exception("This should not be possible")
         else:
@@ -1198,7 +1226,7 @@ def TransferStats(apet, apet_idx, teams, te=None, te_idx=None, fixed_targets=Non
             ###   down to 0 for any friend with 3 health or less and used to
             ###   make the Crab faint at the start of battle.
             if copy_attack:
-                apet._attack = max(1, int(temp_from.attack * percentage))
+                apet._attack = max(1, int(temp_from.attack_stat * percentage))
             if copy_health:
                 apet._health = max(1, int(temp_from.health * percentage))
 

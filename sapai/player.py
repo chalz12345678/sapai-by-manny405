@@ -123,6 +123,9 @@ class Player:
         for slot in self.team:
             slot._pet.shop = self.shop
             slot._pet.player = self
+            ### Abilities copied for the battle (Parrot copies "until end of
+            ###   battle") are gone by the next turn
+            slot._pet.override_ability = False
 
         ### Activate start-of-turn triggers after rolling shop
         for slot in self.team:

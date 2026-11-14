@@ -431,10 +431,10 @@ def check_summon_triggers(
     if func not in [RespawnPet, SummonPet, SummonRandomPet]:
         return 0
 
-    if "team" in p.ability["effect"]:
-        team = p.ability["effect"]["team"]
-        if team == "Enemy":
-            return 0
+    ### A pet summoned onto the enemy team (Rat's Dirty Rat) is a friend of
+    ###   the enemy's pets, so their summon abilities (Horse) apply to it
+    if p.ability["effect"].get("team") == "Enemy":
+        team_idx = 1 - team_idx
 
     ### Otherwise, summon triggers need to be checked for each Pet in targets
     if len(targets) > 0:
@@ -445,7 +445,8 @@ def check_summon_triggers(
             targets = temp_all_targets
 
     for temp_te in targets:
-        for temp_slot in fteam:
+        summon_team = getattr(temp_te, "team", None) or fteam
+        for temp_slot in summon_team:
             temp_pet = temp_slot.pet
             tempa, tempt, tempp = temp_pet.friend_summoned_trigger(temp_te)
             append_phase_list(
@@ -510,6 +511,13 @@ def battle_phase_hurt_and_faint(battle_obj, phase, teams, pet_priority, phase_di
         ###   fainted pet from the team (for example to make room for a
         ###   summon) before its own ability runs
         responders = [(t, i, teams[t][i].pet) for t, i in pp]
+        ### Each pet's friend directly ahead when these pets fainted, for
+        ###   "friend ahead faints" abilities (Ox): a faint ability that runs
+        ###   first can remove the fainted pet or summon pets in its place
+        for team in teams:
+            on_team = [slot.pet for slot in team if not slot.empty]
+            for k, p in enumerate(on_team):
+                p._ahead_at_faint = on_team[k - 1] if k > 0 else None
 
         ### Check every fainted pet
         faint_targets_list = []
@@ -743,7 +751,6 @@ def battle_phase_knockout(battle_obj, phase, teams, pet_priority, phase_dict):
         if apet.health > 0 and fteam.check_friend(apet):
             ### Need to loop to handle Rhino
             fteam, oteam = get_teams([team_idx, 0], teams)
-            current_length = 0
             while True:
                 ### Rhino may faint from an effect of the pet it knocked out
                 if apet.health <= 0 or not fteam.check_friend(apet):
@@ -767,13 +774,13 @@ def battle_phase_knockout(battle_obj, phase, teams, pet_priority, phase_dict):
                     phase_dict,
                 )
 
-                if len(phase_dict["phase_hurt_and_faint_k"]) == current_length:
-                    ### No more recursion needed because nothing else fainted
+                ### Repeat only if the ability knocked a pet out (Rhino); a
+                ###   Hurt ability firing on the target is not a knock-out
+                hit = targets
+                if len(hit) > 0 and type(hit[0]) == list:
+                    hit = [x for entry in hit for x in entry]
+                if not any(t.health <= 0 for t in hit):
                     break
-                else:
-                    ### Otherwise, something has been knockedout by Rhino
-                    ### ability and while loop should iterate again
-                    current_length = len(phase_dict["phase_hurt_and_faint_k"])
 
     return phase_dict
 

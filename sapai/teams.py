@@ -255,9 +255,10 @@ class Team(SAPList):
             raise Exception("This should not be possible")
         self.slots[empty_idx[0]] = obj
 
-    def check_lvl3(self):
+    def check_lvl3(self, exclude=None):
+        """Whether a pet on the team (other than exclude) is level 3"""
         for slot in self.slots:
-            if slot.empty:
+            if slot.empty or slot.pet is exclude:
                 continue
             if slot.pet.level == 3:
                 return True

@@ -1,0 +1,635 @@
+# Tier 3 and tier 4 pet abilities, from their text. Front first; stats as
+# the game shows them. Expected results are worked out by hand from the
+# ability text (front pets hit each other at the same time; abilities in a
+# phase go highest attack first). Pig, Fish, Beaver and Duck have no battle
+# abilities, so they are used as plain pets.
+
+################################################################################
+# Dodo: "Start of battle: Give 50/100/150% of this pet's attack to the nearest
+# friend ahead."
+################################################################################
+
+- name: Dodo L1 gives half its attack to the friend ahead
+  source: 'Dodo text "Give 50% of this pet''s attack to the nearest friend ahead"'
+  verified: false
+  team: [Fish 2/3, Dodo 4/2]
+  enemy: [Pig 1/10]
+  # Fish 4/3. R1 Pig 6, R2 Pig 2, R3 Fish faints and Pig faints (-2).
+  result: win
+  survivors: {team: [Dodo 4/2], enemy: []}
+
+- name: Dodo L2 gives all its attack to the friend ahead
+  source: 'Dodo text "Give 100% of this pet''s attack to the nearest friend ahead"'
+  verified: false
+  team: [Fish 2/3, Dodo 4/2 L2]
+  enemy: [Pig 1/13]
+  # Fish 6/3. R1 Pig 7, R2 Pig 1, R3 both faint.
+  result: win
+  survivors: {team: [Dodo 4/2 L2], enemy: []}
+
+- name: Dodo L3 gives 150% of its attack to the friend ahead
+  source: 'Dodo text "Give 150% of this pet''s attack to the nearest friend ahead"'
+  verified: false
+  team: [Fish 2/3, Dodo 4/2 L3]
+  enemy: [Pig 1/17]
+  # Fish 8/3. R1 Pig 9, R2 Pig 1, R3 both faint.
+  result: win
+  survivors: {team: [Dodo 4/2 L3], enemy: []}
+
+- name: Dodo cannot push the friend ahead above 50 attack
+  source: Dodo text and the 50 stat cap
+  verified: false
+  team: [Fish 48/3, Dodo 4/2]
+  enemy: [Pig 1/50]
+  # Fish 50/3 (not 50+). R1 Pig takes 50 and faints.
+  result: win
+  survivors: {team: [Fish 50/2, Dodo 4/2], enemy: []}
+
+# FIXED (was an engine mismatch): Pet.attack (sapai/pets.py) adds the perk's damage bonus
+# (Meat Bone +3, Steak +20, Peanut 1000), and TransferStats uses it, so Dodo
+# gives 50% of 7 = 3 and Fish faints one round earlier.
+- name: Dodo gives half of its attack stat, not of its Meat Bone damage
+  source: 'Dodo text "50% of this pet''s attack"; Meat Bone "Attacks deal +3 damage"'
+  verified: false
+  team: [Fish 2/3, Dodo 4/2 Meat Bone]
+  enemy: [Pig 1/13]
+  # Dodo's attack is 4 (Meat Bone only adds damage to its attacks), so Fish
+  # gets +2: 4/3. R1 Pig 9, R2 Pig 5, R3 Fish faints, Pig 1.
+  # R4 Dodo hits for 4+3: Pig faints, Dodo 4/1.
+  result: win
+  survivors: {team: [Dodo 4/1 Meat Bone], enemy: []}
+
+################################################################################
+# Badger: "Faint: Deal 50/100/150% of this pet's attack as damage to adjacent
+# pets."
+################################################################################
+
+- name: Badger L1 hits the enemy in front and the friend behind for half its attack
+  source: 'Badger text "Deal 50% of this pet''s attack as damage to adjacent pets"'
+  verified: false
+  team: [Badger 6/3, Fish 2/9]
+  enemy: [Pig 3/30]
+  # R1 Badger faints, Pig 24. Badger deals 3 to Pig (21) and Fish (2/6).
+  # R2 Fish 2/3, Pig 19. R3 Fish faints, Pig 17.
+  result: loss
+  survivors: {team: [], enemy: [Pig 3/17]}
+
+- name: Badger L2 deals all of its attack to adjacent pets
+  source: 'Badger text "Deal 100% of this pet''s attack as damage to adjacent pets"'
+  verified: false
+  team: [Badger 6/3 L2, Fish 2/9]
+  enemy: [Pig 3/30]
+  # R1 Pig 24, Badger deals 6: Pig 18, Fish 2/3. R2 Fish faints, Pig 16.
+  result: loss
+  survivors: {team: [], enemy: [Pig 3/16]}
+
+- name: Badger L3 deals 150% of its attack to adjacent pets
+  source: 'Badger text "Deal 150% of this pet''s attack as damage to adjacent pets"'
+  verified: false
+  team: [Badger 6/3 L3, Fish 2/12]
+  enemy: [Pig 3/30]
+  # R1 Pig 24, Badger deals 9: Pig 15, Fish 2/3. R2 Fish faints, Pig 13.
+  result: loss
+  survivors: {team: [], enemy: [Pig 3/13]}
+
+# FIXED (was an engine mismatch): DealDamage's attackDamagePercent uses Pet.attack, which
+# includes Meat Bone's +3 (sapai/pets.py attack property), so Badger deals
+# 50% of 9 = 4 instead of 3.
+- name: Badger's damage is based on its attack stat, not its Meat Bone damage
+  source: 'Badger text "50% of this pet''s attack"; Meat Bone "Attacks deal +3 damage"'
+  verified: false
+  team: [Badger 6/3 Meat Bone, Fish 2/9]
+  enemy: [Pig 3/30]
+  # R1 Badger hits for 6+3: Pig 21. Badger faints and deals 50% of 6 = 3:
+  # Pig 18, Fish 2/6. R2 Fish 2/3, Pig 16. R3 Fish faints, Pig 14.
+  result: loss
+  survivors: {team: [], enemy: [Pig 3/14]}
+
+- name: Badger in the middle hits the friends on both sides
+  source: 'Badger text "adjacent pets"; Dolphin text'
+  verified: false
+  team: [Fish 2/20, Badger 6/3, Pig 2/20]
+  enemy: [Dolphin 1/50]
+  # Start: Dolphin deals 4 to the lowest health enemy, Badger, which faints
+  # and deals 3 to Fish (2/17) and Pig (2/17).
+  # Fish deals 2 a round and takes 1: it faints in R17, Dolphin at 16.
+  # Pig then needs 8 rounds: Dolphin faints in R25, Pig 2/9.
+  result: win
+  survivors: {team: [Pig 2/9], enemy: []}
+
+################################################################################
+# Dolphin: "Start of battle: Deal 4 damage to the lowest health enemy.
+# Triggers 1/2/3 times."
+################################################################################
+
+- name: Dolphin L1 knocks out the lowest health enemy, not the front one
+  source: 'Dolphin text "Deal 4 damage to the lowest health enemy"'
+  verified: false
+  team: [Dolphin 4/5]
+  enemy: [Pig 1/10, Fish 2/4]
+  # Fish faints at the start. R1 Dolphin 4, Pig 6. R2 3, 2. R3 Pig faints.
+  result: win
+  survivors: {team: [Dolphin 4/2], enemy: []}
+
+- name: Dolphin L2 picks the lowest health enemy again for its second shot
+  source: 'Dolphin text "Deal 4 damage to the lowest health enemy. Triggers 2 times"'
+  verified: false
+  team: [Dolphin 4/5 L2]
+  enemy: [Pig 1/10, Fish 2/4, Beaver 3/6]
+  # Shot 1 knocks out Fish; shot 2 hits the lowest health enemy left,
+  # Beaver (6 -> 2). R1-R3 Dolphin beats Pig and is at 2 health.
+  # R4 Dolphin and Beaver 3/2 knock each other out.
+  result: draw
+  survivors: {team: [], enemy: []}
+
+- name: Dolphin L3 shoots three times
+  source: 'Dolphin text "Deal 4 damage to the lowest health enemy. Triggers 3 times"'
+  verified: false
+  team: [Dolphin 4/8 L3]
+  enemy: [Pig 1/10, Fish 2/4, Beaver 3/6]
+  # Fish faints, Beaver 2, then Beaver faints. R1-R3 Dolphin beats Pig.
+  result: win
+  survivors: {team: [Dolphin 4/5 L3], enemy: []}
+
+- name: Melon stops Dolphin's shot
+  source: 'Dolphin text; Melon "Take 20 less damage, once"'
+  verified: false
+  team: [Dolphin 4/5]
+  enemy: [Pig 1/10, Fish 2/4 Melon]
+  # Fish takes 0 and loses Melon. R1-R3 Dolphin beats Pig (Dolphin 4/2),
+  # R4 Dolphin and Fish 2/4 knock each other out.
+  result: draw
+  survivors: {team: [], enemy: []}
+
+################################################################################
+# Elephant: "After attack: Deal 1 damage to the friend behind. Triggers 1/2/3
+# times."
+################################################################################
+
+- name: Elephant L1 hurts the friend behind after every attack
+  source: 'Elephant text "After attack: Deal 1 damage to the friend behind"'
+  verified: false
+  team: [Elephant 3/7, Fish 2/5]
+  enemy: [Pig 1/10]
+  # Four attacks: Elephant 3/3, Fish loses 4 health. Pig faints in R4.
+  result: win
+  survivors: {team: [Elephant 3/3, Fish 2/1], enemy: []}
+
+- name: Elephant L2 hurts the friend behind twice after every attack
+  source: 'Elephant text "Deal 1 damage to the friend behind. Triggers 2 times"'
+  verified: false
+  team: [Elephant 3/7 L2, Fish 2/9]
+  enemy: [Pig 1/10]
+  result: win
+  survivors: {team: [Elephant 3/3 L2, Fish 2/1], enemy: []}
+
+- name: Elephant L3 hurts the friend behind three times after every attack
+  source: 'Elephant text "Deal 1 damage to the friend behind. Triggers 3 times"'
+  verified: false
+  team: [Elephant 3/7 L3, Fish 2/13]
+  enemy: [Pig 1/10]
+  result: win
+  survivors: {team: [Elephant 3/3 L3, Fish 2/1], enemy: []}
+
+- name: Elephant's damage triggers Camel's hurt ability
+  source: Elephant and Camel text
+  verified: false
+  team: [Elephant 3/7, Camel 3/5, Fish 2/5]
+  enemy: [Pig 1/4]
+  # R1 Elephant 3/6, Pig 1/1; Elephant hurts Camel (3/4), Camel gives Fish
+  # +1/+2 (3/7). R2 Pig faints, Elephant 3/5; Camel 3/3, Fish 4/9.
+  result: win
+  survivors: {team: [Elephant 3/5, Camel 3/3, Fish 4/9], enemy: []}
+
+################################################################################
+# Camel: "Hurt: Give the nearest friend behind +1/+2, +2/+4, +3/+6."
+################################################################################
+
+- name: Camel L1 buffs the friend behind each time it is hurt
+  source: 'Camel text "Hurt: Give the nearest friend behind +1 attack and +2 health"'
+  verified: false
+  team: [Camel 3/5, Fish 2/3]
+  enemy: [Pig 1/4]
+  # R1 Camel 3/4, Pig 1/1, Fish 3/5. R2 Pig faints, Camel 3/3, Fish 4/7.
+  result: win
+  survivors: {team: [Camel 3/3, Fish 4/7], enemy: []}
+
+- name: Camel L2 gives +2/+4
+  source: 'Camel text "Hurt: Give the nearest friend behind +2 attack and +4 health"'
+  verified: false
+  team: [Camel 3/5 L2, Fish 2/3]
+  enemy: [Pig 1/4]
+  result: win
+  survivors: {team: [Camel 3/3 L2, Fish 6/11], enemy: []}
+
+- name: Camel L3 gives +3/+6
+  source: 'Camel text "Hurt: Give the nearest friend behind +3 attack and +6 health"'
+  verified: false
+  team: [Camel 3/5 L3, Fish 2/3]
+  enemy: [Pig 1/4]
+  result: win
+  survivors: {team: [Camel 3/3 L3, Fish 8/15], enemy: []}
+
+- name: Camel's buff stops at 50
+  source: Camel text and the 50 stat cap
+  verified: false
+  team: [Camel 3/5 L3, Fish 48/46]
+  enemy: [Pig 1/4]
+  result: win
+  survivors: {team: [Camel 3/3 L3, Fish 50/50], enemy: []}
+
+################################################################################
+# Ox: "Friend ahead faints: Gain Melon and +1 attack. Works 1/2/3 times per
+# turn."
+################################################################################
+
+- name: Ox gains Melon and +1 attack when the friend ahead faints
+  source: 'Ox text "Friend ahead faints: Gain Melon and +1 attack"'
+  verified: false
+  team: [Fish 1/1, Ox 1/3]
+  enemy: [Pig 1/10]
+  # R1 Fish faints, Pig 9; Ox 2/3 Melon. R2 Melon blocks, Pig 7.
+  # R3 Ox 2/2, Pig 5. R4 Ox 2/1, Pig 3. R5 Ox faints, Pig 1.
+  result: loss
+  survivors: {team: [], enemy: [Pig 1/1]}
+
+# FIXED (was an engine mismatch): Ant (higher attack) runs its faint ability first, and
+# tiger_func (sapai/pets.py) removes the fainted Ant from the team. Ox then
+# looks for its friend ahead with team.get_ahead, finds nobody, and does not
+# trigger (Pet.faint_trigger, FriendAhead branch).
+- name: Ox triggers when the friend ahead has a faint ability of its own
+  source: Ox and Ant text
+  verified: false
+  team: [Ant 2/1, Ox 1/3]
+  enemy: [Pig 1/10]
+  # R1 Ant faints, Pig 8. Ant gives its only friend, Ox, +1/+1 (2/4) and Ox
+  # gains Melon and +1 attack (3/4 Melon), in either order.
+  # R2 Melon blocks, Pig 5. R3 Ox 3/3, Pig 2. R4 Pig faints, Ox 3/2.
+  result: win
+  survivors: {team: [Ox 3/2], enemy: []}
+
+# Passes, but for the wrong reason: the engine misses the Sheep faint (same
+# bug as the Ant scenario above) and triggers on the second Ram instead.
+- name: Ox L1 works only once per turn
+  source: 'Ox text "Works 1 time per turn"; Sheep text'
+  verified: false
+  team: [Sheep 2/1, Ox 1/3]
+  enemy: [Pig 2/30]
+  # R1 Sheep faints (Pig 28): two 2/2 Rams in front, Ox 2/3 Melon.
+  # R2 Ram faints (Pig 26); it was not directly ahead of Ox.
+  # R3 Ram faints (Pig 24): Ox already used its one trigger.
+  # R4 Melon blocks (Pig 22). R5 Ox 2/1 (Pig 20). R6 Ox faints (Pig 18).
+  result: loss
+  survivors: {team: [], enemy: [Pig 2/18]}
+
+# FIXED (was an engine mismatch): Ox misses the Sheep fainting (Sheep's own faint ability
+# runs first and removes it from the team), so it only triggers once, on the
+# second Ram.
+- name: Ox L2 works twice per turn
+  source: 'Ox text "Works 2 times per turn"; Sheep text'
+  verified: false
+  team: [Sheep 2/1, Ox 1/3 L2]
+  enemy: [Pig 2/30]
+  # As above, but in R3 Ox triggers again: 3/3 Melon.
+  # R4 Melon blocks (Pig 21). R5 Ox 3/1 (Pig 18). R6 Ox faints (Pig 15).
+  result: loss
+  survivors: {team: [], enemy: [Pig 2/15]}
+
+################################################################################
+# Dog: "Friend summoned: Gain +2/+1, +4/+2, +6/+3 until next turn."
+################################################################################
+
+- name: Dog L1 gains +2/+1 for each Ram
+  source: 'Dog text "Friend summoned: Gain +2 attack and +1 health"'
+  verified: false
+  team: [Sheep 2/1, Dog 3/2]
+  enemy: [Pig 2/30]
+  # R1 Sheep faints (Pig 28), two Rams: Dog 7/4. R2, R3 Rams faint (Pig 24).
+  # R4 Dog 7/2 (Pig 17). R5 Dog faints (Pig 10).
+  result: loss
+  survivors: {team: [], enemy: [Pig 2/10]}
+
+- name: Dog L2 gains +4/+2 for each Ram
+  source: 'Dog text "Friend summoned: Gain +4 attack and +2 health"'
+  verified: false
+  team: [Sheep 2/1, Dog 3/2 L2]
+  enemy: [Pig 2/40]
+  # Dog 11/6. Pig 38, 36, 34; R4 Pig 23, R5 12, R6 Dog faints, Pig 1.
+  result: loss
+  survivors: {team: [], enemy: [Pig 2/1]}
+
+- name: Dog L3 gains +6/+3 for each Ram
+  source: 'Dog text "Friend summoned: Gain +6 attack and +3 health"'
+  verified: false
+  team: [Sheep 2/1, Dog 3/2 L3]
+  enemy: [Pig 2/50]
+  # Dog 15/8. Pig 48, 46, 44; R4 Pig 29 (Dog 6), R5 14 (4), R6 Pig faints (2).
+  result: win
+  survivors: {team: [Dog 15/2 L3], enemy: []}
+
+- name: Dog triggers on the Bee from Honey
+  source: Dog and Honey text
+  verified: false
+  team: [Fish 2/1 Honey, Dog 3/2]
+  enemy: [Pig 1/20]
+  # R1 Fish faints (Pig 18), Bee 1/1: Dog 5/3. R2 Bee faints (Pig 17).
+  # R3 Dog 5/2 (Pig 12). R4 Dog 5/1 (Pig 7). R5 Dog faints (Pig 2).
+  result: loss
+  survivors: {team: [], enemy: [Pig 1/2]}
+
+- name: Dog triggers on the Bus from Deer
+  source: Dog and Deer text
+  verified: false
+  team: [Deer 2/1, Dog 3/2]
+  enemy: [Pig 2/10, Fish 2/12]
+  # R1 Deer faints (Pig 8): Bus 5/3 Chili, Dog 5/3.
+  # R2 Bus hits Pig (3) and splashes Fish (7); Bus 5/1.
+  # R3 Bus hits Pig (faints), splashes Fish (2); Bus faints.
+  # R4 Dog beats Fish 2/2: Dog 5/1.
+  result: win
+  survivors: {team: [Dog 5/1], enemy: []}
+
+################################################################################
+# Sheep: "Faint: Summon two 2/2, 4/4, 6/6 Rams."
+################################################################################
+
+- name: Sheep L1 summons two 2/2 Rams
+  source: 'Sheep text "Faint: Summon two 2/2 Rams"'
+  verified: false
+  team: [Sheep 2/1]
+  enemy: [Pig 2/10]
+  # R1 Pig 8, R2 Pig 6, R3 Pig 4.
+  result: loss
+  survivors: {team: [], enemy: [Pig 2/4]}
+
+- name: Sheep L2 summons two 4/4 Rams
+  source: 'Sheep text "Faint: Summon two 4/4 Rams"'
+  verified: false
+  team: [Sheep 2/1 L2]
+  enemy: [Pig 2/20]
+  # R1 Pig 18; each Ram lasts two rounds: Pig 14, 10, 6, 2.
+  result: loss
+  survivors: {team: [], enemy: [Pig 2/2]}
+
+- name: Sheep L3 summons two 6/6 Rams
+  source: 'Sheep text "Faint: Summon two 6/6 Rams"'
+  verified: false
+  team: [Sheep 2/1 L3]
+  enemy: [Pig 2/40]
+  # R1 Pig 38; each Ram lasts three rounds: Pig 32, 26, 20, 14, 8, 2.
+  result: loss
+  survivors: {team: [], enemy: [Pig 2/2]}
+
+- name: Sheep on a full team only has room for one Ram
+  source: Sheep text; a team holds 5 pets
+  verified: false
+  team: [Sheep 2/1, Fish 1/1, Fish 1/1, Fish 1/1, Fish 1/1]
+  enemy: [Pig 2/50]
+  # R1 Sheep faints (Pig 48), one Ram fits. R2 Ram faints (46).
+  # R3-R6 the four Fish faint (42).
+  result: loss
+  survivors: {team: [], enemy: [Pig 2/42]}
+
+################################################################################
+# Skunk: "Start of battle: Remove 33/66/99% of health from the highest health
+# enemy." (Health values chosen so rounding up or down gives the same result.)
+################################################################################
+
+- name: Skunk L1 removes a third of the highest health enemy's health
+  source: 'Skunk text "Remove 33% of health from the highest health enemy"'
+  verified: false
+  team: [Skunk 3/9]
+  enemy: [Fish 2/3, Pig 1/10]
+  # Pig 10 -> 7 (3.3 removed). R1 Fish faints, Skunk 3/7.
+  # R2-R4 Skunk beats Pig 1/7: Skunk 3/4.
+  result: win
+  survivors: {team: [Skunk 3/4], enemy: []}
+
+- name: Skunk L2 removes two thirds
+  source: 'Skunk text "Remove 66% of health from the highest health enemy"'
+  verified: false
+  team: [Skunk 3/9 L2]
+  enemy: [Fish 2/3, Pig 1/20]
+  # Pig 20 -> 7 (13.2 removed). Same battle as above.
+  result: win
+  survivors: {team: [Skunk 3/4 L2], enemy: []}
+
+- name: Skunk L3 leaves the highest health enemy with 1 health
+  source: 'Skunk text "Remove 99% of health from the highest health enemy"'
+  verified: false
+  team: [Skunk 3/5 L3]
+  enemy: [Pig 1/10, Fish 2/3]
+  # Pig 10 -> 1 (9.9 removed). R1 Pig faints, Skunk 3/4.
+  # R2 Fish faints, Skunk 3/2.
+  result: win
+  survivors: {team: [Skunk 3/2 L3], enemy: []}
+
+################################################################################
+# Hippo: "Knock out: Gain +3/+3, +6/+6, +9/+9."
+################################################################################
+
+- name: Hippo L1 grows after each knock out
+  source: 'Hippo text "Knock out: Gain +3 attack and +3 health"'
+  verified: false
+  team: [Hippo 4/6]
+  enemy: [Fish 2/4, Pig 1/10]
+  # R1 Fish faints, Hippo 4/4 -> 7/7. R2 Hippo 7/6, Pig 3.
+  # R3 Pig faints, Hippo 7/5 -> 10/8.
+  result: win
+  survivors: {team: [Hippo 10/8], enemy: []}
+
+- name: Hippo L2 gains +6/+6
+  source: 'Hippo text "Knock out: Gain +6 attack and +6 health"'
+  verified: false
+  team: [Hippo 4/6 L2]
+  enemy: [Fish 2/4, Pig 1/10]
+  # R1 Hippo 10/10. R2 Pig faints, Hippo 10/9 -> 16/15.
+  result: win
+  survivors: {team: [Hippo 16/15 L2], enemy: []}
+
+- name: Hippo L3 gains +9/+9
+  source: 'Hippo text "Knock out: Gain +9 attack and +9 health"'
+  verified: false
+  team: [Hippo 4/6 L3]
+  enemy: [Fish 2/4, Pig 1/10]
+  # R1 Hippo 13/13. R2 Pig faints, Hippo 13/12 -> 22/21.
+  result: win
+  survivors: {team: [Hippo 22/21 L3], enemy: []}
+
+- name: Hippo stops growing at 50
+  source: Hippo text and the 50 stat cap
+  verified: false
+  team: [Hippo 48/48 L3]
+  enemy: [Fish 2/4, Pig 1/10]
+  # R1 Hippo 48/46 -> 50/50. R2 Hippo 50/49 -> 50/50.
+  result: win
+  survivors: {team: [Hippo 50/50 L3], enemy: []}
+
+################################################################################
+# Blowfish: "Hurt: Deal 3/6/9 damage to one random enemy."
+################################################################################
+
+- name: Blowfish L1 hits back for 3 when hurt
+  source: 'Blowfish text "Hurt: Deal 3 damage to one random enemy"'
+  verified: false
+  team: [Blowfish 3/6]
+  enemy: [Pig 2/10]
+  # R1 Blowfish 3/4, Pig 7 -> 4. R2 Blowfish 3/2, Pig 1 -> faints.
+  result: win
+  survivors: {team: [Blowfish 3/2], enemy: []}
+
+- name: Blowfish L2 hits back for 6
+  source: 'Blowfish text "Hurt: Deal 6 damage to one random enemy"'
+  verified: false
+  team: [Blowfish 3/6 L2]
+  enemy: [Pig 2/18]
+  # R1 Pig 15 -> 9. R2 Pig 6 -> 0.
+  result: win
+  survivors: {team: [Blowfish 3/2 L2], enemy: []}
+
+- name: Blowfish L3 hits back for 9
+  source: 'Blowfish text "Hurt: Deal 9 damage to one random enemy"'
+  verified: false
+  team: [Blowfish 3/6 L3]
+  enemy: [Pig 2/24]
+  # R1 Pig 21 -> 12. R2 Pig 9 -> 0.
+  result: win
+  survivors: {team: [Blowfish 3/2 L3], enemy: []}
+
+- name: Blowfish hurt by Dolphin at the start of battle hits back
+  source: Blowfish and Dolphin text
+  verified: false
+  team: [Blowfish 3/6]
+  enemy: [Dolphin 1/5]
+  # Start: Blowfish 3/2 and hits Dolphin for 3 (1/2).
+  # R1 Blowfish 3/1, Dolphin faints.
+  result: win
+  survivors: {team: [Blowfish 3/1], enemy: []}
+
+################################################################################
+# Turtle: "Faint: Give the nearest one/two/three friends behind Melon."
+################################################################################
+
+- name: Turtle L1 gives Melon to the friend behind
+  source: 'Turtle text "Faint: Give the nearest friend behind Melon"'
+  verified: false
+  team: [Turtle 2/1, Fish 2/2, Pig 2/2]
+  enemy: [Beaver 2/30]
+  # R1 Turtle faints (28), Fish gets Melon. R2 Melon blocks (26).
+  # R3 Fish faints (24). R4 Pig faints (22).
+  result: loss
+  survivors: {team: [], enemy: [Beaver 2/22]}
+
+- name: Turtle L2 gives Melon to two friends behind
+  source: 'Turtle text "Faint: Give the two nearest friends behind Melon"'
+  verified: false
+  team: [Turtle 2/1 L2, Fish 2/2, Pig 2/2]
+  enemy: [Beaver 2/30]
+  # Fish and Pig each survive one extra round: 5 rounds, Beaver 20.
+  result: loss
+  survivors: {team: [], enemy: [Beaver 2/20]}
+
+- name: Turtle L3 gives Melon to three friends behind
+  source: 'Turtle text "Faint: Give the three nearest friends behind Melon"'
+  verified: false
+  team: [Turtle 2/1 L3, Fish 2/2, Pig 2/2, Duck 2/2]
+  enemy: [Beaver 2/30]
+  # 1 + 3 x 2 = 7 rounds: Beaver 16.
+  result: loss
+  survivors: {team: [], enemy: [Beaver 2/16]}
+
+- name: Turtle's Melon replaces Garlic
+  source: 'Turtle text "Give ... Melon"; a pet holds one perk'
+  verified: false
+  team: [Turtle 2/1, Fish 2/2 Garlic]
+  enemy: [Beaver 4/30]
+  # R1 Turtle faints (28): Fish 2/2 Melon. R2 Melon blocks 4 (26).
+  # R3 Fish takes 4 and faints (24). (With Garlic it would faint in R2.)
+  result: loss
+  survivors: {team: [], enemy: [Beaver 4/24]}
+
+################################################################################
+# Deer: "Faint: Summon one 5/3, 10/6, 15/9 Bus with Chili."
+################################################################################
+
+- name: Deer L1 summons a 5/3 Bus with Chili
+  source: 'Deer text "Faint: Summon one 5/3 Bus with Chili"; Chili text'
+  verified: false
+  team: [Deer 2/1]
+  enemy: [Pig 2/10, Fish 2/12]
+  # R1 Pig 8, Bus 5/3. R2 Pig 3, Fish 7 (splash), Bus 5/1.
+  # R3 Pig faints, Fish 2 (splash), Bus faints.
+  result: loss
+  survivors: {team: [], enemy: [Fish 2/2]}
+
+- name: Deer L2 summons a 10/6 Bus with Chili
+  source: 'Deer text "Faint: Summon one 10/6 Bus with Chili"'
+  verified: false
+  team: [Deer 2/1 L2]
+  enemy: [Pig 2/10, Fish 2/30]
+  # R1 Pig 8. R2 Pig faints, Fish 25 (splash), Bus 10/4.
+  # R3 Fish 15, Bus 10/2. R4 Fish 5, Bus faints.
+  result: loss
+  survivors: {team: [], enemy: [Fish 2/5]}
+
+- name: Deer L3 summons a 15/9 Bus with Chili
+  source: 'Deer text "Faint: Summon one 15/9 Bus with Chili"'
+  verified: false
+  team: [Deer 2/1 L3]
+  enemy: [Pig 2/10, Fish 2/40]
+  # R1 Pig 8. R2 Pig faints, Fish 35, Bus 15/7. R3 Fish 20, Bus 15/5.
+  # R4 Fish 5, Bus 15/3. R5 Fish faints, Bus 15/1.
+  result: win
+  survivors: {team: [Bus 15/1 Chili], enemy: []}
+
+################################################################################
+# Whale: "Start of battle: Swallow the nearest friend ahead. When this faints,
+# release it as a level 1/2/3 pet."
+# Released stats are not given by the text, so the swallowed pets here have
+# their base stats (a fresh level 1 pet).
+################################################################################
+
+# FIXED (was an engine mismatch): Swallow (sapai/effects.py) sets the swallowed pet's health
+# to -1 and leaves it in its slot; the start-of-battle hurt and faint phase
+# then treats it as fainted, so Ant's faint ability gives Whale +1/+1.
+- name: A pet swallowed by Whale does not faint, so its faint ability does not trigger
+  source: Whale text "Swallow the nearest friend ahead"; Ant text
+  verified: false
+  team: [Ant 2/2, Whale 3/7]
+  enemy: [Pig 1/20]
+  # Whale swallows Ant (no Ant faint ability). Whale 3/7 vs Pig: after
+  # six rounds Whale 3/1, Pig 2; R7 both faint and Whale releases Ant 2/2.
+  result: win
+  survivors: {team: [Ant 2/2], enemy: []}
+
+# FIXED (was an engine mismatch): the swallowed Dolphin stays in its slot (health -1) and
+# battle_phase_start (sapai/battle.py) still runs its start of battle
+# ability, knocking out the Pig before the fight.
+- name: A pet swallowed by Whale does not use its start of battle ability
+  source: Whale and Dolphin text; abilities go highest attack first
+  verified: false
+  team: [Dolphin 1/3, Whale 3/7]
+  enemy: [Pig 2/4]
+  # Whale (attack 3) goes before Dolphin (attack 1) and swallows it, so
+  # Dolphin never shoots. R1 Whale 3/5, Pig 1. R2 Pig faints, Whale 3/3.
+  result: win
+  survivors: {team: [Whale 3/3], enemy: []}
+
+- name: Whale releases the swallowed pet when it faints, and Dog sees it summoned
+  source: Whale and Dog text
+  verified: false
+  team: [Fish 2/3, Whale 3/1, Dog 3/2]
+  enemy: [Pig 1/10]
+  # Whale swallows Fish. R1 Whale faints (Pig 7) and releases Fish 2/3:
+  # Dog 5/3. R2 Fish 2/2 (5). R3 Fish 2/1 (3). R4 Fish faints (1).
+  # R5 Pig faints, Dog 5/2.
+  result: win
+  survivors: {team: [Dog 5/2], enemy: []}
+
+- name: Whale at the front has nothing to swallow
+  source: Whale text
+  verified: false
+  team: [Whale 3/1]
+  enemy: [Pig 1/1]
+  result: draw
+  survivors: {team: [], enemy: []}
