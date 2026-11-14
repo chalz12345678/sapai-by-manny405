@@ -267,6 +267,7 @@ class Seat:
         self.actions = 0
         self.log = []
         self.recorder = None  # set by Match: recorder(seat, title, before, after, ...)
+        self.thoughts = []  # trained models: what they weighed at each decision
 
     def obs(self):
         return E.encode(self.player, self.actions, self.last_result, 25, self.wins)
@@ -365,16 +366,49 @@ def _random(seat, rng):
             pass
 
 
+MAX_THOUGHT_TURNS = 12
+
+
+def think(policy, seat, obs=None, mask=None):
+    """What the policy makes of the seat's position: the move it picks, its
+    probability for each legal move, and the critic's value estimate."""
+    obs = seat.obs() if obs is None else obs
+    mask = seat.mask() if mask is None else mask
+    a, z = policy.predict(obs, mask)
+    legal = np.flatnonzero(mask)
+    zz = z[legal] - z[legal].max()
+    pr = np.exp(zz) / np.exp(zz).sum()
+    order = np.argsort(-pr)
+    names = {int(k): describe_action(seat.player, int(k)) for k in legal}
+    counts = {}
+    for v in names.values():
+        counts[v] = counts.get(v, 0) + 1
+    for k, v in names.items():
+        args = E.ACTIONS[k][1]
+        if counts[v] > 1 and args and E.ACTIONS[k][0] in ("buy_pet", "buy_combine", "buy_food", "freeze"):
+            names[k] = f"{v} (shop slot {args[0] + 1})"
+    options = [[names[int(legal[k])], round(float(pr[k]), 4)] for k in order[:5]]
+    chosen_p = float(pr[list(legal).index(a)])
+    return {"choice": names[int(a)], "action": int(a), "confidence": round(chosen_p, 4),
+            "options": options, "value": policy.value(obs), "legal_moves": int(len(legal))}
+
+
 def model_shop(policy):
     def shop(seat, rng):
-        for _ in range(MAX_ACTIONS):
-            a, _ = policy.predict(seat.obs(), seat.mask())
+        turn = int(seat.player.turn)
+        for step in range(MAX_ACTIONS):
+            t = think(policy, seat)
+            t.update(turn=turn, step=step + 1, gold=int(seat.player.gold))
+            seat.thoughts.append(t)
+            a = t["action"]
             if a == E.END_TURN:
                 break
             try:
                 seat.act(a)
             except Exception:
                 seat.actions += 1
+        oldest = turn - MAX_THOUGHT_TURNS
+        seat.thoughts[:] = [x for x in seat.thoughts if x["turn"] > oldest]
     return shop
 
 
@@ -408,6 +442,7 @@ def load_model(name, path):
     steps = name.split("_")[-1]
     desc = f"MaskablePPO, {kind}, {steps} training steps" + (f". Rated {rating}." if rating else ".")
     register_agent(name, label, desc, "model", model_shop(policy))
+    AGENTS[name]["policy"] = policy
     AGENTS[name]["rating"] = rating
     return name
 
@@ -425,7 +460,7 @@ def load_agent_source(agent_id, source):
 
 
 def agent_list():
-    return [{k: v for k, v in a.items() if k != "shop"} for a in AGENTS.values()]
+    return [{k: v for k, v in a.items() if k not in ("shop", "policy")} for a in AGENTS.values()]
 
 
 def agents_json():
@@ -486,6 +521,7 @@ class Match:
             np.random.seed(seed)
         self.seats = [Seat(seat0), Seat(seat1)]
         self.events = []
+        self.chat = []
         for s in self.seats:
             s.recorder = self._record_action
         self.over = False
@@ -664,9 +700,11 @@ class Match:
         """JSON-safe dict of the whole match, for saving to disk."""
         return {"version": 1, "kinds": [x.kind for x in self.seats],
                 "seats": [{"player": x.player.state, "wins": x.wins,
-                           "last_result": x.last_result, "actions": x.actions, "log": x.log}
+                           "last_result": x.last_result, "actions": x.actions, "log": x.log,
+                           "thoughts": x.thoughts}
                           for x in self.seats],
                 "events": self.events, "history": self.history, "over": self.over,
+                "chat": self.chat,
                 "result": self.result, "rng": list(self.rng.getstate()[1]),
                 "rng_version": self.rng.getstate()[0]}
 
@@ -681,9 +719,11 @@ class Match:
             seat.player = Player.from_state(sd["player"])
             seat.wins, seat.last_result = sd["wins"], sd["last_result"]
             seat.actions, seat.log = sd["actions"], list(sd["log"])
+            seat.thoughts = list(sd.get("thoughts", []))
             seat.recorder = m._record_action
             m.seats.append(seat)
         m.events, m.history = list(d["events"]), list(d["history"])
+        m.chat = list(d.get("chat", []))
         m.over, m.result = d["over"], d["result"]
         return m
 

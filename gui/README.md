@@ -29,6 +29,28 @@ leveling up, battle hits, faints and results. They are synthesized in the
 browser with the Web Audio API, so there are no audio files. Use the speaker
 button and volume slider at the top; the setting is remembered.
 
+## Talking to the model
+
+Press **Talk to the model** to ask the trained model about its play. The models
+are policy networks and can't really talk, so answers come from their real
+numbers: the probability it gave each move it made and the moves it nearly
+made (recorded at every decision), and its critic's value estimate of how the
+game is going. Try "why did you sell the duck?", "recap your last turn", "how
+confident are you?", "rate my team" or "what would you do in my spot?".
+
+For free-form chat, install the Anthropic SDK and set an API key before
+starting the server. Claude then speaks for the model, given only those numbers
+and the game state, and is told not to invent reasons beyond them:
+
+```bash
+pip install anthropic
+export ANTHROPIC_API_KEY=...        # PowerShell: $env:ANTHROPIC_API_KEY="..."
+python -m gui.server
+```
+
+It uses `claude-opus-5-5` at low effort by default; set `SAPAI_CHAT_MODEL` to
+use another model.
+
 ## Music and effects
 
 Two original tunes play live in the browser (Web Audio, no audio files): a calm

@@ -22,7 +22,7 @@ import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from gui import game
+from gui import chat, game
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MATCHES = {}
@@ -134,6 +134,16 @@ class Handler(BaseHTTPRequestHandler):
             return {"ok": True, "id": mid, "state": m.state()}
         if path == "/api/log":
             return {"ok": True, "events": m.events_since(req.get("since", 0))}
+        if path == "/api/chat":
+            if req.get("message") is None:
+                return {"ok": True, "chat": m.chat, "claude": chat.claude_available()}
+            mine = {"from": "you", "text": str(req["message"])[:500], "seat": None}
+            out = chat.reply(m, req["message"], req.get("seat"))
+            mine["seat"] = out["seat"]
+            m.chat += [mine, out]
+            m.chat[:] = m.chat[-200:]
+            save(mid)
+            return {"ok": True, "reply": out, "claude": chat.claude_available()}
         if path == "/api/act":
             out = m.do(req["name"], *req.get("args", []))
         elif path == "/api/step":

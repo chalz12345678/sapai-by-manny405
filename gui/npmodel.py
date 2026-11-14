@@ -110,6 +110,23 @@ class NumpyPolicy:
         obs = np.asarray(obs, dtype=np.float32)
         return self._token_logits(obs) if self.kind == "token" else self._mlp_logits(obs)
 
+    def value(self, obs):
+        """The critic's estimate of future reward from this position: roughly
+        battles won minus battles lost from here on, plus a bonus for winning
+        the game. None if the export has no critic weights."""
+        obs = np.asarray(obs, dtype=np.float32)
+        w = self.w
+        try:
+            if self.kind == "token":
+                h = np.tanh(_lin(w[P + "value.0.weight"], w[P + "value.0.bias"], obs))
+                h = np.tanh(_lin(w[P + "value.2.weight"], w[P + "value.2.bias"], h))
+            else:
+                h = np.tanh(_lin(w[P + "value_net.0.weight"], w[P + "value_net.0.bias"], obs))
+                h = np.tanh(_lin(w[P + "value_net.2.weight"], w[P + "value_net.2.bias"], h))
+            return float(_lin(w["value_net.weight"], w["value_net.bias"], h)[0])
+        except KeyError:
+            return None
+
     def predict(self, obs, action_masks):
         z = self.logits(obs).astype(np.float64)
         z[~np.asarray(action_masks, dtype=bool)] = -np.inf

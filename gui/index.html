@@ -292,6 +292,28 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
 .log-e li.warn { color: var(--loss); font-weight: 600; }
 .note.bad { color: var(--loss); font-weight: 600; }
 
+.chat-fab { position: fixed; right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 18;
+  border: 0; border-radius: 999px; padding: 12px 18px; font-weight: 700; cursor: pointer; background: var(--accent); color: var(--accent-fg); box-shadow: 0 6px 20px rgba(0,0,0,.2); }
+.chat-fab:hover { transform: translateY(-1px); }
+.chat { position: fixed; right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 19;
+  width: min(400px, calc(100% - 32px)); height: min(560px, calc(100% - 100px)); display: grid; grid-template-rows: auto 1fr auto auto;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 12px 40px rgba(0,0,0,.28); overflow: hidden; }
+.chat-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.chat-head > div { flex: 1; min-width: 0; }
+.chat-head b { font: 700 15px var(--f-display); }
+.chat-mode { font-size: 11.5px; color: var(--muted); }
+.chat-log { overflow: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.bubble { max-width: 88%; padding: 8px 11px; border-radius: 14px; font-size: 13.5px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.bubble.you { align-self: flex-end; background: var(--accent); color: var(--accent-fg); border-bottom-right-radius: 4px; }
+.bubble.bot { align-self: flex-start; background: var(--sunk); border-bottom-left-radius: 4px; }
+.bubble .tag { display: block; font-size: 10.5px; color: var(--muted); margin-bottom: 2px; }
+.bubble.typing { color: var(--muted); font-style: italic; }
+.chips { display: flex; gap: 6px; overflow-x: auto; padding: 6px 12px; }
+.chips button { flex: 0 0 auto; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 10px; font-size: 12px; cursor: pointer; }
+.chips button:hover { border-color: var(--accent); }
+.chat-form { display: flex; gap: 6px; padding: 10px 12px; border-top: 1px solid var(--line); }
+.chat-form input { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; background: var(--bg); color: var(--fg); font: inherit; }
+
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 13px; max-width: calc(100% - 32px); box-shadow: var(--shadow); z-index: 20; }
 .banner { border-radius: 14px; padding: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; background: var(--accent-soft); }
 .banner h2 { margin: 0; font: 800 22px var(--f-display); }
@@ -457,6 +479,20 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
   <button class="btn close" id="sheetClose" aria-label="Close details">✕</button>
   <div id="sheetBody"></div>
 </div>
+<button class="chat-fab" id="chatFab" aria-expanded="false" aria-controls="chat">💬 Talk to the model</button>
+<section class="chat" id="chat" role="dialog" aria-label="Chat with the model" hidden>
+  <div class="chat-head">
+    <div><b id="chatWho">Model</b><div class="chat-mode" id="chatMode"></div></div>
+    <select id="chatSeat" aria-label="Which side to talk to" hidden><option value="0">Left</option><option value="1">Right</option></select>
+    <button class="btn icon" id="chatClose" aria-label="Close chat">✕</button>
+  </div>
+  <div class="chat-log" id="chatLog" aria-live="polite"></div>
+  <div class="chips" id="chatChips"></div>
+  <form class="chat-form" id="chatForm">
+    <input id="chatInput" autocomplete="off" maxlength="500" placeholder="Ask why it made a move…">
+    <button class="btn primary" type="submit">Send</button>
+  </form>
+</section>
 <div class="toast" id="toast" hidden></div>
 
 <script src="/static/fx.js"></script>
@@ -937,6 +973,8 @@ function render() {
   $("autoBtn").textContent = S.auto ? "Stop" : "Auto play";
   $("autoBtn").setAttribute("aria-pressed", S.auto);
   renderScore(); renderOver(); renderPlay(); renderWatch(); syncLog();
+  if (CHAT.open && CHAT.loadedFor !== S.id) chatLoad();
+  else if (CHAT.open) chatHeader();
 }
 
 // ---------------------------------------------------------------- battle
@@ -1258,6 +1296,79 @@ $("autoBtn").onclick = () => {
   if (S.auto && S.st && !S.st.over && (!S.battle || !S.playing)) step();
 };
 $("seriesBtn").onclick = runSeries;
+
+// ------------------------------------------------------------------- chat
+const CHAT = { open: false, claude: false, loadedFor: null, busy: false };
+function chatTarget() {
+  if (!S.st) return null;
+  const seats = S.st.seats;
+  if (S.mode === "watch") return Number($("chatSeat").value);
+  const i = seats.findIndex((x) => x.kind !== "human");
+  return i < 0 ? null : i;
+}
+function chatHeader() {
+  const i = chatTarget(), st = S.st;
+  const isModel = (k) => (S.meta.agents.find((a) => a.id === k) || {}).group === "model";
+  $("chatSeat").hidden = S.mode !== "watch";
+  if (i == null || !st) { $("chatWho").textContent = "No game"; return; }
+  $("chatWho").textContent = st.seats[i].label;
+  $("chatMode").textContent = !isModel(st.seats[i].kind)
+    ? "Only the trained models can explain their moves."
+    : CHAT.claude ? "Claude speaking for the model, using only its real numbers" : "Answers come from the model's real move probabilities";
+}
+function bubble(m) {
+  const you = m.from === "you";
+  return `<div class="bubble ${you ? "you" : "bot"}">${you ? "" : `<span class="tag">${esc(m.from)}${m.mode === "claude" ? " · via Claude" : ""}</span>`}${esc(m.text)}</div>`;
+}
+function chatRender(list) {
+  const el = $("chatLog");
+  el.innerHTML = list.length ? list.map(bubble).join("")
+    : `<div class="bubble bot"><span class="tag">How this works</span>The model is a neural network, so it can't really talk. Instead it shows you what it actually weighed: its confidence in each move, the moves it nearly made, and how good it thinks the game is going. Try a question below.</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+async function chatLoad() {
+  if (!S.id) return;
+  try {
+    const j = await api("/api/chat", { id: S.id });
+    CHAT.claude = j.claude; CHAT.loadedFor = S.id;
+    const i = chatTarget();
+    chatRender(j.chat.filter((m) => m.seat == null || m.seat === i));
+    chatHeader();
+  } catch (e) { chatRender([]); }
+}
+async function chatSend(text) {
+  text = text.trim();
+  if (!text || CHAT.busy || !S.id) return;
+  CHAT.busy = true;
+  const el = $("chatLog");
+  el.insertAdjacentHTML("beforeend", bubble({ from: "you", text }) + `<div class="bubble bot typing" id="typing">thinking…</div>`);
+  el.scrollTop = el.scrollHeight;
+  $("chatInput").value = "";
+  try {
+    const j = await api("/api/chat", { id: S.id, message: text, seat: chatTarget() });
+    CHAT.claude = j.claude;
+    $("typing")?.remove();
+    el.insertAdjacentHTML("beforeend", bubble(j.reply));
+    SFX.play("select", 4);
+  } catch (e) {
+    $("typing")?.remove();
+    el.insertAdjacentHTML("beforeend", bubble({ from: "system", text: e.message }));
+  } finally { CHAT.busy = false; el.scrollTop = el.scrollHeight; chatHeader(); }
+}
+const CHIPS = ["Why did you do that?", "Recap your last turn", "Bruh you inted", "How confident are you?", "Rate my team", "What would you do in my spot?"];
+$("chatChips").innerHTML = CHIPS.map((c) => `<button type="button">${esc(c)}</button>`).join("");
+$("chatChips").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) chatSend(b.textContent); });
+$("chatForm").addEventListener("submit", (e) => { e.preventDefault(); chatSend($("chatInput").value); });
+function chatToggle(open) {
+  CHAT.open = open;
+  $("chat").hidden = !open; $("chatFab").hidden = open;
+  $("chatFab").setAttribute("aria-expanded", String(open));
+  if (open) { chatLoad(); setTimeout(() => $("chatInput").focus(), 50); }
+}
+$("chatFab").onclick = () => chatToggle(true);
+$("chatClose").onclick = () => chatToggle(false);
+$("chatSeat").onchange = chatLoad;
+$("chatInput").addEventListener("keydown", (e) => e.stopPropagation());
 function soundUI() {
   $("muteBtn").textContent = SFX.muted || SFX.volume === 0 ? "🔇" : "🔊";
   $("muteBtn").setAttribute("aria-pressed", String(SFX.muted));

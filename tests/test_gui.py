@@ -89,5 +89,30 @@ class TestGui(unittest.TestCase):
             self.assertEqual([e for e in m.events if e["warn"]], [])
 
 
+    def test_chat_answers_from_model_numbers(self):
+        from gui import chat
+
+        m = game.Match("human", "token_16.8M", seed=3)
+        m.do("end_turn")
+        thoughts = m.seats[1].thoughts
+        self.assertTrue(thoughts)
+        for t in thoughts:
+            self.assertAlmostEqual(sum(p for _, p in t["options"]), 1.0, delta=0.05)
+            self.assertIsNotNone(t["value"])
+        rolled = next((t for t in thoughts if t["choice"] == "rolled"), None)
+        r = chat.reply(m, "why did you roll?", use_claude=False)
+        self.assertEqual(r["seat"], 1)
+        if rolled:
+            self.assertIn(chat.pct(rolled["confidence"]), r["text"])
+        r = chat.reply(m, "what would you do in my spot?", use_claude=False)
+        self.assertIn("In your seat", r["text"])
+
+    def test_chat_without_model(self):
+        from gui import chat
+
+        m = game.Match("human", "greedy", seed=1)
+        self.assertIsNone(chat.reply(m, "hi", use_claude=False)["seat"])
+
+
 if __name__ == "__main__":
     unittest.main()

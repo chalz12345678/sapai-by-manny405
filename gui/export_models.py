@@ -2,7 +2,7 @@
 Export the actor weights of models/*.zip to gui/models/*.npz for the GUI.
 
 Reads the SB3 checkpoint directly (policy.pth is a zip holding a pickle and raw
-tensor storages), so torch is not needed. Only the actor is kept.
+tensor storages), so torch is not needed. The actor picks moves; the critic (value head) estimates how well the game is going.
 
     python -m gui.export_models
 """
@@ -54,8 +54,8 @@ def load_state_dict(raw):
 
 
 def keep(key):
-    if key.startswith("mlp_extractor.value") or key.startswith("value_net"):
-        return False
+    """Actor and critic weights; the critic answers "how good is this position"
+    in the GUI's chat."""
     return not key.endswith("pair_a") and not key.endswith("pair_b")
 
 
