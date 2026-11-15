@@ -12,3 +12,16 @@
   # leaving 15 (rounding to nearest left 16, which the game never shows).
   result: win
   survivors: {team: ["Leopard 49/15", "Worm 16/11 L3"], enemy: []}
+
+- name: Skunk L1 rounds up again (3 removed from 7 health); Cake does nothing in battle
+  source: real game, 2026-11-15, Battle Lab capture
+  verified: true
+  seen: true
+  team: ["Peacock 10/15 L2", "Worm 5/10 L2", "Skunk 3/5", "Whale 3/7 Cake", "Mosquito 3/5"]
+  enemy: ["Cricket 3/5 L2", "Sheep 2/2", "Dog 6/2", "Dog 6/4", "Horse 7/7 L3 Cake"]
+  # Skunk removes 33% of the Horse's 7 health: 2.31, rounded up to 3, leaving
+  # 4 (rounding to nearest would leave 5). The Whale swallows the Skunk, whose
+  # ability still fires, and releases it when the Whale faints. The Horse is
+  # never hit again when the Mosquito's start-of-battle shot goes elsewhere.
+  result: loss
+  survivors: {team: [], enemy: ["Horse 7/4 L3 Cake"]}
