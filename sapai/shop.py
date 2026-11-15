@@ -309,6 +309,10 @@ class Shop(SAPList):
         for slot in self.slots:
             if slot.slot_type == "pet":
                 new_slots_pet.append(slot)
+            elif slot.slot_type == "levelup" and slot.frozen:
+                ### A frozen level-up pet stays into the next turn, like
+                ###   anything frozen (an unfrozen one goes)
+                new_slots_pet.append(slot)
             elif slot.slot_type == "food":
                 new_slots_food.append(slot)
             else:
@@ -427,6 +431,8 @@ class Shop(SAPList):
                 fslots.append(iter_idx)
         keep_idx = pslots + fslots
         keep_slots = [self.slots[x] for x in keep_idx]
+        ### Size the list to what is kept, or it is padded with blank slots
+        self._nslots = len(keep_slots)
         self.slots = keep_slots
 
     def __len__(self):

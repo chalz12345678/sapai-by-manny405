@@ -114,6 +114,25 @@ class TestLevelUpChoice(unittest.TestCase):
         self.assertTrue(mask[ACTION_START["freeze"] + 0])  # unfreeze the first
         self.assertFalse(mask[ACTION_START["freeze"] + 1])
 
+    def test_frozen_one_stays_and_the_other_goes(self):
+        player = Player()
+        player.shop.levelup()
+        first = [i for i, s in enumerate(player.shop) if s.slot_type == "levelup"][0]
+        kept = player.shop[first].obj.name
+        player.freeze(first)
+        for step in ("roll", "next turn"):
+            with self.subTest(step=step):
+                if step == "roll":
+                    player.gold = 10
+                    player.roll()
+                else:
+                    player.end_turn()
+                    player.start_turn()
+                levelup = [s for s in player.shop if s.slot_type == "levelup"]
+                self.assertEqual([s.obj.name for s in levelup], [kept])
+                self.assertTrue(levelup[0].frozen)
+                self.assertEqual([s for s in player.shop if s.slot_type == "none"], [])
+
     def test_pair_survives_saving(self):
         player = self.levelled()
         restored = Player.from_state(player.state)
