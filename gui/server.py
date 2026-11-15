@@ -228,6 +228,8 @@ def lab_route(path, req):
         return lab_meta()
     if path == "/api/lab/read":
         return {"ok": True, "seen": lab.read_frame(lab_frame(req))}
+    if path == "/api/lab/parse":
+        return {"ok": True, "teams": lab.parse_teams(req.get("text") or "")}
     if path == "/api/lab/checkpoint":
         lab.checkpoint()
         return {"ok": True}

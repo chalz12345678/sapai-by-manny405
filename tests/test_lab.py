@@ -308,5 +308,49 @@ class TestUndoLesson(LabCase):
             lab.undo()
 
 
+class TestTeamsFromText(unittest.TestCase):
+    TEXT = """
+    before you: Ant 2/1, fish 3/4 L2 garlic, -, Pig 4/1
+    before them: Beaver 5/6 meat bone; Duck 7/8 L3
+    after you: Pig 4/1
+    after them: none
+    """
+
+    def test_fills_every_slot(self):
+        t = lab.parse_teams(self.TEXT)
+        you = t["start"]["player"]
+        self.assertEqual(you[1], pet("Fish", 3, 4, 2, "Garlic"))
+        self.assertEqual(you[2], {"empty": True})
+        self.assertEqual(you[3]["name"], "Pig")
+        self.assertEqual(you[4], {"empty": True})
+        self.assertEqual(t["start"]["opponent"][0]["perk"], "Meat Bone")
+        self.assertEqual(t["end"]["opponent"], [{"empty": True}] * 5)
+
+    def test_missing_frame_is_left_alone(self):
+        t = lab.parse_teams("after you: Pig 4/1")
+        self.assertEqual(set(t), {"end"})
+        self.assertEqual(t["end"]["opponent"], [{"empty": True}] * 5)
+
+    def test_rows_teach_like_typed_rows(self):
+        first = TestLearningToRead.FIRST
+        typed = lab.parse_teams(
+            "before you: Ant 2/1, Fish 3/4 L2 Garlic, Pig 4/1\n"
+            "before them: Beaver 5/6 Melon, Duck 7/8 L3, Otter 9/10"
+        )["start"]
+        self.assertEqual(typed, labels(first))
+
+    def test_mistakes_name_the_line(self):
+        for text, words in [
+            ("before you: Antt 2/1", "line 1: unknown pet"),
+            ("before you: Ant 2/1\nbefore us: Pig 1/1", "line 2"),
+            ("during you: Ant 2/1", "line 1"),
+            ("before you: Ant 2", "line 1: cannot read pet"),
+            ("before you: " + ", ".join(["Ant 1/1"] * 6), "at most 5"),
+            ("", "Nothing to fill in"),
+        ]:
+            with self.subTest(text=text), self.assertRaisesRegex(ValueError, words):
+                lab.parse_teams(text)
+
+
 if __name__ == "__main__":
     unittest.main()

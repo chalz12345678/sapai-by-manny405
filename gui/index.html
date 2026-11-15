@@ -403,6 +403,10 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
 .lab-table input[type=number] { width: 4.2em; }
 .lab-table input[type=text] { width: 9em; }
 .lab-table .unsure { background: var(--atk-soft); }
+.lab-paste { margin: 8px 0; }
+.lab-paste summary { cursor: pointer; font-weight: 600; }
+.lab-paste pre { margin: 6px 0; padding: 8px; border-radius: 8px; border: 1px solid var(--line); overflow-x: auto; }
+.lab-paste textarea { width: 100%; box-sizing: border-box; font-family: ui-monospace, Menlo, monospace; font-size: 13px; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: inherit; }
 .lab-check { display: grid; gap: 6px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); }
 .lab-check.ok { border-color: var(--win); }
 .lab-check.bad { border-color: var(--loss); }
@@ -553,7 +557,18 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
       <button class="btn" id="labTeach" disabled>Learn from my corrections</button>
       <button class="btn" id="labUndo" disabled title="Forget what the last Learn taught, so you can fix the table and learn again">Undo last lesson</button>
       <button class="btn primary" id="labRun" disabled>Recreate battle</button>
+      <button class="btn" id="labCopy" disabled title="Copies the start and end frames as one picture, to paste into a chat with Claude">Copy frames for Claude</button>
     </div>
+    <details class="lab-paste" id="labPasteBox">
+      <summary>Fill in the teams from text</summary>
+      <p class="help">Paste the lines Claude gives you (or type them), press Fill in, check the tables, then press Learn from my corrections. One line per frame and side, pets front first, separated by commas; level and perk are optional, and "-" is an empty slot:</p>
+      <pre class="help">before you: Ant 2/1, Fish 3/4 L2 Garlic, Pig 4/1
+before them: Beaver 5/6 Melon, Duck 7/8 L3
+after you: Pig 4/1
+after them: none</pre>
+      <textarea id="labPaste" rows="5" spellcheck="false" aria-label="Teams as text"></textarea>
+      <div class="setup"><button class="btn" id="labFill">Fill in</button></div>
+    </details>
     <div class="lab-teams" id="labTeams"></div>
     <div class="lab-check" id="labCheck" hidden></div>
   </section>
@@ -1354,6 +1369,7 @@ function labButtons() {
   $("labTeach").disabled = !both || !(LAB.meta && LAB.meta.layout);
   $("labUndo").disabled = !(LAB.meta && LAB.meta.can_undo);
   $("labRun").disabled = !LAB.frames.start && !labHasPets("start");
+  $("labCopy").disabled = !LAB.frames.start && !LAB.frames.end;
 }
 
 // Capture ----------------------------------------------------------------
@@ -1612,6 +1628,62 @@ async function labUndo() {
   toast("Forgot the last lesson. Fix the table and press Learn from my corrections again.");
 }
 
+// Sharing frames with Claude, and filling the tables from text --------------
+function labCombinedFrames() {
+  const parts = [["start", "BEFORE (start of battle)"], ["end", "AFTER (end of battle)"]].filter(([w]) => LAB.frames[w]);
+  // Wide enough to read the numbers, small enough to paste quickly
+  const width = Math.min(1600, Math.max(...parts.map(([w]) => LAB.frames[w].width)));
+  const bar = 44;
+  const heights = parts.map(([w]) => Math.round(LAB.frames[w].height * width / LAB.frames[w].width));
+  const c = document.createElement("canvas");
+  c.width = width; c.height = heights.reduce((a, h) => a + h + bar, 0);
+  const g = c.getContext("2d");
+  let y = 0;
+  parts.forEach(([w, label], i) => {
+    g.fillStyle = "#111"; g.fillRect(0, y, width, bar);
+    g.fillStyle = "#fff"; g.font = "bold 26px sans-serif"; g.textBaseline = "middle";
+    g.fillText(label, 14, y + bar / 2);
+    y += bar;
+    g.drawImage(LAB.frames[w], 0, y, width, heights[i]);
+    y += heights[i];
+  });
+  return c;
+}
+async function labCopy() {
+  if (!LAB.frames.start && !LAB.frames.end) { toast("Pick a start or end frame first."); return; }
+  const c = labCombinedFrames();
+  // Hand the clipboard a promise straight away: Safari only allows the write
+  // during the click itself
+  const blob = new Promise((resolve) => c.toBlob(resolve, "image/png"));
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+    toast("Copied both frames as one picture. Paste it into your chat with Claude.");
+  } catch (e) {
+    const a = document.createElement("a");
+    a.href = c.toDataURL("image/png"); a.download = "battle-frames.png"; a.click();
+    toast("This browser wouldn't copy the picture, so it was downloaded as battle-frames.png instead. Drag that into the chat.");
+  }
+}
+async function labFill() {
+  let teams;
+  try { teams = (await api("/api/lab/parse", { text: $("labPaste").value })).teams; }
+  catch (e) { toast(e.message); return; }
+  for (const which of Object.keys(teams)) {
+    const old = LAB.seen[which];
+    LAB.seen[which] = {};
+    for (const side of ["player", "opponent"]) {
+      // Keep the pictures the lab cut out, so rows can still be checked by eye
+      LAB.seen[which][side] = teams[which][side].map((p, i) => {
+        const crop = old && old[side] && old[side][i] ? old[side][i].crop : null;
+        return crop ? { ...p, crop } : p;
+      });
+    }
+  }
+  labTables(); labButtons();
+  const names = Object.keys(teams).map((w) => (w === "start" ? "start" : "end"));
+  toast(`Filled in the ${names.join(" and ")} of battle. Check them, then press Learn from my corrections.`);
+}
+
 // Recreating, checking and saving -----------------------------------------
 function labTeamsFor(which) {
   const l = labLabels(which);
@@ -1664,6 +1736,8 @@ $("labFile").onchange = (e) => { const f = e.target.files[0]; if (f) labLoadFile
 $("labCalibrate").onclick = labCalibrate;
 $("labCalibCancel").onclick = labCalibCancel;
 $("labUndo").onclick = labUndo;
+$("labCopy").onclick = labCopy;
+$("labFill").onclick = labFill;
 $("labRead").onclick = labRead;
 $("labTeach").onclick = labTeach;
 $("labRun").onclick = labRun;

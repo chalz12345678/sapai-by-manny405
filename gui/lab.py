@@ -523,6 +523,88 @@ def one_line(pet):
     return text
 
 
+FRAME_WORDS = {"before": "start", "start": "start", "after": "end", "end": "end"}
+SIDE_WORDS = {
+    "you": "player",
+    "me": "player",
+    "player": "player",
+    "them": "opponent",
+    "opponent": "opponent",
+    "enemy": "opponent",
+}
+EMPTY_WORDS = {"-", "empty", "none", "nothing"}
+
+
+def parse_teams(text):
+    """
+    Teams typed as text (for example by Claude, from screenshots), one line
+    per frame and side, pets front first, separated by commas:
+
+        before you: Ant 2/1, Fish 3/4 L2 Garlic, Pig 4/1
+        before them: Beaver 5/6 Melon, Duck 7/8 L3
+        after you: Pig 4/1
+        after them: none
+
+    "-" marks an empty slot in the middle of a team; slots after the last pet
+    are empty. Returns {"start": {...}, "end": {...}} with only the frames
+    given, each side a list of 5 rows as the lab table uses them.
+    """
+    from sapai.scenarios import data, parse_pet
+
+    out = {}
+    for n, raw in enumerate(text.splitlines(), 1):
+        line = raw.strip().strip("`").strip()
+        if not line or line.startswith("#"):
+            continue
+        head, sep, rest = line.partition(":")
+        words = head.lower().split()
+        if not sep or len(words) != 2 or words[0] not in FRAME_WORDS:
+            raise ValueError(
+                f"line {n}: expected something like 'before you: Ant 2/1, Pig 4/1',"
+                f" got {raw.strip()!r}"
+            )
+        which, side = FRAME_WORDS[words[0]], SIDE_WORDS.get(words[1])
+        if side is None:
+            raise ValueError(f"line {n}: say 'you' or 'them', not {words[1]!r}")
+        items = [x.strip() for x in rest.replace(";", ",").replace("|", ",").split(",")]
+        if len(items) == 1 and items[0].lower() in EMPTY_WORDS | {""}:
+            items = []
+        if len(items) > 5:
+            raise ValueError(f"line {n}: a team has at most 5 pets")
+        rows = []
+        for item in items:
+            if item.lower() in EMPTY_WORDS:
+                rows.append({"empty": True})
+                continue
+            try:
+                pet = parse_pet(item)
+            except ValueError as e:
+                raise ValueError(f"line {n}: {e}") from None
+            perk = pet["perk"]
+            rows.append(
+                {
+                    "name": data["pets"][pet["id"]]["name"],
+                    "attack": pet["attack"],
+                    "health": pet["health"],
+                    "level": pet["level"],
+                    "perk": data["statuses"][perk]["name"]
+                    if perk != "none"
+                    else "none",
+                }
+            )
+        rows += [{"empty": True}] * (5 - len(rows))
+        frame = out.setdefault(which, {})
+        if side in frame:
+            raise ValueError(f"line {n}: {words[0]} {words[1]} is given twice")
+        frame[side] = rows
+    if not out:
+        raise ValueError("Nothing to fill in: paste lines like 'before you: Ant 2/1'")
+    for which, frame in out.items():
+        for side in SIDES:
+            frame.setdefault(side, [{"empty": True}] * 5)
+    return out
+
+
 def outcome_of(player_left, opponent_left):
     if player_left and not opponent_left:
         return "win"
