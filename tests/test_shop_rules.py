@@ -133,6 +133,21 @@ class TestLevelUpChoice(unittest.TestCase):
                 self.assertTrue(levelup[0].frozen)
                 self.assertEqual([s for s in player.shop if s.slot_type == "none"], [])
 
+    def test_frozen_one_takes_a_normal_pet_slot(self):
+        ### Confirmed in the game: on turn 1 (3 pet slots) a roll gives the
+        ###   frozen level-up pet and 2 new pets
+        player = Player()
+        player.shop.levelup()
+        player.freeze(
+            [i for i, s in enumerate(player.shop) if s.slot_type == "levelup"][0]
+        )
+        player.gold = 10
+        player.roll()
+        kinds = [s.slot_type for s in player.shop]
+        self.assertEqual(kinds.count("levelup"), 1)
+        self.assertEqual(kinds.count("pet"), 2)
+        self.assertEqual(kinds.count("food"), 1)
+
     def test_pair_survives_saving(self):
         player = self.levelled()
         restored = Player.from_state(player.state)

@@ -59,7 +59,7 @@ Nothing is ✅ yet: confirming rules in the game is the next step (see
 | 3.3 | The merged pet keeps the higher attack and the higher health of the two | ✅ game | `test_merging_keeps_the_higher_stats_plus_one` |
 | 3.4 | Merging adds +1/+1 for every copy the merged-in pet is worth (two level 2 pets: +3/+3), capped at 50 | ✅ decided | `test_merging_adds_one_per_copy_merged_in` |
 | 3.5 | The merged pet keeps the higher-tier perk of the two (ties: the pet kept) | ❓ open (Q6) | none yet |
-| 3.6 | Each level gained adds two level-up pets from the next tier; only one can be bought (buying one removes the other) and only one can be frozen. Level-up abilities (Fish) fire | ✅ game | `tests/test_shop_rules.py::TestLevelUpChoice` |
+| 3.6 | Each level gained adds two level-up pets from the next tier; only one can be bought (buying one removes the other) and only one can be frozen. A frozen one stays into later turns and takes one of the normal pet slots (a roll on turn 1 gives it plus 2 new pets); the unfrozen partner goes. Level-up abilities (Fish) fire | ✅ game | `tests/test_shop_rules.py::TestLevelUpChoice` |
 | 3.7 | Chocolate gives 1 experience | ✅ game | `test_turtle_pack.py` |
 
 ## 4. Battle
