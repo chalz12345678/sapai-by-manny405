@@ -392,7 +392,8 @@
 
 ################################################################################
 # Skunk: "Start of battle: Remove 33/66/99% of health from the highest health
-# enemy." (Health values chosen so rounding up or down gives the same result.)
+# enemy." The amount removed rounds up (seen in the game: Skunk L2 took 31
+# from a pet with 46 health).
 ################################################################################
 
 - name: Skunk L1 removes a third of the highest health enemy's health
@@ -400,26 +401,26 @@
   verified: false
   team: [Skunk 3/9]
   enemy: [Fish 2/3, Pig 1/10]
-  # Pig 10 -> 7 (3.3 removed). R1 Fish faints, Skunk 3/7.
-  # R2-R4 Skunk beats Pig 1/7: Skunk 3/4.
+  # Pig 10 -> 6 (3.3 rounds up to 4). R1 Fish faints, Skunk 3/7.
+  # R2-R3 Skunk beats Pig 1/6: Skunk 3/5.
   result: win
-  survivors: {team: [Skunk 3/4], enemy: []}
+  survivors: {team: [Skunk 3/5], enemy: []}
 
 - name: Skunk L2 removes two thirds
   source: 'Skunk text "Remove 66% of health from the highest health enemy"'
   verified: false
   team: [Skunk 3/9 L2]
   enemy: [Fish 2/3, Pig 1/20]
-  # Pig 20 -> 7 (13.2 removed). Same battle as above.
+  # Pig 20 -> 6 (13.2 rounds up to 14). Same battle as above.
   result: win
-  survivors: {team: [Skunk 3/4 L2], enemy: []}
+  survivors: {team: [Skunk 3/5 L2], enemy: []}
 
 - name: Skunk L3 leaves the highest health enemy with 1 health
   source: 'Skunk text "Remove 99% of health from the highest health enemy"'
   verified: false
   team: [Skunk 3/5 L3]
   enemy: [Pig 1/10, Fish 2/3]
-  # Pig 10 -> 1 (9.9 removed). R1 Pig faints, Skunk 3/4.
+  # Pig 10 -> 1 (9.9 rounds up to 10, but 1 health is always left). R1 Pig faints, Skunk 3/4.
   # R2 Fish faints, Skunk 3/2.
   result: win
   survivors: {team: [Skunk 3/2 L3], enemy: []}

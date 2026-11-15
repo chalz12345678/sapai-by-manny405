@@ -524,7 +524,7 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
 
   <section class="panel" id="labPanel" hidden>
     <div class="panel-head"><h2>Battle Lab</h2><span class="note" id="labLearned"></span></div>
-    <p class="help">Recreate a battle from your Super Auto Pets game and check the engine against it. Share the game window, play as usual, then pick the frame where the battle starts and the frame where it ends. The lab reads the pets from what it has learned on your screen; fix anything it got wrong and it learns from that too. Nothing leaves your computer.</p>
+    <p class="help">Recreate a battle from your Super Auto Pets game and check the engine against it. Share the game window, play as usual, then pick the frame where the battle starts and the frame where it ends. For the start, use the VS screen, before any start-of-battle ability (Skunk, Mosquito, Dolphin...) has gone off: the lab plays those abilities itself, so a later frame counts them twice. For the end, use a frame where the last pets are still standing, before the stars. The lab reads the pets from what it has learned on your screen; fix anything it got wrong and it learns from that too. Nothing leaves your computer.</p>
     <div class="setup">
       <button class="btn primary" id="labShare">Share game window</button>
       <button class="btn" id="labGrab" disabled>Grab frame now</button>

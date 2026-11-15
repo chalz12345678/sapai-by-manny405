@@ -615,6 +615,31 @@ def outcome_of(player_left, opponent_left):
     return None
 
 
+def with_start_levels(start, end):
+    """
+    The end-of-battle pets with the levels they started with. A pet can't
+    level up during a battle, and the level badge is easy to misread or leave
+    at 1 in the end table, so a survivor takes the level of the same pet at
+    the start (when all of that side's pets with its name share one level;
+    summoned pets such as a Zombie Cricket keep what was typed).
+    """
+    out = {}
+    for side in SIDES:
+        levels = {}
+        for p in pets_of(start.get(side, [])):
+            levels.setdefault(p["name"].lower(), set()).add(int(p.get("level") or 1))
+        rows = []
+        for p in end.get(side, []):
+            known = levels.get((p or {}).get("name", "").lower()) if p else None
+            if known and len(known) == 1 and not p.get("empty"):
+                p = dict(p, level=next(iter(known)))
+            rows.append(p)
+        out[side] = rows
+    for k, v in end.items():
+        out.setdefault(k, v)
+    return out
+
+
 def run(start, end=None, runs=200):
     """
     Recreate the battle from the start-of-battle teams and check it.
@@ -628,6 +653,8 @@ def run(start, end=None, runs=200):
 
     team = [spec(p) for p in pets_of(start["player"])]
     enemy = [spec(p) for p in pets_of(start["opponent"])]
+    if end is not None:
+        end = with_start_levels(start, end)
     if not team and not enemy:
         raise ValueError("Both teams are empty")
     scenario = {"team": team, "enemy": enemy}

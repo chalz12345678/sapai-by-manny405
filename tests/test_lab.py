@@ -352,5 +352,31 @@ class TestTeamsFromText(unittest.TestCase):
                 lab.parse_teams(text)
 
 
+class TestEndLevels(unittest.TestCase):
+    def test_survivor_keeps_its_start_level(self):
+        start = {"player": [pet("Worm", 6, 11, 3), pet("Cat", 5, 6)], "opponent": []}
+        end = {
+            "player": [pet("Worm", 6, 14), pet("Zombie Cricket", 1, 1)],
+            "opponent": [],
+        }
+        fixed = lab.with_start_levels(start, end)
+        self.assertEqual(fixed["player"][0]["level"], 3)
+        self.assertEqual(fixed["player"][1]["level"], 1)
+        ### The typed rows are not changed
+        self.assertEqual(end["player"][0]["level"], 1)
+
+    def test_two_levels_of_one_pet_are_left_alone(self):
+        start = {"player": [pet("Ant", 2, 1), pet("Ant", 4, 3, 2)], "opponent": []}
+        end = {"player": [pet("Ant", 4, 3)], "opponent": []}
+        self.assertEqual(lab.with_start_levels(start, end)["player"][0]["level"], 1)
+
+    def test_run_matches_with_the_level_left_at_1(self):
+        start = {"player": [pet("Fish", 2, 3, 2)], "opponent": [pet("Ant", 1, 1)]}
+        end = {"player": [pet("Fish", 2, 2)], "opponent": []}
+        out = lab.run(start, end, runs=5)
+        self.assertTrue(out["match"]["matches"])
+        self.assertEqual(out["game"]["player"], ["Fish 2/2 L2"])
+
+
 if __name__ == "__main__":
     unittest.main()

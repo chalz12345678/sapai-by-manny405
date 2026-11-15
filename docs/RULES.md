@@ -144,9 +144,10 @@ behaviour is in brackets.
   attack, the engine goes by health, then at random; two player guides say
   the same, but nothing official. (health, then random)
 - **Q8. Shop size.** Answered: 9 slots in all; see rule 2.8.
-- **Q9. Rounding.** Seen in the game: Leopard rounded down but Skunk rounded
-  up. The rule behind it is still to find. (down, minimum 1, for all but
-  Skunk, which rounds to nearest)
+- **Q9. Rounding.** Seen in the game: Leopard rounds down, Skunk rounds up
+  (Skunk L2 took 31 from 46 health, where 66% is 30.36; Battle Lab capture,
+  in tests/scenarios/real_games.yaml). Other percentages still to check.
+  (down, minimum 1, for all but Skunk, which rounds up)
 - **Q10. Same-moment faints.** When pets faint together, do Shark, Fly, Ant
   and Flamingo count or target the others that fainted at that moment?
   (handled in order of attack)

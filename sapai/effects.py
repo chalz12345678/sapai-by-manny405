@@ -781,13 +781,16 @@ def ReduceHealth(apet, apet_idx, teams, te=None, te_idx=None, fixed_targets=None
     else:
         target = fixed_targets
         possible = [fixed_targets]
-    per = apet.ability["effect"]["percentage"] * 0.01
+    percent = int(apet.ability["effect"]["percentage"])
     for temp_pet in target:
         if temp_pet.health > 0:
             ### Remove a share of the health the pet has now, temporary buffs
             ###   included (Bread, Dog), but keep the buff out of the stored
             ###   stat so it is not counted twice. At least 1 health is left.
-            removed = int(np.round(temp_pet.health * per))
+            ### Rounds up, as seen in the game: Skunk L2 took 31 from a pet
+            ###   with 46 health (30.36). Whole-number maths, so 33% of 100
+            ###   is exactly 33.
+            removed = -(-temp_pet.health * percent // 100)
             left = max(1, temp_pet.health - removed)
             temp_pet._health = left - temp_pet._until_end_of_battle_health_buff
     return target, possible

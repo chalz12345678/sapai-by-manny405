@@ -1,0 +1,14 @@
+# Battles captured from the real game with the Battle Lab and checked by hand.
+# (The lab itself saves to from_game.yaml and game_discrepancies.yaml, which
+# stay on your computer; battles worth keeping for everyone go here.)
+
+- name: Skunk L2 rounds up (31 removed from 46 health)
+  source: real game, 2026-11-15, Battle Lab capture
+  verified: true
+  seen: true
+  team: ["Turtle 11/14 L2", "Peacock 37/45 L2", "Leopard 49/46", "Worm 16/21 L3", "Cat 9/10 L2"]
+  enemy: ["Skunk 8/10 L2 Melon", "Parrot 5/3", "Cricket 20/21 L2 Melon", "Leopard 20/14 L2 Melon", "Tiger 6/4 Garlic"]
+  # Skunk removes 66% of the Leopard's 46 health: 30.36, rounded up to 31,
+  # leaving 15 (rounding to nearest left 16, which the game never shows).
+  result: win
+  survivors: {team: ["Leopard 49/15", "Worm 16/11 L3"], enemy: []}
