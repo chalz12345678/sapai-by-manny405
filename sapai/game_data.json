@@ -4724,7 +4724,11 @@
      "target": {
       "kind": "HighestHealthEnemy"
      },
-     "percentage": 33
+     "percentage": 33,
+     "fraction": [
+      1,
+      3
+     ]
     }
    },
    "level2Ability": {
@@ -4738,7 +4742,11 @@
      "target": {
       "kind": "HighestHealthEnemy"
      },
-     "percentage": 66
+     "percentage": 66,
+     "fraction": [
+      2,
+      3
+     ]
     }
    },
    "level3Ability": {

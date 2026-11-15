@@ -25,3 +25,18 @@
   # never hit again when the Mosquito's start-of-battle shot goes elsewhere.
   result: loss
   survivors: {team: [], enemy: ["Horse 7/4 L3 Cake"]}
+
+- name: Skunk L2 takes two thirds (34 from 50); a Parrot uses the Skunk ability it copied
+  source: real game, 2026-11-15, Battle Lab capture and replay
+  verified: true
+  seen: true
+  team: ["Turtle 11/14 L2", "Peacock 46/50 L2", "Leopard 50/50 L2", "Tiger 9/7", "Worm 16/21 L3"]
+  enemy: ["Skunk 9/11 L2 Melon", "Parrot 5/3", "Cricket 20/21 L2 Melon", "Leopard 20/14 L2 Melon", "Tiger 8/6 L2"]
+  # As seen in the replay: our Leopard hits their Cricket and Leopard, our
+  # Tiger repeats it and knocks out their Leopard, which still hits our Worm
+  # and Turtle; their Tiger repeats it on our Tiger and Leopard (50 -> 40).
+  # Their Skunk takes 34 of our Peacock's 50 (two thirds, rounded up), then
+  # their Parrot, with the Skunk ability copied at end of turn, takes 14 of
+  # our Leopard's 40 (a third, rounded up), leaving 26.
+  result: win
+  survivors: {team: ["Leopard 50/16 L2", "Worm 16/11 L3"], enemy: []}

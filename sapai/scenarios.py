@@ -79,7 +79,33 @@ def make_team(specs):
         pet._health = s["health"]
         pet.status = s["perk"]
         pets.append(pet)
+    copy_parrots(pets)
     return Team(pets)
+
+
+def copy_parrots(pets):
+    """
+    A Parrot copies the ability of the friend ahead at the end of the shop
+    turn, and the team then goes into battle as it is. A team written down
+    from the start of a battle never had that end of turn, so do it here
+    (seen in the game: a Parrot behind a Skunk took a third of a pet's
+    health at the start of battle). Front first, as end of turn goes.
+    """
+    from sapai.effects import OUT_OF_BATTLE_TRIGGERS
+
+    for i, pet in enumerate(pets):
+        effect = pet.ability.get("effect", {})
+        if effect.get("kind") != "TransferAbility" or i == 0:
+            continue
+        ahead = pets[i - 1]
+        level = effect.get("level", ahead.level)
+        key = f"level{level}Ability"
+        if ahead.override_ability or key not in ahead.fd:
+            ability = ahead.ability
+        else:
+            ability = ahead.fd[key]
+        if ability.get("trigger") not in OUT_OF_BATTLE_TRIGGERS:
+            pet.set_ability(ability)
 
 
 def shown_stats(pet):

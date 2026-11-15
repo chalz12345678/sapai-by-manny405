@@ -758,10 +758,10 @@ pets:
   levels:
     1:
       text: 'Start of battle: Remove 33% of health from the highest health enemy.'
-      effect: {kind: ReduceHealth, target: {kind: HighestHealthEnemy}, percentage: 33}
+      effect: {kind: ReduceHealth, target: {kind: HighestHealthEnemy}, percentage: 33, fraction: [1, 3]}
     2:
       text: 'Start of battle: Remove 66% of health from the highest health enemy.'
-      effect: {kind: ReduceHealth, target: {kind: HighestHealthEnemy}, percentage: 66}
+      effect: {kind: ReduceHealth, target: {kind: HighestHealthEnemy}, percentage: 66, fraction: [2, 3]}
     3:
       text: 'Start of battle: Remove 99% of health from the highest health enemy.'
       effect: {kind: ReduceHealth, target: {kind: HighestHealthEnemy}, percentage: 99}
