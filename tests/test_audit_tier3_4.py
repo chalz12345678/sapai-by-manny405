@@ -281,8 +281,8 @@ class TestSkunkTemporaryHealth(unittest.TestCase):
     # FIXED (was an engine mismatch): ReduceHealth (sapai/effects.py) computes the new health
     # from pet.health (which includes "until next turn" buffs such as Bread
     # or Dog) but writes it to pet._health, so the temporary buff is counted
-    # twice. A Pig with 3 health + 7 from Bread (10 shown) should drop to 7,
-    # the engine gives it 14.
+    # twice. A Pig with 3 health + 7 from Bread (10 shown) should drop to 6
+    # (3.3 rounds up to 4, as Skunk does in the game); the engine gave it 14.
     def test_skunk_on_pet_with_bread(self):
         enemy = Player(shop=Shop(["bread"]), team=Team([pet("pig", 1, 1, 3)]))
         enemy.buy_food(0, 0)
@@ -290,7 +290,7 @@ class TestSkunkTemporaryHealth(unittest.TestCase):
         self.assertEqual(enemy.team[0].pet.health, 10)
         b = Battle(Team([pet("skunk")]), enemy.team)
         b.start()
-        self.assertEqual(b.t1[0].pet.health, 7)
+        self.assertEqual(b.t1[0].pet.health, 6)
 
 
 ################################################################################

@@ -8,6 +8,7 @@ only relies on what it learns from frames, so the same steps apply.
 import os
 import tempfile
 import unittest
+import zlib
 from unittest import mock
 
 import numpy as np
@@ -44,7 +45,8 @@ LAYOUT = {
 
 
 def pet_picture(name, h, w):
-    rng = np.random.default_rng(abs(hash(name)) % 2**32)
+    ### crc32, not hash(): Python's hash of a string changes every run
+    rng = np.random.default_rng(zlib.crc32(name.encode()))
     base = rng.integers(40, 200, size=3)
     pic = np.zeros((h, w, 3)) + base
     for _ in range(4):
