@@ -408,6 +408,7 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
 .lab-paste pre { margin: 6px 0; padding: 8px; border-radius: 8px; border: 1px solid var(--line); overflow-x: auto; }
 .lab-paste textarea { width: 100%; box-sizing: border-box; font-family: ui-monospace, Menlo, monospace; font-size: 13px; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: inherit; }
 .lab-check { display: grid; gap: 6px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); }
+#shopCanvas { aspect-ratio: auto; }
 .lab-check.ok { border-color: var(--win); }
 .lab-check.bad { border-color: var(--loss); }
 .lab-check h3 { margin: 0; font-size: 15px; }
@@ -429,6 +430,7 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
       <button id="modeWatch" aria-pressed="false">Watch models</button>
       <button id="modeReplays" aria-pressed="false">Replays</button>
       <button id="modeLab" aria-pressed="false">Battle Lab</button>
+      <button id="modeShop" aria-pressed="false">Shop Reader</button>
     </div>
   </header>
 
@@ -571,6 +573,37 @@ after them: none</pre>
     </details>
     <div class="lab-teams" id="labTeams"></div>
     <div class="lab-check" id="labCheck" hidden></div>
+  </section>
+  <section class="panel" id="shopPanel" hidden>
+    <div class="panel-head"><h2>Shop Reader</h2><span class="note" id="shopLearned"></span></div>
+    <p class="help">Teaches the overlay to read the shop screen. Start it with <code>python -m gui.overlay</code>, and on the shop screen press <b>Read</b> in the overlay: it saves what it saw, which you load here. Set up where things are once, then correct what it read and press <b>Learn from my corrections</b>; it gets better with every lesson. Nothing leaves your computer.</p>
+    <div class="setup">
+      <button class="btn primary" id="shopLoadCapture">Load the overlay's last capture</button>
+      <div class="field"><label for="shopFile">Or load a full-screen screenshot</label><input id="shopFile" type="file" accept="image/*"></div>
+      <div class="field"><label for="shopCalibPart">Set up layout</label>
+        <select id="shopCalibPart">
+          <option value="all">Everything</option>
+          <option value="team">Your team positions</option>
+          <option value="shop">Shop slot positions</option>
+          <option value="teamboxes">Team picture and number boxes</option>
+          <option value="shopboxes">Shop picture and number boxes</option>
+          <option value="counters">Gold, lives, turn and trophies</option>
+        </select></div>
+      <button class="btn" id="shopCalibrate">Start</button>
+      <button class="btn" id="shopCalibDone" hidden>Done with shop slots</button>
+      <button class="btn" id="shopCalibCancel" hidden>Cancel</button>
+    </div>
+    <figure class="lab-frame"><figcaption>Shop screen</figcaption><canvas id="shopCanvas" width="640" height="400"></canvas></figure>
+    <p class="lab-steps" id="shopSteps" hidden></p>
+    <div class="setup">
+      <button class="btn" id="shopRead" disabled>Read</button>
+      <button class="btn" id="shopTeach" disabled>Learn from my corrections</button>
+      <button class="btn" id="shopUndo" disabled title="Forget what the last Learn taught (here or in the Battle Lab)">Undo last lesson</button>
+      <div class="field"><label for="shopModel">Model</label><select id="shopModel"></select></div>
+      <button class="btn primary" id="shopSuggest" disabled>Suggest moves</button>
+    </div>
+    <div class="lab-check" id="shopMoves" hidden></div>
+    <div class="lab-teams" id="shopTables"></div>
   </section>
 
   <section class="panel" id="battle" hidden>
@@ -1153,8 +1186,10 @@ function render() {
   $("autoBtn").setAttribute("aria-pressed", S.auto);
   $("modeReplays").setAttribute("aria-pressed", S.mode === "replays");
   $("modeLab").setAttribute("aria-pressed", S.mode === "lab");
-  const labMode = S.mode === "lab";
-  $("labPanel").hidden = !labMode;
+  $("modeShop").setAttribute("aria-pressed", S.mode === "shop");
+  const labMode = S.mode === "lab" || S.mode === "shop";
+  $("labPanel").hidden = S.mode !== "lab";
+  $("shopPanel").hidden = S.mode !== "shop";
   if (labMode) {
     for (const id of ["setupPlay", "setupWatch", "score", "over", "teamPanel", "watchArea", "replayList", "replayView", "logPanel", "how", "chatFab"]) $(id).hidden = true;
     return;
@@ -1335,6 +1370,7 @@ async function switchMode(mode) {
   render();
   if (mode === "replays") { await loadReplays(); return; }
   if (mode === "lab") { await labOpen(); return; }
+  if (mode === "shop") { await shopOpen(); return; }
   if (!(await resume(recall()[mode]))) (mode === "play" ? newGame() : newMatch());
 }
 
@@ -1730,6 +1766,271 @@ async function labSave() {
 }
 
 $("modeLab").onclick = () => switchMode("lab");
+// ------------------------------------------------------------- shop reader
+// Teaches the overlay (gui/overlay.py) to read the shop screen, and shows
+// the moves a model suggests for what it read.
+const SHOP = { meta: null, frame: null, seen: null, calib: null };
+const COUNTER_NAMES = { gold: "gold", lives: "lives", turn: "turn", wins: "trophies (wins)" };
+const SHOP_CALIB = [
+  ...[1, 2, 3, 4, 5].map((n) => ({ kind: "point", group: "team", i: n - 1, text: `Click the middle of YOUR team's pet ${n} (1 = the front pet, the one that fights first).` })),
+  { kind: "points", group: "shop", text: "Click the middle of every shop slot, left to right, food slots too (and places where a slot can appear, even if empty now). Press Done with shop slots when finished." },
+  { kind: "box", part: "slot", text: "Drag a box around your front pet's picture (just the pet)." },
+  { kind: "box", part: "attack", text: "Drag a tight box around your front pet's ATTACK number." },
+  { kind: "box", part: "health", text: "Drag a tight box around your front pet's HEALTH number." },
+  { kind: "box", part: "perk", text: "Drag a box where a perk (held food) shows on your front pet." },
+  { kind: "box", part: "level", text: "Drag a box around your front pet's level label." },
+  { kind: "box", part: "shop_slot", text: "Drag a box around the picture in shop slot 1." },
+  { kind: "box", part: "shop_attack", text: "Drag a tight box around shop slot 1's ATTACK number (where a shop pet's attack shows)." },
+  { kind: "box", part: "shop_health", text: "Drag a tight box around shop slot 1's HEALTH number." },
+  ...Object.keys(COUNTER_NAMES).map((k) => ({ kind: "box", part: k, text: `Drag a tight box around the ${COUNTER_NAMES[k]} number.` })),
+];
+const SHOP_CALIB_PARTS = {
+  all: SHOP_CALIB.map((_, i) => i),
+  team: [0, 1, 2, 3, 4], shop: [5], teamboxes: [6, 7, 8, 9, 10], shopboxes: [11, 12, 13], counters: [14, 15, 16, 17],
+};
+
+async function shopOpen() {
+  try { SHOP.meta = await api("/api/shop/meta", {}); } catch (e) { toast(e.message); return; }
+  if (!document.getElementById("shopPets")) {
+    const pets = document.createElement("datalist"); pets.id = "shopPets";
+    pets.innerHTML = SHOP.meta.pets.map((n) => `<option value="${esc(n)}">`).join("");
+    const items = document.createElement("datalist"); items.id = "shopItems";
+    items.innerHTML = [...SHOP.meta.pets, ...SHOP.meta.foods].map((n) => `<option value="${esc(n)}">`).join("");
+    document.body.append(pets, items);
+  }
+  const sel = $("shopModel"), keep = sel.value;
+  sel.innerHTML = SHOP.meta.models.map((m) => `<option value="${esc(m.id)}">${esc(m.label)}</option>`).join("");
+  if (keep) sel.value = keep;
+  shopLearned(); shopDraw(); shopTables(); shopButtons();
+  if (!SHOP.frame && SHOP.meta.has_capture) shopLoadCapture(true);
+}
+function shopLearned() {
+  const l = (SHOP.meta && SHOP.meta.learned) || {};
+  $("shopLearned").textContent = SHOP.meta && SHOP.meta.layout
+    ? `Knows ${l.item || 0} shop items, ${l.pet || 0} team pets, ${l.digit || 0} digits (counting empty slots)`
+    : "Shop layout not set up yet";
+}
+function shopButtons() {
+  const ready = !!(SHOP.frame && SHOP.meta && SHOP.meta.layout);
+  $("shopRead").disabled = !ready;
+  $("shopTeach").disabled = !ready;
+  $("shopUndo").disabled = !(SHOP.meta && SHOP.meta.can_undo);
+  $("shopSuggest").disabled = !(SHOP.meta && SHOP.meta.layout && SHOP.meta.models.length);
+}
+async function shopLoadCapture(quiet) {
+  let r;
+  try { r = await api("/api/shop/capture", {}); } catch (e) { if (!quiet) toast(e.message); return; }
+  const img = new Image();
+  img.onload = () => { shopSetFrame(labCanvasFrom(img, img.naturalWidth, img.naturalHeight)); if (!quiet) toast("Loaded the overlay's last capture."); };
+  img.src = "data:image/png;base64," + r.png;
+}
+function shopLoadFile(file) {
+  const img = new Image();
+  img.onload = () => { shopSetFrame(labCanvasFrom(img, img.naturalWidth, img.naturalHeight)); URL.revokeObjectURL(img.src); };
+  img.onerror = () => toast("That file isn't an image this browser can open.");
+  img.src = URL.createObjectURL(file);
+}
+function shopSetFrame(frame) {
+  SHOP.frame = frame; SHOP.seen = null; $("shopMoves").hidden = true;
+  shopDraw(); shopTables(); shopButtons();
+  if (SHOP.meta && SHOP.meta.layout) shopRead(true);
+}
+
+// Drawing ---------------------------------------------------------------
+function shopBox(L, group, i, part) {
+  const [cx, cy] = L[group][i];
+  if (part === "pet") { const s = L[group === "team" ? "slot" : "shop_slot"]; return [cx, cy, s[0], s[1]]; }
+  const [dx, dy, w, h] = L[part];
+  return [cx + dx, cy + dy, w, h];
+}
+function shopDraw() {
+  const c = $("shopCanvas"), g = c.getContext("2d"), frame = SHOP.frame;
+  if (!frame) { c.width = 640; c.height = 400; g.fillStyle = labCss("--sunk"); g.fillRect(0, 0, c.width, c.height); g.fillStyle = labCss("--muted"); g.font = "14px sans-serif"; g.fillText("Load the overlay's capture or a screenshot of the shop", 16, 30); return; }
+  c.width = 640; c.height = Math.round(640 * frame.height / frame.width);
+  g.drawImage(frame, 0, 0, c.width, c.height);
+  const L = (SHOP.calib && SHOP.calib.layout) || (SHOP.meta && SHOP.meta.layout);
+  if (!L) return;
+  const rect = (b, color) => { g.strokeStyle = color; g.lineWidth = 2; g.strokeRect((b[0] - b[2] / 2) * c.width, (b[1] - b[3] / 2) * c.height, b[2] * c.width, b[3] * c.height); };
+  const dot = (pt, color, label) => { g.fillStyle = color; g.beginPath(); g.arc(pt[0] * c.width, pt[1] * c.height, 5, 0, 7); g.fill(); g.fillStyle = "#fff"; g.font = "bold 11px sans-serif"; g.fillText(label, pt[0] * c.width + 6, pt[1] * c.height - 6); };
+  const colors = { pet: "#ffffff", attack: "#f0a030", health: "#e05050", perk: "#50c0f0", level: "#c070f0" };
+  (L.team || []).forEach((pt, i) => {
+    if (!pt) return;
+    dot(pt, "#3fd07a", String(i + 1));
+    if (L.slot) rect(shopBox(L, "team", i, "pet"), colors.pet);
+    for (const p of ["attack", "health", "perk", "level"]) if (L[p] && L.team[0]) rect(shopBox(L, "team", i, p), colors[p]);
+  });
+  (L.shop || []).forEach((pt, i) => {
+    dot(pt, "#f0c040", String(i + 1));
+    if (L.shop_slot) rect(shopBox(L, "shop", i, "pet"), colors.pet);
+    for (const p of ["shop_attack", "shop_health"]) if (L[p]) rect(shopBox(L, "shop", i, p), colors[p.slice(5)]);
+  });
+  for (const k of Object.keys(COUNTER_NAMES)) if (L[k]) rect(L[k], "#ffe060");
+}
+
+// Layout set-up ---------------------------------------------------------
+function shopCalibrate() {
+  if (!SHOP.frame) { toast("Load a capture or screenshot of the shop first."); return; }
+  const part = $("shopCalibPart").value, have = SHOP.meta && SHOP.meta.layout;
+  if (part !== "all" && !have) { toast("Set up everything once first; after that you can redo one part at a time."); return; }
+  const layout = part === "all" ? { team: [], shop: [] } : JSON.parse(JSON.stringify(have));
+  if (part === "shop") layout.shop = [];
+  SHOP.calib = { steps: SHOP_CALIB_PARTS[part], pos: 0, layout };
+  shopCalibStep();
+}
+function shopCalibStep() {
+  const c = SHOP.calib, st = SHOP_CALIB[c.steps[c.pos]];
+  $("shopSteps").hidden = false; $("shopCalibCancel").hidden = false;
+  // Shown for the whole set-up so the picture doesn't move while clicking
+  $("shopCalibDone").hidden = false;
+  $("shopCalibDone").disabled = st.kind !== "points";
+  const count = c.steps.length > 1 ? `Step ${c.pos + 1} of ${c.steps.length}: ` : "";
+  $("shopSteps").textContent = count + st.text;
+  shopDraw();
+}
+function shopCalibEnd(msg) {
+  SHOP.calib = null;
+  for (const id of ["shopSteps", "shopCalibCancel", "shopCalibDone"]) $(id).hidden = true;
+  shopDraw(); if (msg) toast(msg);
+}
+async function shopCalibNext() {
+  SHOP.calib.pos++;
+  if (SHOP.calib.pos < SHOP.calib.steps.length) { shopCalibStep(); return; }
+  const L = SHOP.calib.layout;
+  try { SHOP.meta = await api("/api/shop/layout", { layout: L }); shopCalibEnd("Shop layout saved."); }
+  catch (e) { shopCalibEnd(); toast(e.message); return; }
+  shopLearned(); shopTables(); shopButtons();
+  if (SHOP.frame) shopRead(true);
+}
+function shopPoint(e) { const r = $("shopCanvas").getBoundingClientRect(); return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height]; }
+let shopDown = null;
+function shopPointerDown(e) { if (SHOP.calib) { shopDown = shopPoint(e); e.preventDefault(); } }
+function shopPointerUp(e) {
+  if (!SHOP.calib || !shopDown) return;
+  const up = shopPoint(e), down = shopDown; shopDown = null;
+  const st = SHOP_CALIB[SHOP.calib.steps[SHOP.calib.pos]], L = SHOP.calib.layout;
+  if (st.kind === "point") { L.team[st.i] = up; shopCalibNext(); return; }
+  if (st.kind === "points") { L.shop.push(up); $("shopSteps").textContent = `${st.text} (${L.shop.length} so far)`; shopDraw(); return; }
+  const w = Math.abs(up[0] - down[0]), h = Math.abs(up[1] - down[1]);
+  if (w < 0.004 || h < 0.004) { toast("Drag to draw a box."); return; }
+  const cx = (up[0] + down[0]) / 2, cy = (up[1] + down[1]) / 2;
+  if (st.part === "slot") { L.slot = [w, h]; L.team[0] = [cx, cy]; }
+  else if (st.part === "shop_slot") { L.shop_slot = [w, h]; L.shop[0] = [cx, cy]; }
+  else if (["attack", "health", "perk", "level"].includes(st.part)) L[st.part] = [cx - L.team[0][0], cy - L.team[0][1], w, h];
+  else if (st.part.startsWith("shop_")) L[st.part] = [cx - L.shop[0][0], cy - L.shop[0][1], w, h];
+  else L[st.part] = [cx, cy, w, h];
+  shopCalibNext();
+}
+
+// Reading, correcting and teaching --------------------------------------
+async function shopRead(quiet) {
+  if (!SHOP.frame) return;
+  try { SHOP.seen = (await api("/api/shop/read", { frame: labFramePayload(SHOP.frame) })).seen; }
+  catch (e) { if (!quiet) toast(e.message); return; }
+  shopTables();
+  const n = SHOP.seen.unsure.length;
+  if (!quiet || n) toast(n ? `Read the shop. ${n} thing(s) to check (highlighted).` : "Read the shop.");
+}
+function shopTables() {
+  const L = SHOP.meta && SHOP.meta.layout;
+  if (!L) { $("shopTables").innerHTML = `<p class="help">Set up the shop layout to see what it reads here.</p>`; return; }
+  const seen = SHOP.seen || { team: [], shop: [], counters: {} };
+  const perks = (sel) => SHOP.meta.perks.map((n) => `<option${sel === n ? " selected" : ""}>${esc(n)}</option>`).join("");
+  const lv = (sel) => [1, 2, 3].map((n) => `<option${String(sel) === String(n) ? " selected" : ""}>${n}</option>`).join("");
+  const u = (p, k) => (p && p.unsure && p.unsure.includes(k) ? ' class="unsure"' : "");
+  const num = (id, v, label) => `<input type="number" id="${id}" min="0" max="99" value="${v == null ? "" : v}" aria-label="${label}">`;
+  const team = [0, 1, 2, 3, 4].map((i) => {
+    const p = seen.team[i], id = `shop-team-${i}`, pet = p && !p.empty ? p : null;
+    return `<tr><td>${i + 1}</td><td>${p && p.crop ? `<img alt="" src="data:image/png;base64,${p.crop}">` : ""}</td>
+      <td><input type="checkbox" id="${id}-empty" aria-label="Empty slot"${p && p.empty ? " checked" : ""}></td>
+      <td${u(p, "name")}><input type="text" id="${id}-name" list="shopPets" value="${esc(pet && pet.name || "")}" aria-label="Pet"></td>
+      <td${u(p, "attack")}>${num(id + "-attack", pet && pet.attack, "Attack")}</td>
+      <td${u(p, "health")}>${num(id + "-health", pet && pet.health, "Health")}</td>
+      <td${u(p, "level")}><select id="${id}-level" aria-label="Level">${lv(pet && pet.level)}</select></td>
+      <td${u(p, "perk")}><select id="${id}-perk" aria-label="Perk">${perks(pet && pet.perk)}</select></td></tr>`;
+  }).join("");
+  const shop = L.shop.map((_, i) => {
+    const s = seen.shop[i], id = `shop-slot-${i}`, has = s && s.kind && s.kind !== "empty" ? s : null;
+    return `<tr><td>${i + 1}</td><td>${s && s.crop ? `<img alt="" src="data:image/png;base64,${s.crop}">` : ""}</td>
+      <td><input type="checkbox" id="${id}-empty" aria-label="Empty slot"${s && s.kind === "empty" ? " checked" : ""}></td>
+      <td${u(s, "name")}><input type="text" id="${id}-name" list="shopItems" value="${esc(has && has.name || "")}" aria-label="Pet or food"></td>
+      <td${u(s, "attack")}>${num(id + "-attack", has && has.attack, "Attack")}</td>
+      <td${u(s, "health")}>${num(id + "-health", has && has.health, "Health")}</td>
+      <td${u(s, "frozen")}><input type="checkbox" id="${id}-frozen" aria-label="Frozen"${has && has.frozen ? " checked" : ""}></td></tr>`;
+  }).join("");
+  const c = seen.counters || {}, cu = (k) => (seen.unsure && seen.unsure.includes(k) ? ' class="unsure"' : "");
+  const counters = Object.keys(COUNTER_NAMES).map((k) => `<td${cu(k)}>${num("shop-count-" + k, c[k], COUNTER_NAMES[k])}</td>`).join("");
+  $("shopTables").innerHTML = `
+    <div class="lab-side"><h3>Gold, lives, turn, trophies</h3><div class="lab-table"><table><thead><tr><th>Gold</th><th>Lives</th><th>Turn</th><th>Trophies</th></tr></thead><tbody><tr>${counters}</tr></tbody></table></div></div>
+    <div class="lab-side"><h3>Your team <span class="help">(front first)</span></h3><div class="lab-table"><table>
+      <thead><tr><th>#</th><th>Seen</th><th>Empty</th><th>Pet</th><th>Attack</th><th>Health</th><th>Level</th><th>Perk</th></tr></thead><tbody>${team}</tbody></table></div></div>
+    <div class="lab-side"><h3>Shop <span class="help">(left to right; food has no attack or health)</span></h3><div class="lab-table"><table>
+      <thead><tr><th>#</th><th>Seen</th><th>Empty</th><th>Pet or food</th><th>Attack</th><th>Health</th><th>Frozen</th></tr></thead><tbody>${shop}</tbody></table></div></div>`;
+}
+function shopFind(list, name) { return list.find((n) => n.toLowerCase() === name.toLowerCase()); }
+function shopLabels() {
+  const L = SHOP.meta.layout, val = (id) => document.getElementById(id).value;
+  const n = (id) => (val(id) === "" ? null : Number(val(id)));
+  const team = [0, 1, 2, 3, 4].map((i) => {
+    const id = `shop-team-${i}`;
+    if (document.getElementById(`${id}-empty`).checked) return { empty: true };
+    const raw = val(`${id}-name`).trim();
+    if (!raw) return null;
+    const name = shopFind(SHOP.meta.pets, raw);
+    if (!name) throw new Error(`"${raw}" isn't a pet (your team, slot ${i + 1}).`);
+    return { name, attack: n(`${id}-attack`), health: n(`${id}-health`), level: Number(val(`${id}-level`)), perk: val(`${id}-perk`) };
+  });
+  const shop = L.shop.map((_, i) => {
+    const id = `shop-slot-${i}`;
+    if (document.getElementById(`${id}-empty`).checked) return { empty: true, kind: "empty" };
+    const raw = val(`${id}-name`).trim();
+    if (!raw) return null;
+    const pet = shopFind(SHOP.meta.pets, raw), food = shopFind(SHOP.meta.foods, raw);
+    if (!pet && !food) throw new Error(`"${raw}" isn't a pet or food (shop slot ${i + 1}).`);
+    const frozen = document.getElementById(`${id}-frozen`).checked;
+    return pet ? { kind: "pet", name: pet, attack: n(`${id}-attack`), health: n(`${id}-health`), frozen } : { kind: "food", name: food, frozen };
+  });
+  const counters = {};
+  for (const k of Object.keys(COUNTER_NAMES)) { const v = n("shop-count-" + k); if (v != null) counters[k] = v; }
+  return { team, shop, counters };
+}
+async function shopTeach() {
+  let r;
+  try { r = await api("/api/shop/teach", { frame: labFramePayload(SHOP.frame), labels: shopLabels() }); }
+  catch (e) { toast(e.message); return; }
+  SHOP.meta.learned = r.learned; SHOP.meta.can_undo = true;
+  shopLearned(); shopButtons();
+  const total = Object.values(r.added).reduce((a, b) => a + b, 0);
+  toast(total ? `Learned ${total} new picture(s). Typed something wrong? Press Undo last lesson.` : "Nothing new to learn from this screen.");
+}
+async function shopUndo() {
+  try { const r = await api("/api/lab/undo", {}); SHOP.meta.learned = r.learned; SHOP.meta.can_undo = false; }
+  catch (e) { toast(e.message); return; }
+  shopLearned(); shopButtons();
+  toast("Forgot the last lesson. Fix the table and press Learn from my corrections again.");
+}
+async function shopSuggest() {
+  let r;
+  try { r = (await api("/api/shop/suggest", { state: shopLabels(), model: $("shopModel").value, top: 3 })).suggest; }
+  catch (e) { toast(e.message); return; }
+  const pct = (p) => (p < 0.001 ? "<0.1%" : `${(p * 100).toFixed(1)}%`);
+  $("shopMoves").hidden = false;
+  $("shopMoves").innerHTML = `<h3>${esc($("shopModel").selectedOptions[0].textContent)} suggests</h3><ol>${r.moves.map((m) => `<li><b>${esc(m.text)}</b> · ${pct(m.prob)}</li>`).join("")}</ol>
+    <p class="help">Percentages are the model's confidence among the ${r.legal} legal moves, for the table as it is now (fix anything misread first).</p>`;
+}
+
+$("shopLoadCapture").onclick = () => shopLoadCapture(false);
+$("shopFile").onchange = (e) => { const f = e.target.files[0]; if (f) shopLoadFile(f); e.target.value = ""; };
+$("shopCalibrate").onclick = shopCalibrate;
+$("shopCalibDone").onclick = () => { if (!SHOP.calib.layout.shop.length) { toast("Click at least one shop slot."); return; } shopCalibNext(); };
+$("shopCalibCancel").onclick = () => shopCalibEnd("Layout set-up cancelled; nothing was changed.");
+$("shopCanvas").addEventListener("pointerdown", shopPointerDown);
+$("shopCanvas").addEventListener("pointerup", shopPointerUp);
+$("shopRead").onclick = () => shopRead(false);
+$("shopTeach").onclick = shopTeach;
+$("shopUndo").onclick = shopUndo;
+$("shopSuggest").onclick = shopSuggest;
+$("modeShop").onclick = () => switchMode("shop");
+
 $("labShare").onclick = labShare;
 $("labGrab").onclick = () => { const f = labSnap(); if (f) labSetFrame($("labPickFor").value, f); };
 $("labFile").onchange = (e) => { const f = e.target.files[0]; if (f) labLoadFile(f); e.target.value = ""; };
@@ -2291,6 +2592,8 @@ document.addEventListener("keydown", (e) => {
   $("perkList").innerHTML = (S.meta.perks || []).map((p) => `<span><b>${p.emoji} ${esc(p.name)}</b>: ${esc(p.desc)}</span>`).join("");
   const n = S.meta.agents.filter((a) => a.group === "model").length;
   $("sub").textContent = `${n} trained models · Turtle Pack`;
+  // The overlay's set-up button opens the page at #shop
+  if (location.hash === "#shop") { await switchMode("shop"); return; }
   const saved = recall();
   S.mode = saved.mode === "watch" ? "watch" : "play";
   if (!(await resume(saved[S.mode]))) (S.mode === "play" ? newGame() : newMatch());

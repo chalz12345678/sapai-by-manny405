@@ -143,6 +143,44 @@ numpy: no API key, nothing sent anywhere.
 What the lab has learned is kept in `gui/lab_data/` (not in git). Delete that
 folder to start over, for example after the game changes its art.
 
+## Move suggestions overlay
+
+A small window that sits in the top-left corner of your screen, reads the
+Super Auto Pets shop and shows the model's top 3 moves, each with its
+confidence (the model's probability for that move among all legal moves).
+It only suggests; you make the moves.
+
+```
+pip install pillow
+python -m gui.server          # for setting it up and teaching it
+python -m gui.overlay         # the overlay
+```
+
+On a Mac with Homebrew Python, Tk may need installing first:
+`brew install python-tk`. macOS also asks to let Terminal record the screen
+(System Settings > Privacy & Security > Screen Recording); allow it and
+start the overlay again. Play with the game in a window (maximized is
+fine), not macOS full screen, where other windows can't stay on top.
+
+Teaching it, the first time and whenever it is unsure (it lists what it is
+unsure about):
+
+1. On the shop screen, press **Read now** in the overlay. It saves what it
+   saw.
+2. Press **Set up**, which opens the **Shop Reader** tab, and press **Load
+   the overlay's last capture**.
+3. The first time only, **Set up layout > Everything**: click your 5 team
+   pets (front first), every shop slot left to right (then **Done with shop
+   slots**), and drag boxes around the parts it reads. Any part can be
+   redone on its own later.
+4. Correct the tables and press **Learn from my corrections** (**Undo last
+   lesson** takes back a mistake). **Suggest moves** shows what the chosen
+   model would do with the table as it is.
+
+The overlay picks up new lessons straight away. Pick the model in its
+drop-down; `--every 2` reads every 2 seconds, and untick **Auto** to read
+only when you press **Read now**.
+
 ## Updating the models
 
 `gui/models/*.npz` are the actor weights exported from `models/*.zip`. After

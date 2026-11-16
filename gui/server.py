@@ -156,6 +156,8 @@ class Handler(BaseHTTPRequestHandler):
             return {"ok": True}
         if path.startswith("/api/lab/"):
             return lab_route(path, req)
+        if path.startswith("/api/shop/"):
+            return shop_route(path, req)
         if path == "/api/series":
             for k in (req.get("a"), req.get("b")):
                 if k not in game.AGENTS:
@@ -217,6 +219,62 @@ def lab_frame(req):
     return lab.decode_rgb(
         f.get("data", ""), int(f.get("width", 0)), int(f.get("height", 0))
     )
+
+
+def shop_meta():
+    from gui import shopread
+
+    return {
+        "ok": True,
+        "layout": shopread.load_layout(),
+        "learned": lab.Memory.load().counts(),
+        "can_undo": lab.can_undo(),
+        "has_capture": os.path.exists(shopread.capture_path()),
+        "models": [{"id": n, "label": label} for n, label in shopread.list_models()],
+        "pets": sorted(shopread.PET_IDS),
+        "foods": sorted(shopread.FOOD_IDS),
+        "perks": ["none"] + sorted(shopread.PERK_IDS),
+    }
+
+
+def shop_route(path, req):
+    """Shop Reader: set up and teach the reader the overlay uses"""
+    from gui import shopread
+
+    if path == "/api/shop/meta":
+        return shop_meta()
+    if path == "/api/shop/layout":
+        shopread.save_layout(req.get("layout") or {})
+        return shop_meta()
+    if path == "/api/shop/capture":
+        img = shopread.load_capture()
+        if img is None:
+            raise Exception(
+                "No capture yet: start the overlay (python -m gui.overlay) and "
+                "press Read on the shop screen"
+            )
+        return {"ok": True, "png": lab.png_b64(img)}
+    if path == "/api/shop/read":
+        return {"ok": True, "seen": shopread.read_shop(lab_frame(req))}
+    if path == "/api/shop/teach":
+        lab.checkpoint()
+        added = shopread.teach_shop(lab_frame(req), req.get("labels") or {})
+        return {
+            "ok": True,
+            "added": added,
+            "learned": lab.Memory.load().counts(),
+            "can_undo": True,
+        }
+    if path == "/api/shop/suggest":
+        player, screen_slots = shopread.to_player(req.get("state") or {})
+        policy = shopread.load_policy(req.get("model") or "token_22.5M")
+        return {
+            "ok": True,
+            "suggest": shopread.suggest(
+                policy, player, screen_slots, int(req.get("top", 3))
+            ),
+        }
+    raise Exception("Unknown request")
 
 
 def lab_route(path, req):
