@@ -192,16 +192,39 @@ def otsu(values):
     return best_t
 
 
-def glyphs(img):
+def clear_border(ink):
+    """Ink not connected to the edge of the box: drops the white outline of
+    the stat icon around a number"""
+    reach = np.zeros_like(ink)
+    reach[0], reach[-1] = ink[0], ink[-1]
+    reach[:, 0] |= ink[:, 0]
+    reach[:, -1] |= ink[:, -1]
+    while True:
+        grown = reach.copy()
+        grown[1:] |= reach[:-1]
+        grown[:-1] |= reach[1:]
+        grown[:, 1:] |= reach[:, :-1]
+        grown[:, :-1] |= reach[:, 1:]
+        grown &= ink
+        if (grown == reach).all():
+            return ink & ~reach
+        reach = grown
+
+
+def glyphs(img, border=False):
     """
     The characters in a number box, left to right, as binary pictures. The
     stats are light digits on a darker icon, so the bright pixels are kept;
-    columns with no bright pixels separate the characters.
+    columns with no bright pixels separate the characters. border=True when
+    the box takes in the icon around the number (an automatic layout): ink
+    touching the box's edge is the icon's outline, not a digit.
     """
     g = gray(img)
     if g.size == 0:
         return []
     ink = g > max(otsu(g.ravel()), 110)
+    if border:
+        ink = clear_border(ink)
     cols = ink.any(0)
     out = []
     x = 0
@@ -364,6 +387,12 @@ def part_box(layout, side, slot, part):
     if part == "pet":
         w, h = layout["slot"]
         return (cx, cy, w, h)
+    ### A side can have its own box for a part (the level badge sits in a
+    ###   different place on each side)
+    own = layout.get(f"{part}_{side}")
+    if own:
+        dx, dy, w, h = own
+        return (cx + dx, cy + dy, w, h)
     dx, dy, w, h = layout[part]
     ### Offsets are measured on your front pet and used for every pet. If the
     ###   game draws the opponent's stats mirrored, the layout says so
@@ -372,9 +401,18 @@ def part_box(layout, side, slot, part):
     return (cx + dx, cy + dy, w, h)
 
 
-def read_number(img, memory):
+def pet_picture(img, layout, side, slot):
+    """A pet's picture, facing the same way on both sides when the layout
+    says the opponent's pets are drawn flipped"""
+    pic = crop(img, part_box(layout, side, slot, "pet"))
+    if side == "opponent" and layout.get("flip_opponent"):
+        pic = pic[:, ::-1]
+    return pic
+
+
+def read_number(img, memory, border=False):
     """(number or None, lowest digit score, glyph pictures)"""
-    pieces = glyphs(img)
+    pieces = glyphs(img, border)
     if not pieces or "digit" not in memory.items:
         return None, 0.0, pieces
     digits, worst = "", 1.0
@@ -390,8 +428,11 @@ def read_number(img, memory):
 
 def read_slot(img, layout, memory, side, slot):
     out = {"side": side, "slot": slot}
-    pet_img = crop(img, part_box(layout, side, slot, "pet"))
-    out["crop"] = png_b64(resize(pet_img, 48, 48))
+    pet_img = pet_picture(img, layout, side, slot)
+    ### Shown the way the game draws it
+    out["crop"] = png_b64(
+        resize(crop(img, part_box(layout, side, slot, "pet")), 48, 48)
+    )
     name, score, second = memory.match("pet", feature(pet_img, PET_SIZE))
     out["name"] = name
     out["name_score"] = round(float(score), 3)
@@ -399,7 +440,7 @@ def read_slot(img, layout, memory, side, slot):
     out["empty"] = name == "empty"
     for stat in ("attack", "health"):
         num_img = crop(img, part_box(layout, side, slot, stat))
-        value, s, _ = read_number(num_img, memory)
+        value, s, _ = read_number(num_img, memory, layout.get("auto", False))
         out[stat] = value
         out[stat + "_score"] = round(float(s), 3)
         out[stat + "_crop"] = png_b64(resize(num_img, 24, 32))
@@ -462,7 +503,7 @@ def teach(img, labels, layout=None, memory=None):
         for i, label in enumerate((labels.get(side) or [])[:N_SLOTS]):
             if not label:
                 continue
-            pet_img = crop(img, part_box(layout, side, i, "pet"))
+            pet_img = pet_picture(img, layout, side, i)
             name = "empty" if label.get("empty") else label["name"]
             added["pet"] += memory.add("pet", name, feature(pet_img, PET_SIZE))
             if label.get("empty"):
@@ -471,7 +512,10 @@ def teach(img, labels, layout=None, memory=None):
                 value = label.get(stat)
                 if value is None:
                     continue
-                pieces = glyphs(crop(img, part_box(layout, side, i, stat)))
+                pieces = glyphs(
+                    crop(img, part_box(layout, side, i, stat)),
+                    layout.get("auto", False),
+                )
                 text = str(int(value))
                 ### Only when the characters found match the number typed
                 if len(pieces) == len(text):

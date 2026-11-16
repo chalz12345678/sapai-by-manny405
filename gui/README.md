@@ -121,11 +121,20 @@ numpy: no API key, nothing sent anywhere.
    second for the last 30 seconds in a strip. Play as usual; after a battle,
    switch to the browser and click the frame where the battle starts, then
    the one where it ends. You can also load screenshots instead.
-2. **Set up the screen layout** once: on a start-of-battle frame, click the
-   5 pet positions on each side (front pet first), then drag boxes around
+2. **Set up the screen layout** once, on a start-of-battle frame. Choose
+   **Automatically (from the hearts)** and press Start: the lab finds every
+   pet's red health heart and the attack stone beside it, fits the regular
+   spacing between pets (so missing or empty slots are filled in), and
+   places every box from that. Hats are ignored: the pet is told apart by
+   the part of its picture below where hats sit, and the level by its
+   number, which hats don't cover. The opponent's pets are flipped to face
+   the same way as yours, so a pet learned on one side is known on the
+   other. Perks sit in different places on different pets, so the perk box
+   only covers where they usually are; check perks by eye.
+   Setting up by hand still works (**Everything, by hand**): click the 5
+   pet positions on each side (front pet first), then drag boxes around
    your front pet's picture, attack number, health number, perk spot and
-   level label. If the game draws the opponent's stats the other way round,
-   tick "Opponent's stats are mirrored" before setting up.
+   level label. Any part can be redone on its own.
 3. **Read both frames.** The lab fills in each side's pets, stats, levels and
    perks from what it has learned. Guesses it isn't sure of are highlighted.
    It knows nothing at first: type the teams in and press **Learn from my

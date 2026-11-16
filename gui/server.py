@@ -284,6 +284,12 @@ def lab_route(path, req):
     if path == "/api/lab/layout":
         lab.save_layout(req.get("layout") or {})
         return lab_meta()
+    if path == "/api/lab/autolayout":
+        from gui import autolayout
+
+        layout, report = autolayout.battle_layout(lab_frame(req))
+        lab.save_layout(layout)
+        return {"ok": True, "meta": lab_meta(), "report": report}
     if path == "/api/lab/read":
         return {"ok": True, "seen": lab.read_frame(lab_frame(req))}
     if path == "/api/lab/parse":

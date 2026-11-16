@@ -535,7 +535,8 @@ select { background: var(--surface); border: 1px solid var(--line); border-radiu
         <select id="labPickFor"><option value="start">Start of battle</option><option value="end">End of battle</option></select></div>
       <div class="field"><label for="labCalibPart">Set up layout</label>
         <select id="labCalibPart">
-          <option value="all">Everything</option>
+          <option value="auto">Automatically (from the hearts)</option>
+          <option value="all">Everything, by hand</option>
           <option value="player">Your pet positions</option>
           <option value="opponent">Opponent pet positions</option>
           <option value="slot">Pet picture box</option>
@@ -1472,6 +1473,8 @@ function labLoadFile(file) {
 function labPartBox(layout, side, slot, part) {
   const [cx, cy] = layout[side][slot];
   if (part === "pet") return [cx, cy, layout.slot[0], layout.slot[1]];
+  const own = layout[`${part}_${side}`];
+  if (own) return [cx + own[0], cy + own[1], own[2], own[3]];
   let [dx, dy, w, h] = layout[part];
   if (side === "opponent" && layout.mirror) dx = -dx;
   return [cx + dx, cy + dy, w, h];
@@ -1516,8 +1519,18 @@ const CALIB_PARTS = {
   opponent: [5, 6, 7, 8, 9],
   slot: [10], attack: [11], health: [12], perk: [13], level: [14],
 };
+async function labAutoLayout() {
+  let r;
+  try { r = await api("/api/lab/autolayout", { frame: labFramePayload(LAB.frames.start) }); }
+  catch (e) { toast(e.message + " You can still set it up by hand."); return; }
+  LAB.meta = r.meta;
+  labLearned(); labDrawAll(); labButtons();
+  const found = r.report.found.player.length + r.report.found.opponent.length;
+  toast(`Set up automatically from ${found} pets' hearts. Check the boxes on the start frame; any part can be redone by hand. Teach it a battle or two, as the boxes have moved.`);
+}
 function labCalibrate() {
   if (!LAB.frames.start) { toast("Pick a start-of-battle frame first."); return; }
+  if ($("labCalibPart").value === "auto") { labAutoLayout(); return; }
   const part = $("labCalibPart").value, have = LAB.meta && LAB.meta.layout;
   if (part !== "all" && !have) { toast("Set up everything once first; after that you can redo one part at a time."); return; }
   if (["attack", "health", "perk", "level"].includes(part) && !(have && have.player && have.player[0])) { toast("Set your pet positions first."); return; }
@@ -1556,7 +1569,7 @@ async function labPointerUp(e) {
     if (w < 0.005 || h < 0.005) { toast("Drag to draw a box."); return; }
     const cx = (up[0] + down[0]) / 2, cy = (up[1] + down[1]) / 2;
     if (st.part === "slot") { L.slot = [w, h]; L.player[0] = [cx, cy]; }
-    else L[st.part] = [cx - L.player[0][0], cy - L.player[0][1], w, h];
+    else { L[st.part] = [cx - L.player[0][0], cy - L.player[0][1], w, h]; delete L[`${st.part}_opponent`]; }
   }
   LAB.calib.pos++;
   if (LAB.calib.pos < LAB.calib.steps.length) { labCalibStep(); return; }
